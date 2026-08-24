@@ -1,0 +1,334 @@
+openapi: 3.0.3
+info:
+  title: Lombok Explorer Admin API
+  description: |
+    # Lombok Explorer — Dedicated Admin API Specification
+    Comprehensive RESTful Administrative Operations API for the Lombok Explorer Admin Dashboard and Management Portal.
+    
+    All endpoints in this specification require administrator privileges (`role: ADMIN`). Public users and standard travelers are strictly restricted from accessing these endpoints (`403 Forbidden`).
+  version: 1.0.0
+  contact:
+    name: Lombok Explorer Engineering Team
+    email: wahyush04@gmail.com
+    url: https://lombokexplorer.com
+
+servers:
+  - url: /api/v1/admin
+    description: Primary Canonical Admin API v1
+  - url: /v1/admin
+    description: Backward Compatibility Admin API Alias
+
+tags:
+  - name: Admin Auth
+    description: Administrator authentication, token refresh, and session management
+  - name: Dashboard
+    description: Administrative KPI metrics and analytical overview (Phase 3+)
+  - name: Destinations
+    description: Full destination lifecycle management (Phase 4+)
+  - name: Categories
+    description: Master tourism categories management (Phase 5+)
+  - name: Reviews & Moderation
+    description: Review moderation and user feedback oversight (Phase 9+)
+  - name: User Management
+    description: User directory, role assignment, and account status (Phase 12+)
+  - name: Audit Logs
+    description: System and administrative operation trail logs (Phase 16+)
+
+security:
+  - BearerAuth: []
+
+paths:
+  # ==========================================
+  # ADMIN AUTHENTICATION
+  # ==========================================
+  /auth/login:
+    post:
+      summary: Administrator Login
+      description: |
+        Authenticates an administrative user. Requires a valid registered account with `role: ADMIN` and an active (non-deactivated) status.
+        Returns a short-lived access token and a rotating refresh token.
+      operationId: adminLogin
+      tags:
+        - Admin Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: Administrator login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid email or password, or deactivated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: User account exists but lacks ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Too many authentication attempts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      summary: Refresh Admin Access Token
+      description: |
+        Generates a new access token and rotating refresh token using a valid admin refresh token.
+      operationId: adminRefreshToken
+      tags:
+        - Admin Auth
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthResponse'
+        '401':
+          description: Invalid or expired refresh token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Refreshed account is not an ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/logout:
+    post:
+      summary: Administrator Logout
+      description: Revokes the active admin refresh token session in the database.
+      operationId: adminLogout
+      tags:
+        - Admin Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Administrator logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/me:
+    get:
+      summary: Get Current Admin Profile
+      description: Returns the authenticated administrator user profile details.
+      operationId: getAdminMe
+      tags:
+        - Admin Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Admin profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminProfileResponse'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter standard JWT Bearer token obtained from `/auth/login`
+
+  schemas:
+    AdminLoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: admin@lombokexplorer.com
+        password:
+          type: string
+          format: password
+          example: Password123!
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+    AdminUserDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: usr_admin_001
+        name:
+          type: string
+          example: Lombok Explorer Administrator
+        email:
+          type: string
+          format: email
+          example: admin@lombokexplorer.com
+        role:
+          type: string
+          enum: [ADMIN]
+          example: ADMIN
+        avatarUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1534528741775-53994a69daeb
+        phone:
+          type: string
+          nullable: true
+          example: "+6281234567890"
+        isEmailVerified:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-23T00:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-23T00:00:00.000Z"
+
+    AdminAuthData:
+      type: object
+      properties:
+        accessToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        refreshToken:
+          type: string
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expiresIn:
+          type: integer
+          example: 900
+        tokenType:
+          type: string
+          example: Bearer
+        user:
+          $ref: '#/components/schemas/AdminUserDto'
+
+    AdminAuthResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Login successful
+        data:
+          $ref: '#/components/schemas/AdminAuthData'
+
+    AdminProfileResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Admin profile retrieved successfully
+        data:
+          $ref: '#/components/schemas/AdminUserDto'
+
+    StandardActionResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Operation completed successfully
+        data:
+          type: object
+          nullable: true
+          example: null
+
+    ErrorResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Admin access required
+        errorCode:
+          type: string
+          example: ADMIN_ACCESS_REQUIRED
+        details:
+          type: array
+          nullable: true
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+          example: null

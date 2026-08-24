@@ -69,9 +69,54 @@ export const createApp = (): Application => {
   }
   app.use('/assets', express.static(assetsDir));
 
-  // 8. Swagger Documentation UI (/api/docs and /docs)
+  // 8. Swagger Documentation UI (Public: /api/docs, Admin: /api/docs/admin)
   try {
     const openApiPath = path.resolve(process.cwd(), 'openapi.yaml');
+    const adminOpenApiPath = path.resolve(process.cwd(), 'openapi-admin.yaml');
+
+    // 8a. Admin OpenAPI Documentation (/api/docs/admin)
+    if (fs.existsSync(adminOpenApiPath)) {
+      const adminFileContent = fs.readFileSync(adminOpenApiPath, 'utf8');
+      const adminSwaggerDoc = yaml.parse(adminFileContent);
+
+      const adminUiOptions: swaggerUi.SwaggerUiOptions = {
+        customSiteTitle: 'Lombok Explorer Admin API Documentation',
+        customCss: `
+          .swagger-ui .topbar { display: none }
+          .swagger-ui .info { margin-bottom: 24px; }
+          .swagger-ui .scheme-container { background: #fef2f2; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        `,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: 'none',
+          filter: true,
+          tryItOutEnabled: true,
+        },
+      };
+
+      app.get('/api/docs/admin/json', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.json(adminSwaggerDoc);
+      });
+      app.get('/api/docs/admin/yaml', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+        res.send(adminFileContent);
+      });
+
+      app.use(
+        '/api/docs/admin',
+        swaggerUi.serveFiles(adminSwaggerDoc, adminUiOptions),
+        swaggerUi.setup(adminSwaggerDoc, adminUiOptions),
+      );
+      app.use(
+        '/docs/admin',
+        swaggerUi.serveFiles(adminSwaggerDoc, adminUiOptions),
+        swaggerUi.setup(adminSwaggerDoc, adminUiOptions),
+      );
+    }
+
+    // 8b. Public OpenAPI Documentation (/api/docs)
     if (fs.existsSync(openApiPath)) {
       const fileContent = fs.readFileSync(openApiPath, 'utf8');
       const swaggerDocument = yaml.parse(fileContent);
@@ -92,7 +137,6 @@ export const createApp = (): Application => {
         },
       };
 
-      // Expose raw OpenAPI JSON & YAML before mounting swagger UI middleware
       app.get('/api/docs/json', (_req: Request, res: Response) => {
         res.setHeader('Content-Type', 'application/json');
         res.json(swaggerDocument);
@@ -106,10 +150,16 @@ export const createApp = (): Application => {
         res.json(swaggerDocument);
       });
 
-      // Primary endpoint requested in Phase 6: /api/docs
-      app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerUiOptions));
-      // Convenience alias: /docs
-      app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerUiOptions));
+      app.use(
+        '/api/docs',
+        swaggerUi.serveFiles(swaggerDocument, swaggerUiOptions),
+        swaggerUi.setup(swaggerDocument, swaggerUiOptions),
+      );
+      app.use(
+        '/docs',
+        swaggerUi.serveFiles(swaggerDocument, swaggerUiOptions),
+        swaggerUi.setup(swaggerDocument, swaggerUiOptions),
+      );
     }
   } catch {
     // If documentation fails to load in some environments, app continues
@@ -129,11 +179,13 @@ export const createApp = (): Application => {
         version: config.app.version,
         environment: config.app.env,
         docs: '/api/docs',
+        adminDocs: '/api/docs/admin',
         docsJson: '/api/docs/json',
         docsYaml: '/api/docs/yaml',
         health: '/health',
         ready: '/health/ready',
         apiV1: `${config.app.apiPrefix}`,
+        adminV1: `${config.app.apiPrefix}/admin`,
       },
       'Welcome to Lombok Explorer API',
     );

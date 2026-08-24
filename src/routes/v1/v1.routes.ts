@@ -12,6 +12,7 @@ import { expenseRoutes } from '../../modules/expenses/expenses.routes';
 import { journalRoutes } from '../../modules/journals/journals.routes';
 import { checklistRoutes } from '../../modules/checklists/checklists.routes';
 import { storageRoutes } from '../../modules/storage/storage.routes';
+import { adminRoutes } from '../admin/admin.routes';
 
 const router = Router();
 
@@ -53,5 +54,8 @@ router.use('/checklists', checklistRoutes);
 
 // 13. Image & File Storage Module (Phase 19)
 router.use('/storage', storageRoutes);
+
+// 14. Dedicated Admin API Layer (Phase 28 / Admin Operations)
+router.use('/admin', adminRoutes);
 
 export const v1Routes: Router = router;

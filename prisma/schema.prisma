@@ -493,3 +493,26 @@ model WeatherCache {
   @@index([region])
   @@map("weather_cache")
 }
+
+// ==========================================
+// AUDIT LOGS (ADMIN OPERATIONS)
+// ==========================================
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  userId     String?
+  action     String   // CREATE, UPDATE, DELETE, MODERATE, LOGIN, LOGOUT
+  entity     String   // Destination, Category, Review, User, etc.
+  entityId   String?
+  details    String?  @db.Text // JSON string of operation metadata
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([entity])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+

@@ -2,7 +2,12 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { User, UserRole } from '@prisma/client';
 import { config } from '../../config/config';
-import { ConflictError, NotFoundError, UnauthorizedError } from '../../common/errors/app-error';
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  UnauthorizedError,
+} from '../../common/errors/app-error';
 import { authRepository, AuthRepository } from './auth.repository';
 import { AuthTokens, LoginDto, RefreshTokenDto, RegisterDto, SanitizedUser } from './dto/auth.dto';
 import { AuthUserPayload } from '../../common/types';
@@ -127,6 +132,47 @@ export class AuthService {
     const tokens = this.generateTokens(user);
 
     // 4. Save refresh token
+    await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
+
+    return {
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      tokenType: 'Bearer',
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  /**
+   * Dedicated Admin login method enforcing ADMIN role and active status.
+   */
+  public async adminLogin(dto: LoginDto): Promise<AuthTokens> {
+    // 1. Find user by email
+    const user = await this.repository.findByEmail(dto.email);
+    if (!user) {
+      throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    // 2. Check if user is active (not deactivated)
+    if (user.deletedAt) {
+      throw new UnauthorizedError('User account is deactivated', 'ACCOUNT_DEACTIVATED');
+    }
+
+    // 3. Verify password with bcrypt
+    const isValidPassword = await this.comparePassword(dto.password, user.password);
+    if (!isValidPassword) {
+      throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    // 4. Enforce ADMIN role requirement
+    if (user.role !== UserRole.ADMIN) {
+      throw new ForbiddenError('Admin access required', 'ADMIN_ACCESS_REQUIRED');
+    }
+
+    // 5. Generate tokens
+    const tokens = this.generateTokens(user);
+
+    // 6. Save refresh token for rotation
     await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
