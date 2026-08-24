@@ -432,6 +432,5 @@ Distributed under the **MIT License**. See `LICENSE` for more information.
 ## Author
 
 **Lombok Explorer Engineering Team**
-- Email: `support@lombokexplorer.com`
-- Website: [https://lombokexplorer.com](https://lombokexplorer.com)
+- Email: `wahyush04@gmail.com`
 - Location: Mataram, Lombok, Nusa Tenggara Barat, Indonesia
