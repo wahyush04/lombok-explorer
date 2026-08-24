@@ -182,6 +182,52 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # ==========================================
+  # ADMIN DASHBOARD & ANALYTICS
+  # ==========================================
+  /dashboard:
+    get:
+      summary: Get Admin Dashboard Statistics & Analytics
+      description: |
+        Aggregates key platform operational metrics including total entities, pending reviews count, new user/review growth rates, and top popular/favorited destinations.
+      operationId: getAdminDashboard
+      tags:
+        - Dashboard
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          description: Optional start date filter (ISO string or YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2026-01-01"
+        - name: endDate
+          in: query
+          description: Optional end date filter (ISO string or YYYY-MM-DD)
+          schema:
+            type: string
+            example: "2026-12-31"
+      responses:
+        '200':
+          description: Dashboard statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DashboardResponse'
+        '401':
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -332,3 +378,143 @@ components:
               message:
                 type: string
           example: null
+
+    DashboardOverviewDto:
+      type: object
+      properties:
+        totalUsers:
+          type: integer
+          example: 25
+        totalDestinations:
+          type: integer
+          example: 35
+        totalCategories:
+          type: integer
+          example: 13
+        totalRestaurants:
+          type: integer
+          example: 8
+        totalAccommodations:
+          type: integer
+          example: 7
+        totalReviews:
+          type: integer
+          example: 50
+        pendingReviews:
+          type: integer
+          example: 0
+        totalItineraries:
+          type: integer
+          example: 15
+
+    DashboardPeriodicMetricsDto:
+      type: object
+      properties:
+        newUsers:
+          type: integer
+          example: 10
+        newReviews:
+          type: integer
+          example: 12
+        newItineraries:
+          type: integer
+          example: 5
+        dateRange:
+          type: object
+          properties:
+            startDate:
+              type: string
+              nullable: true
+              example: "2026-01-01T00:00:00.000Z"
+            endDate:
+              type: string
+              nullable: true
+              example: "2026-12-31T23:59:59.999Z"
+
+    DashboardPopularDestinationDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: dest_tanjung_aan
+        name:
+          type: string
+          example: Pantai Tanjung Aan
+        slug:
+          type: string
+          example: pantai-tanjung-aan
+        region:
+          type: string
+          example: LOMBOK_SELATAN
+        categoryName:
+          type: string
+          example: Wisata Bahari & Pantai
+        rating:
+          type: number
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 32
+        coverImageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+
+    DashboardFavoritedDestinationDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: dest_tanjung_aan
+        name:
+          type: string
+          example: Pantai Tanjung Aan
+        slug:
+          type: string
+          example: pantai-tanjung-aan
+        region:
+          type: string
+          example: LOMBOK_SELATAN
+        categoryName:
+          type: string
+          example: Wisata Bahari & Pantai
+        rating:
+          type: number
+          example: 4.8
+        favoritesCount:
+          type: integer
+          example: 18
+        coverImageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+
+    DashboardStatisticsDto:
+      type: object
+      properties:
+        overview:
+          $ref: '#/components/schemas/DashboardOverviewDto'
+        periodicMetrics:
+          $ref: '#/components/schemas/DashboardPeriodicMetricsDto'
+        highlights:
+          type: object
+          properties:
+            popularDestinations:
+              type: array
+              items:
+                $ref: '#/components/schemas/DashboardPopularDestinationDto'
+            mostFavoritedDestinations:
+              type: array
+              items:
+                $ref: '#/components/schemas/DashboardFavoritedDestinationDto'
+
+    DashboardResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Dashboard statistics retrieved successfully
+        data:
+          $ref: '#/components/schemas/DashboardStatisticsDto'
+

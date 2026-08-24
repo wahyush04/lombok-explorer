@@ -70,6 +70,12 @@ enum ChecklistCategory {
   DOCUMENTS
 }
 
+enum ReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // ==========================================
 // USER MANAGEMENT
 // ==========================================
@@ -201,21 +207,23 @@ model Favorite {
 }
 
 model Review {
-  id            String      @id @default(uuid())
+  id            String       @id @default(uuid())
   userId        String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   destinationId String
-  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  destination   Destination  @relation(fields: [destinationId], references: [id], onDelete: Cascade)
   rating        Float
-  content       String      @db.Text
-  photos        String?     @db.Text // JSON array of photo URLs
-  createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt
+  content       String       @db.Text
+  photos        String?      @db.Text // JSON array of photo URLs
+  status        ReviewStatus @default(APPROVED)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
   deletedAt     DateTime?
 
   @@index([destinationId])
   @@index([userId])
   @@index([rating])
+  @@index([status])
   @@map("reviews")
 }
 
