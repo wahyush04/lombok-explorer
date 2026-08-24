@@ -1,0 +1,153 @@
+import express, { Application, Request, Response } from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
+import swaggerUi from 'swagger-ui-express';
+import yaml from 'yaml';
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { config } from './config/config';
+import { requestIdMiddleware } from './common/middleware/request-id.middleware';
+import { httpLoggerMiddleware } from './common/middleware/logger.middleware';
+import { notFoundMiddleware } from './common/middleware/not-found.middleware';
+import { errorHandlerMiddleware } from './common/middleware/error.middleware';
+import { generalLimiter } from './common/middleware/rate-limit.middleware';
+import { apiRoutes } from './routes';
+import { ResponseUtil } from './common/utils/api-response.util';
+import { HealthController } from './modules/health/health.controller';
+import { asyncHandler } from './common/utils/async-handler.util';
+
+export const createApp = (): Application => {
+  const app: Application = express();
+
+  // 1. Trust proxy (for load balancers, Docker, reverse proxies)
+  app.set('trust proxy', 1);
+
+  // 2. Security HTTP Headers (Phase 20 - Helmet)
+  app.use(
+    helmet({
+      contentSecurityPolicy: false, // Allows Swagger UI to render assets properly
+      crossOriginResourcePolicy: { policy: 'cross-origin' }, // Allows images to be loaded by frontend apps
+      crossOriginEmbedderPolicy: false,
+      xContentTypeOptions: true,
+      xDnsPrefetchControl: true,
+      xFrameOptions: { action: 'sameorigin' },
+      hidePoweredBy: true,
+      hsts: config.app.isProduction
+        ? { maxAge: 31536000, includeSubDomains: true, preload: true }
+        : false,
+    }),
+  );
+
+  // 3. CORS configuration (Phase 20 - CORS)
+  app.use(
+    cors({
+      origin: config.cors.origin === '*' ? '*' : config.cors.origin.split(','),
+      methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+      allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID'],
+      exposedHeaders: ['X-Request-ID'],
+      credentials: true,
+    }),
+  );
+
+  // 4. Rate Limiting (Phase 20 - Global Rate Limiter)
+  app.use(generalLimiter);
+
+  // 5. Request correlation ID & HTTP Logger
+  app.use(requestIdMiddleware);
+  app.use(httpLoggerMiddleware);
+
+  // 6. Request Size Limiters (Phase 20 - Request payload body size limit)
+  app.use(express.json({ limit: '2mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '2mb' }));
+
+  // 7. Static Asset Serving for /assets/image (Phase 19)
+  const assetsDir = path.resolve(process.cwd(), 'assets');
+  const imageDir = path.join(assetsDir, 'image');
+  if (!fs.existsSync(imageDir)) {
+    fs.mkdirSync(imageDir, { recursive: true });
+  }
+  app.use('/assets', express.static(assetsDir));
+
+  // 8. Swagger Documentation UI (/api/docs and /docs)
+  try {
+    const openApiPath = path.resolve(process.cwd(), 'openapi.yaml');
+    if (fs.existsSync(openApiPath)) {
+      const fileContent = fs.readFileSync(openApiPath, 'utf8');
+      const swaggerDocument = yaml.parse(fileContent);
+
+      const swaggerUiOptions: swaggerUi.SwaggerUiOptions = {
+        customSiteTitle: 'Lombok Explorer API Documentation',
+        customCss: `
+          .swagger-ui .topbar { display: none }
+          .swagger-ui .info { margin-bottom: 24px; }
+          .swagger-ui .scheme-container { background: #f8fafc; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        `,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: 'none',
+          filter: true,
+          tryItOutEnabled: true,
+        },
+      };
+
+      // Expose raw OpenAPI JSON & YAML before mounting swagger UI middleware
+      app.get('/api/docs/json', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.json(swaggerDocument);
+      });
+      app.get('/api/docs/yaml', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+        res.send(fileContent);
+      });
+      app.get('/docs-json', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.json(swaggerDocument);
+      });
+
+      // Primary endpoint requested in Phase 6: /api/docs
+      app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerUiOptions));
+      // Convenience alias: /docs
+      app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument, swaggerUiOptions));
+    }
+  } catch {
+    // If documentation fails to load in some environments, app continues
+  }
+
+  // 8.5 Root Health, Readiness, & Liveness Endpoints (Phase 25 - Production Readiness)
+  app.get('/health', HealthController.getHealthSimple);
+  app.get('/health/ready', asyncHandler(HealthController.getReadiness));
+  app.get('/health/live', HealthController.getLiveness);
+
+  // 9. Root Welcome endpoint
+  app.get('/', (_req: Request, res: Response) => {
+    ResponseUtil.sendSuccess(
+      res,
+      {
+        name: config.app.name,
+        version: config.app.version,
+        environment: config.app.env,
+        docs: '/api/docs',
+        docsJson: '/api/docs/json',
+        docsYaml: '/api/docs/yaml',
+        health: '/health',
+        ready: '/health/ready',
+        apiV1: `${config.app.apiPrefix}`,
+      },
+      'Welcome to Lombok Explorer API',
+    );
+  });
+
+  // 10. Versioned API Routes (Phase 23)
+  // Supports /api/v1 (primary), /v1 (compatibility alias), /api/v2, /v2
+  app.use(apiRoutes);
+
+  // 11. 404 Not Found Middleware
+  app.use(notFoundMiddleware);
+
+  // 12. Centralized Error Handler Middleware (Phase 20 - Secure error response without stack trace)
+  app.use(errorHandlerMiddleware);
+
+  return app;
+};

@@ -1,0 +1,495 @@
+// Lombok Explorer — Prisma Schema
+// Single Source of Truth for Relational Database Modeling
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum LombokRegion {
+  LOMBOK_SELATAN   // Kuta, Mandalika, Tanjung Aan, Merese, Mawun, Selong Belanak
+  LOMBOK_UTARA     // Senaru, Rinjani, Tiu Kelep, Bayan, Gili Islands
+  LOMBOK_BARAT     // Senggigi, Malimbu, Sekotong, Batu Layar
+  LOMBOK_TIMUR     // Sembalun, Pink Beach, Tetebatu
+  LOMBOK_TENGAH    // Sade, Sukarara, Praya
+  GILI_ISLANDS     // Trawangan, Meno, Air
+}
+
+enum DifficultyLevel {
+  EASY
+  MODERATE
+  CHALLENGING
+  EXTREME
+}
+
+enum TravelStyle {
+  NATURE_ADVENTURE
+  BEACH_RELAXATION
+  CULTURE_HERITAGE
+  CULINARY_EXPLORER
+  PHOTOGRAPHY_SPOTS
+  FAMILY_FRIENDLY
+}
+
+enum BudgetLevel {
+  BUDGET
+  MID_RANGE
+  LUXURY
+}
+
+enum ExpenseCategory {
+  TRANSPORT
+  ACCOMMODATION
+  FOOD
+  ACTIVITY
+  SHOPPING
+  LODGING
+  TICKET
+  SOUVENIR
+  OTHER
+}
+
+enum ChecklistCategory {
+  BEACH
+  TREKKING
+  GENERAL
+  CLOTHING
+  DOCUMENTS
+}
+
+// ==========================================
+// USER MANAGEMENT
+// ==========================================
+
+model User {
+  id              String        @id @default(uuid())
+  email           String        @unique
+  password        String
+  name            String
+  avatarUrl       String?       @db.Text
+  phone           String?
+  role            UserRole      @default(USER)
+  travelStyle     TravelStyle?
+  preferredRegion LombokRegion?
+  isEmailVerified Boolean       @default(false)
+  refreshToken    String?       @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  deletedAt       DateTime?
+
+  // Relations
+  favorites       Favorite[]
+  reviews         Review[]
+  itineraries     Itinerary[]
+  expenses        Expense[]
+  journals        TravelJournal[]
+  checklists      Checklist[]
+
+  @@index([email])
+  @@index([role])
+  @@map("users")
+}
+
+// ==========================================
+// CATEGORIES & DESTINATIONS
+// ==========================================
+
+model Category {
+  id            String        @id @default(uuid())
+  slug          String        @unique
+  name          String
+  description   String        @db.Text
+  iconName      String
+  coverImageUrl String        @db.Text
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  // Relations
+  destinations  Destination[]
+
+  @@index([slug])
+  @@map("categories")
+}
+
+model Destination {
+  id                       String          @id @default(uuid())
+  slug                     String          @unique
+  name                     String
+  shortDescription         String          @db.Text
+  description              String          @db.Text
+  categoryId               String
+  category                 Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  region                   LombokRegion
+  locationName             String
+  address                  String?         @db.Text
+  latitude                 Float
+  longitude                Float
+  rating                   Float           @default(0.0)
+  reviewCount              Int             @default(0)
+  entranceFee              Decimal         @default(0) @db.Decimal(12, 2)
+  currency                 String          @default("IDR")
+  openingHours             String
+  estimatedDurationMinutes Int             @default(60)
+  bestVisitingTime         String
+  difficulty               DifficultyLevel @default(EASY)
+  tags                     String          @db.Text // JSON array: ["Pasir Merica", "Sunset"]
+  coverImageUrl            String          @db.Text
+  facilities               String          @db.Text // JSON array: ["Area Parkir", "Toilet"]
+  tips                     String?         @db.Text // JSON array: ["Kunjungi saat sore"]
+  isFeatured               Boolean         @default(false)
+  createdAt                DateTime        @default(now())
+  updatedAt                DateTime        @updatedAt
+  deletedAt                DateTime?
+
+  // Relations
+  images                     DestinationImage[]
+  reviews                    Review[]
+  favorites                  Favorite[]
+  itineraryItems             ItineraryItem[]
+  recommendationDestinations RecommendationDestination[]
+
+  @@index([categoryId])
+  @@index([region])
+  @@index([rating])
+  @@index([isFeatured])
+  @@index([latitude, longitude])
+  @@map("destinations")
+}
+
+model DestinationImage {
+  id            String      @id @default(uuid())
+  destinationId String
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  imageUrl      String      @db.Text
+  caption       String?
+  orderIndex    Int         @default(0)
+  createdAt     DateTime    @default(now())
+
+  @@index([destinationId])
+  @@map("destination_images")
+}
+
+// ==========================================
+// USER INTERACTIONS: FAVORITES & REVIEWS
+// ==========================================
+
+model Favorite {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destinationId String
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@unique([userId, destinationId])
+  @@index([userId])
+  @@index([destinationId])
+  @@map("favorites")
+}
+
+model Review {
+  id            String      @id @default(uuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  destinationId String
+  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  rating        Float
+  content       String      @db.Text
+  photos        String?     @db.Text // JSON array of photo URLs
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+  deletedAt     DateTime?
+
+  @@index([destinationId])
+  @@index([userId])
+  @@index([rating])
+  @@map("reviews")
+}
+
+// ==========================================
+// ITINERARY PLANNER
+// ==========================================
+
+model Itinerary {
+  id                   String        @id @default(uuid())
+  userId               String?
+  user                 User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  title                String
+  description          String?       @db.Text
+  coverImageUrl        String?       @db.Text
+  totalDays            Int           @default(1)
+  totalEstimatedBudget Decimal       @default(0) @db.Decimal(12, 2)
+  travelStyle          TravelStyle   @default(BEACH_RELAXATION)
+  budgetLevel          BudgetLevel   @default(MID_RANGE)
+  pace                 String        @default("BALANCED") // RELAXED, BALANCED, INTENSE
+  isPublic             Boolean       @default(false)
+  isSaved              Boolean       @default(true)
+  startDate            DateTime?
+  endDate              DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  deletedAt            DateTime?
+
+  // Relations
+  days                 ItineraryDay[]
+  expenses             Expense[]
+
+  @@index([userId])
+  @@index([travelStyle])
+  @@index([budgetLevel])
+  @@map("itineraries")
+}
+
+model ItineraryDay {
+  id          String          @id @default(uuid())
+  itineraryId String
+  itinerary   Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  dayNumber   Int
+  title       String
+  date        DateTime?
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  // Relations
+  items       ItineraryItem[]
+
+  @@unique([itineraryId, dayNumber])
+  @@index([itineraryId])
+  @@map("itinerary_days")
+}
+
+model ItineraryItem {
+  id                       String       @id @default(uuid())
+  itineraryDayId           String
+  itineraryDay             ItineraryDay @relation(fields: [itineraryDayId], references: [id], onDelete: Cascade)
+  destinationId            String?
+  destination              Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  orderIndex               Int
+  timeSlot                 String?      // e.g. "08:30 - 10:30"
+  customTitle              String?
+  activityNotes            String?      @db.Text
+  estimatedDurationMinutes Int          @default(60)
+  estimatedCost            Decimal      @default(0) @db.Decimal(12, 2)
+  createdAt                DateTime     @default(now())
+  updatedAt                DateTime     @updatedAt
+
+  @@index([itineraryDayId])
+  @@index([destinationId])
+  @@map("itinerary_items")
+}
+
+// ==========================================
+// RECOMMENDATIONS ENGINE
+// ==========================================
+
+model Recommendation {
+  id              String                      @id @default(uuid())
+  title           String
+  subtitle        String
+  bannerUrl       String                      @db.Text
+  travelStyle     TravelStyle
+  budgetLevel     BudgetLevel                 @default(MID_RANGE)
+  recommendedDays Int                         @default(3)
+  estimatedBudget Decimal                     @default(0) @db.Decimal(12, 2)
+  isActive        Boolean                     @default(true)
+  createdAt       DateTime                    @default(now())
+  updatedAt       DateTime                    @updatedAt
+
+  // Relations
+  destinations    RecommendationDestination[]
+
+  @@index([travelStyle])
+  @@index([budgetLevel])
+  @@map("recommendations")
+}
+
+model RecommendationDestination {
+  id               String         @id @default(uuid())
+  recommendationId String
+  recommendation   Recommendation @relation(fields: [recommendationId], references: [id], onDelete: Cascade)
+  destinationId    String
+  destination      Destination    @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  orderIndex       Int            @default(0)
+
+  @@unique([recommendationId, destinationId])
+  @@index([recommendationId])
+  @@index([destinationId])
+  @@map("recommendation_destinations")
+}
+
+// ==========================================
+// CULINARY & ACCOMMODATIONS
+// ==========================================
+
+model Restaurant {
+  id               String       @id @default(uuid())
+  name             String
+  slug             String       @unique
+  description      String       @db.Text
+  cuisineType      String
+  specialtyDish    String
+  priceRange       String
+  minPrice         Decimal      @default(0) @db.Decimal(12, 2)
+  maxPrice         Decimal      @default(0) @db.Decimal(12, 2)
+  rating           Float        @default(0.0)
+  reviewCount      Int          @default(0)
+  address          String       @db.Text
+  region           LombokRegion
+  latitude         Float
+  longitude        Float
+  openingHours     String
+  coverImageUrl    String       @db.Text
+  images           String       @db.Text // JSON array of image URLs
+  isHalalCertified Boolean      @default(true)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  deletedAt        DateTime?
+
+  @@index([region])
+  @@index([cuisineType])
+  @@index([rating])
+  @@map("restaurants")
+}
+
+model Accommodation {
+  id            String       @id @default(uuid())
+  name          String
+  slug          String       @unique
+  type          String       // resort, villa, hotel, homestay, glamping
+  description   String       @db.Text
+  rating        Float        @default(0.0)
+  reviewCount   Int          @default(0)
+  pricePerNight Decimal      @db.Decimal(12, 2)
+  currency      String       @default("IDR")
+  address       String       @db.Text
+  region        LombokRegion
+  latitude      Float
+  longitude     Float
+  coverImageUrl String       @db.Text
+  images        String       @db.Text // JSON array of image URLs
+  amenities     String       @db.Text // JSON array of amenities
+  contactPhone  String?
+  websiteUrl    String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  @@index([region])
+  @@index([type])
+  @@index([pricePerNight])
+  @@index([rating])
+  @@map("accommodations")
+}
+
+// ==========================================
+// BUDGET, EXPENSES, JOURNALS & CHECKLISTS
+// ==========================================
+
+model Expense {
+  id          String          @id @default(uuid())
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itineraryId String?
+  itinerary   Itinerary?      @relation(fields: [itineraryId], references: [id], onDelete: SetNull)
+  category    ExpenseCategory @default(OTHER)
+  title       String
+  amount      Decimal         @db.Decimal(12, 2)
+  currency    String          @default("IDR")
+  date        DateTime        @default(now())
+  notes       String?         @db.Text
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([itineraryId])
+  @@index([category])
+  @@map("expenses")
+}
+
+model TravelJournal {
+  id           String    @id @default(uuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title        String
+  content      String    @db.Text
+  locationName String?
+  date         DateTime  @default(now())
+  photos       String?   @db.Text // JSON array of photo URLs
+  isPublic     Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  @@index([userId])
+  @@index([date])
+  @@map("travel_journals")
+}
+
+model Checklist {
+  id        String            @id @default(uuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  category  ChecklistCategory @default(GENERAL)
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  // Relations
+  items     ChecklistItem[]
+
+  @@index([userId])
+  @@map("checklists")
+}
+
+model ChecklistItem {
+  id          String    @id @default(uuid())
+  checklistId String
+  checklist   Checklist @relation(fields: [checklistId], references: [id], onDelete: Cascade)
+  itemText    String
+  isChecked   Boolean   @default(false)
+  orderIndex  Int       @default(0)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([checklistId])
+  @@map("checklist_items")
+}
+
+// ==========================================
+// WEATHER CACHE
+// ==========================================
+
+model WeatherCache {
+  id                String       @id @default(uuid())
+  region            LombokRegion @unique
+  locationName      String
+  condition         String
+  tempCelsius       Int
+  feelsLikeCelsius  Int
+  humidityPercent   Int
+  windSpeedKmh      Float
+  uvIndex           Int
+  iconName          String
+  recommendationTip String       @db.Text
+  forecast          String       @db.Text // JSON array of 5-day forecast objects
+  lastUpdated       DateTime     @default(now())
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@index([region])
+  @@map("weather_cache")
+}

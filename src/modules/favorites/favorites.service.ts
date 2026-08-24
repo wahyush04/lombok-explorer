@@ -1,0 +1,86 @@
+import { ConflictError, NotFoundError } from '../../common/errors/app-error';
+import { favoritesRepository, FavoritesRepository } from './favorites.repository';
+import {
+  destinationsRepository,
+  DestinationsRepository,
+} from '../destinations/destinations.repository';
+import { destinationsService, DestinationsService } from '../destinations/destinations.service';
+import { FavoriteQuery } from './dto/favorite.dto';
+import { DestinationDto } from '../destinations/dto/destination.dto';
+import { PaginationMeta } from '../../common/types';
+
+export class FavoritesService {
+  constructor(
+    private readonly repository: FavoritesRepository = favoritesRepository,
+    private readonly destRepository: DestinationsRepository = destinationsRepository,
+    private readonly destService: DestinationsService = destinationsService,
+  ) {}
+
+  public async getUserFavorites(
+    userId: string,
+    query: FavoriteQuery,
+  ): Promise<{ data: DestinationDto[]; meta: PaginationMeta }> {
+    const page = query.page || 1;
+    const limit = query.limit || 10;
+
+    const { items, total } = await this.repository.getUserFavorites(userId, page, limit);
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    const data: DestinationDto[] = items.map((fav: (typeof items)[number]) =>
+      this.destService.mapToDto(fav.destination, true),
+    );
+
+    return {
+      data,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  public async addFavorite(userId: string, destinationIdOrSlug: string): Promise<DestinationDto> {
+    // 1. Resolve destination
+    const destination = await this.destRepository.findByIdOrSlug(destinationIdOrSlug);
+    if (!destination) {
+      throw new NotFoundError(
+        `Destination '${destinationIdOrSlug}' not found`,
+        'DESTINATION_NOT_FOUND',
+      );
+    }
+
+    // 2. Check for duplicate favorite
+    const existing = await this.repository.findFavorite(userId, destination.id);
+    if (existing) {
+      throw new ConflictError('Destination is already in your favorites', 'DUPLICATE_FAVORITE');
+    }
+
+    // 3. Add to database
+    const created = await this.repository.addFavorite(userId, destination.id);
+    return this.destService.mapToDto(created.destination, true);
+  }
+
+  public async removeFavorite(userId: string, destinationIdOrSlug: string): Promise<void> {
+    // 1. Resolve destination
+    const destination = await this.destRepository.findByIdOrSlug(destinationIdOrSlug);
+    if (!destination) {
+      throw new NotFoundError(
+        `Destination '${destinationIdOrSlug}' not found`,
+        'DESTINATION_NOT_FOUND',
+      );
+    }
+
+    // 2. Check if favorite exists
+    const existing = await this.repository.findFavorite(userId, destination.id);
+    if (!existing) {
+      throw new NotFoundError('This destination is not in your favorites', 'FAVORITE_NOT_FOUND');
+    }
+
+    // 3. Remove favorite
+    await this.repository.removeFavorite(userId, destination.id);
+  }
+}
+
+export const favoritesService = new FavoritesService();

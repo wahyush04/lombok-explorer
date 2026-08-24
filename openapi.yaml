@@ -1,0 +1,2825 @@
+openapi: 3.0.3
+info:
+  title: Lombok Explorer API
+  description: |
+    API Contract untuk Lombok Explorer — Platform eksplorasi wisata, rekomendasi cerdas, 
+    dan perencanaan perjalanan (itinerary planner) pulau Lombok, Nusa Tenggara Barat.
+  version: 1.0.0
+  contact:
+    name: Lombok Explorer Team
+    email: support@lombokexplorer.com
+
+servers:
+  - url: https://api.lombokexplorer.com/api/v1
+    description: Production Server (v1)
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server (v1)
+  - url: http://localhost:8080/v1
+    description: Legacy Compatibility Alias Server
+
+paths:
+  # ==========================================
+  # SYSTEM & HEALTH
+  # ==========================================
+  /health:
+    get:
+      summary: Health check and service readiness status
+      operationId: getHealth
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SystemHealthResponse'
+        '503':
+          description: Service is degraded or database unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health/ready:
+    get:
+      summary: Readiness probe for orchestrators and container health
+      operationId: getReadiness
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service is ready and database connection is active
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  database:
+                    type: string
+                    example: connected
+                  uptime:
+                    type: integer
+                    example: 3600
+        '503':
+          description: Database disconnected or service unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /health/live:
+    get:
+      summary: Liveness probe for orchestrators and load balancers
+      operationId: getLiveness
+      tags:
+        - Health
+      responses:
+        '200':
+          description: Service process is alive
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+
+
+  # ==========================================
+  # AUTHENTICATION & USERS
+  # ==========================================
+  /auth/register:
+    post:
+      summary: Register a new user traveler account
+      operationId: registerUser
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: Email already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Email address is already in use"
+                errorCode: "EMAIL_ALREADY_EXISTS"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/login:
+    post:
+      summary: Authenticate user and obtain JWT tokens
+      operationId: loginUser
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Invalid email or password"
+                errorCode: "INVALID_CREDENTIALS"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/refresh-token:
+    post:
+      summary: Refresh expired access token using refresh token
+      operationId: refreshToken
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/me:
+    get:
+      summary: Get currently authenticated user profile
+      operationId: getCurrentUser
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      summary: Logout user and invalidate session
+      operationId: logoutUser
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/profile:
+    put:
+      summary: Update profile for current authenticated user
+      operationId: updateUserProfile
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # DESTINATIONS
+  # ==========================================
+  /destinations:
+    get:
+      summary: Get list of destinations with filtering and pagination
+      operationId: getDestinations
+      tags:
+        - Destinations
+      parameters:
+        - name: page
+          in: query
+          description: Page number (1-based)
+          required: false
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: Number of items per page
+          required: false
+          schema:
+            type: integer
+            default: 10
+            minimum: 1
+            maximum: 100
+        - name: category
+          in: query
+          description: Filter by category slug (e.g. beach, waterfall, mountain, culture, gili)
+          required: false
+          schema:
+            type: string
+        - name: region
+          in: query
+          description: Filter by region in Lombok
+          required: false
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+        - name: sort_by
+          in: query
+          description: Field to sort by
+          required: false
+          schema:
+            type: string
+            enum: [popular, rating, name, price_asc, price_desc]
+            default: popular
+        - name: order
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /destinations/{id}:
+    get:
+      summary: Get destination detail by ID
+      operationId: getDestinationById
+      tags:
+        - Destinations
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier of the destination
+          schema:
+            type: string
+            example: "dest_tanjung_aan"
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /destinations/featured:
+    get:
+      summary: Get featured & trending destinations for hero banner and highlights
+      operationId: getFeaturedDestinations
+      tags:
+        - Destinations
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of featured destinations
+          required: false
+          schema:
+            type: integer
+            default: 5
+            maximum: 20
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationListResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /destinations/nearby:
+    get:
+      summary: Get destinations near specific coordinates
+      operationId: getNearbyDestinations
+      tags:
+        - Destinations
+      parameters:
+        - name: latitude
+          in: query
+          required: true
+          description: Current latitude
+          schema:
+            type: number
+            format: double
+            example: -8.8925
+        - name: longitude
+          in: query
+          required: true
+          description: Current longitude
+          schema:
+            type: number
+            format: double
+            example: 116.3150
+        - name: radius_km
+          in: query
+          required: false
+          description: Radius in kilometers
+          schema:
+            type: number
+            default: 25.0
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NearbyDestinationListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # CATEGORIES
+  # ==========================================
+  /categories:
+    get:
+      summary: Get list of all travel categories
+      operationId: getCategories
+      tags:
+        - Categories
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # SEARCH
+  # ==========================================
+  /destinations/search:
+    get:
+      summary: Search destinations by keyword and multifaceted filters
+      operationId: searchDestinations
+      tags:
+        - Search
+      parameters:
+        - name: q
+          in: query
+          required: true
+          description: Search keyword query
+          schema:
+            type: string
+            example: "mandalika"
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: region
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+        - name: min_rating
+          in: query
+          required: false
+          schema:
+            type: number
+            format: float
+            minimum: 1.0
+            maximum: 5.0
+            example: 4.5
+        - name: max_price
+          in: query
+          required: false
+          description: Maximum entrance fee in IDR
+          schema:
+            type: number
+            example: 50000
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # RECOMMENDATIONS
+  # ==========================================
+  /recommendations:
+    get:
+      summary: Get curated recommendations based on user travel persona and preferences
+      operationId: getRecommendations
+      tags:
+        - Recommendations
+      parameters:
+        - name: travel_style
+          in: query
+          description: Primary travel preference style
+          required: false
+          schema:
+            $ref: '#/components/schemas/TravelStyle'
+        - name: duration_days
+          in: query
+          description: Planned trip length in days
+          required: false
+          schema:
+            type: integer
+            default: 3
+        - name: budget_level
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/BudgetLevel'
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: Successful response
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RecommendationResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # ITINERARY
+  # ==========================================
+  /itineraries/generate:
+    post:
+      summary: Generate smart auto-itinerary based on days, preferences, and pace
+      operationId: generateItinerary
+      tags:
+        - Itinerary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateItineraryRequest'
+      responses:
+        '200':
+          description: Generated itinerary plan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /itineraries:
+    get:
+      summary: Get user saved/created itineraries
+      operationId: getItineraries
+      tags:
+        - Itinerary
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of user itineraries
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Create a custom itinerary
+      operationId: createItinerary
+      tags:
+        - Itinerary
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItineraryRequest'
+      responses:
+        '201':
+          description: Itinerary created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+  /itineraries/{id}:
+    get:
+      summary: Get itinerary detail by ID
+      operationId: getItineraryById
+      tags:
+        - Itinerary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Itinerary details with days and activities
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    put:
+      summary: Update existing itinerary
+      operationId: updateItinerary
+      tags:
+        - Itinerary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItineraryRequest'
+      responses:
+        '200':
+          description: Itinerary updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete an itinerary
+      operationId: deleteItinerary
+      tags:
+        - Itinerary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Itinerary deleted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /itineraries/{id}/stops:
+    post:
+      summary: Add a destination stop into trip itinerary
+      operationId: addTripStop
+      tags:
+        - Itinerary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - destinationId
+                - dayNumber
+              properties:
+                destinationId:
+                  type: string
+                  example: "dest_desa_sade"
+                dayNumber:
+                  type: integer
+                  default: 1
+                activityNotes:
+                  type: string
+                  example: "Belajar menenun songket Sasak"
+      responses:
+        '200':
+          description: Stop added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /itineraries/{id}/stops/reorder:
+    put:
+      summary: Reorder trip stops within a specific day (Drag and drop reordering)
+      operationId: reorderTripStops
+      tags:
+        - Itinerary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - dayNumber
+                - fromIndex
+                - toIndex
+              properties:
+                dayNumber:
+                  type: integer
+                  example: 1
+                fromIndex:
+                  type: integer
+                  example: 0
+                toIndex:
+                  type: integer
+                  example: 2
+      responses:
+        '200':
+          description: Stops reordered and itinerary recalculated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /itineraries/{id}/optimize:
+    post:
+      summary: Smart route and timing optimization for a day itinerary
+      operationId: optimizeItineraryRoute
+      tags:
+        - Itinerary
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - dayNumber
+              properties:
+                dayNumber:
+                  type: integer
+                  example: 1
+                startFromAirport:
+                  type: boolean
+                  default: true
+      responses:
+        '200':
+          description: Optimized itinerary route
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ItineraryDetailResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # FAVORITES
+  # ==========================================
+  /favorites:
+    get:
+      summary: Get all saved favorite destinations for the current user
+      operationId: getFavorites
+      tags:
+        - Favorites
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of favorite destinations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /favorites/{destinationId}:
+    post:
+      summary: Add destination to favorites
+      operationId: addFavorite
+      tags:
+        - Favorites
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: destinationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Destination added to favorites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Remove destination from favorites
+      operationId: removeFavorite
+      tags:
+        - Favorites
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: destinationId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Destination removed from favorites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # WEATHER
+  # ==========================================
+  /weather:
+    get:
+      summary: Get current weather and 5-day forecast for Lombok regions
+      operationId: getWeather
+      tags:
+        - Weather
+      parameters:
+        - name: region
+          in: query
+          required: false
+          description: Lombok region or city
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+        - name: lat
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+        - name: lng
+          in: query
+          required: false
+          schema:
+            type: number
+            format: double
+      responses:
+        '200':
+          description: Weather information and forecast
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # RESTAURANTS
+  # ==========================================
+  /restaurants:
+    get:
+      summary: Get local culinary spots & restaurants in Lombok
+      operationId: getRestaurants
+      tags:
+        - Culinary
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+        - name: cuisine
+          in: query
+          description: Cuisine type (e.g. sasak, seafood, vegetarian, western, cafe)
+          required: false
+          schema:
+            type: string
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of culinary places
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestaurantListResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # ACCOMMODATIONS
+  # ==========================================
+  /accommodations:
+    get:
+      summary: Get curated hotels, resorts, and villas in Lombok
+      operationId: getAccommodations
+      tags:
+        - Accommodations
+      parameters:
+        - name: region
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+        - name: type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [resort, villa, hotel, homestay, glamping]
+        - name: min_price
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: max_price
+          in: query
+          required: false
+          schema:
+            type: number
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: List of accommodations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationListResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # REVIEWS
+  # ==========================================
+  /destinations/{id}/reviews:
+    get:
+      summary: Get reviews for a specific destination
+      operationId: getDestinationReviews
+      tags:
+        - Reviews
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+        - name: sort_by
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [recent, highest_rating, lowest_rating]
+            default: recent
+      responses:
+        '200':
+          description: Destination reviews
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      summary: Submit a new review for a destination
+      operationId: submitDestinationReview
+      tags:
+        - Reviews
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+      responses:
+        '201':
+          description: Review submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /reviews/{id}:
+    put:
+      summary: Update an existing review
+      description: Update review rating, content, or photos. User can only edit their own reviews.
+      operationId: updateReview
+      tags:
+        - Reviews
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Review unique identifier (UUID)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateReviewRequest'
+      responses:
+        '200':
+          description: Review updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete a review
+      description: Soft delete a review. User can only delete their own reviews (or Admin).
+      operationId: deleteReview
+      tags:
+        - Reviews
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Review unique identifier (UUID)
+      responses:
+        '200':
+          description: Review deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # EXPENSES
+  # ==========================================
+  /expenses:
+    get:
+      summary: Get user expense records
+      operationId: getExpenses
+      tags:
+        - Expenses
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: category
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: List of expenses
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ExpenseDto'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+    post:
+      summary: Create new expense item
+      operationId: createExpense
+      tags:
+        - Expenses
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateExpenseRequest'
+      responses:
+        '201':
+          description: Expense created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ExpenseDto'
+
+  # ==========================================
+  # JOURNALS
+  # ==========================================
+  /journals:
+    get:
+      summary: Get user travel journals
+      operationId: getJournals
+      tags:
+        - Journals
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of travel journals
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/TravelJournalDto'
+    post:
+      summary: Create new travel journal entry
+      operationId: createJournal
+      tags:
+        - Journals
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJournalRequest'
+      responses:
+        '201':
+          description: Journal entry created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/TravelJournalDto'
+
+  # ==========================================
+  # CHECKLISTS
+  # ==========================================
+  /checklists:
+    get:
+      summary: Get user travel packing checklists
+      operationId: getChecklists
+      tags:
+        - Checklists
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: List of packing checklists
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ChecklistDto'
+    post:
+      summary: Create custom checklist
+      operationId: createChecklist
+      tags:
+        - Checklists
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - title
+              properties:
+                title:
+                  type: string
+                  example: "Perlengkapan Snorkeling Gili"
+      responses:
+        '201':
+          description: Checklist created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ChecklistDto'
+
+# ==========================================
+# COMPONENTS & SCHEMAS
+# ==========================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Enter JWT Bearer token for authorized requests
+
+  responses:
+    BadRequestError:
+      description: Invalid request parameters or body
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Invalid query parameters"
+            errorCode: "BAD_REQUEST"
+    UnauthorizedError:
+      description: Authentication is required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Unauthorized access, please login"
+            errorCode: "UNAUTHORIZED"
+    NotFoundError:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Destination not found"
+            errorCode: "NOT_FOUND"
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Internal server error occurred"
+            errorCode: "INTERNAL_SERVER_ERROR"
+
+  schemas:
+    # --- COMMON / META SCHEMAS ---
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 28
+        totalPages:
+          type: integer
+          example: 3
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+        - errorCode
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Resource not found"
+        errorCode:
+          type: string
+          example: "DESTINATION_NOT_FOUND"
+        details:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    StandardActionResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Operation completed successfully"
+
+    # --- ENUMS ---
+    LombokRegion:
+      type: string
+      enum:
+        - LOMBOK_SELATAN   # Kuta, Mandalika, Tanjung Aan, Merese, Mawun, Selong Belanak
+        - LOMBOK_UTARA     # Senaru, Rinjani, Tiu Kelep, Bayan, Gili Islands
+        - LOMBOK_BARAT     # Senggigi, Malimbu, Sekotong, Batu Layar
+        - LOMBOK_TIMUR     # Sembalun, Pink Beach, Tetebatu
+        - LOMBOK_TENGAH    # Sade, Sukarara, Praya
+        - GILI_ISLANDS     # Trawangan, Meno, Air
+      example: "LOMBOK_SELATAN"
+
+    DifficultyLevel:
+      type: string
+      enum:
+        - EASY
+        - MODERATE
+        - CHALLENGING
+        - EXTREME
+      example: "EASY"
+
+    TravelStyle:
+      type: string
+      enum:
+        - NATURE_ADVENTURE
+        - BEACH_RELAXATION
+        - CULTURE_HERITAGE
+        - CULINARY_EXPLORER
+        - PHOTOGRAPHY_SPOTS
+        - FAMILY_FRIENDLY
+      example: "BEACH_RELAXATION"
+
+    BudgetLevel:
+      type: string
+      enum:
+        - BUDGET
+        - MID_RANGE
+        - LUXURY
+      example: "MID_RANGE"
+
+    # --- AUTH & USER SCHEMAS ---
+    UserRole:
+      type: string
+      enum:
+        - USER
+        - ADMIN
+      example: "USER"
+
+    UserDto:
+      type: object
+      required:
+        - id
+        - email
+        - name
+        - role
+        - travelStyle
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: "usr_demo_lombok"
+        email:
+          type: string
+          format: email
+          example: "traveler@lombokexplorer.com"
+        name:
+          type: string
+          example: "Wahyu Traveler"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        bio:
+          type: string
+          nullable: true
+          example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
+        phone:
+          type: string
+          nullable: true
+          example: "+6281234567890"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        preferences:
+          type: array
+          items:
+            type: string
+          example: ["Snorkeling", "Sunset Point", "Culinary"]
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-23T08:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-23T08:00:00.000Z"
+
+    RegisterRequest:
+      type: object
+      required:
+        - name
+        - email
+        - password
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "Wahyu Traveler"
+        email:
+          type: string
+          format: email
+          example: "traveler@lombokexplorer.com"
+        password:
+          type: string
+          minLength: 6
+          example: "SuperSecret123!"
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        bio:
+          type: string
+          maxLength: 500
+          example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
+        avatarUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        phone:
+          type: string
+          example: "+6281234567890"
+
+    LoginRequest:
+      type: object
+      required:
+        - email
+        - password
+      properties:
+        email:
+          type: string
+          format: email
+          example: "traveler@lombokexplorer.com"
+        password:
+          type: string
+          example: "SuperSecret123!"
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "Wahyu Traveler"
+        avatarUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        bio:
+          type: string
+          maxLength: 500
+          example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
+        phone:
+          type: string
+          example: "+6281234567890"
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        preferences:
+          type: array
+          items:
+            type: string
+          example: ["Snorkeling", "Sunset Point", "Culinary"]
+
+    AuthTokenData:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+        - user
+      properties:
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expiresIn:
+          type: integer
+          example: 900
+        tokenType:
+          type: string
+          example: "Bearer"
+        user:
+          $ref: '#/components/schemas/UserDto'
+
+    AuthResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Authentication successful"
+        data:
+          $ref: '#/components/schemas/AuthTokenData'
+
+    UserProfileResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "User profile retrieved successfully"
+        data:
+          $ref: '#/components/schemas/UserDto'
+
+    SystemHealthResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Lombok Explorer API is operational"
+        data:
+          type: object
+          required:
+            - status
+            - timestamp
+            - uptime
+            - environment
+            - database
+          properties:
+            status:
+              type: string
+              example: "healthy"
+            timestamp:
+              type: string
+              format: date-time
+              example: "2026-08-23T08:00:00.000Z"
+            uptime:
+              type: number
+              example: 124.5
+            environment:
+              type: string
+              example: "production"
+            database:
+              type: object
+              required:
+                - connected
+                - latencyMs
+              properties:
+                connected:
+                  type: boolean
+                  example: true
+                latencyMs:
+                  type: number
+                  example: 1.25
+
+    # --- DESTINATION SCHEMAS ---
+    DestinationDto:
+      type: object
+      required:
+        - id
+        - name
+        - shortDescription
+        - description
+        - categoryId
+        - categoryName
+        - region
+        - locationName
+        - latitude
+        - longitude
+        - rating
+        - reviewCount
+        - entranceFee
+        - openingHours
+        - estimatedDurationMinutes
+        - bestVisitingTime
+        - difficulty
+        - tags
+        - images
+        - coverImageUrl
+        - facilities
+        - isFeatured
+        - isFavorite
+      properties:
+        id:
+          type: string
+          example: "dest_tanjung_aan"
+        name:
+          type: string
+          example: "Pantai Tanjung Aan"
+        shortDescription:
+          type: string
+          example: "Pantai berpasir putih merica dengan panorama teluk toska memukau di Mandalika."
+        description:
+          type: string
+          example: "Pantai Tanjung Aan adalah salah satu pantai paling ikonik di Lombok Selatan dengan formasi pasir bulat seperti biji merica dan air laut berwarna toska bergradasi. Dikelilingi oleh perbukitan hijau seperti Bukit Merese, tempat ini ideal untuk berenang, bersantai, dan menikmati pemandangan matahari terbenam."
+        categoryId:
+          type: string
+          example: "cat_beach"
+        categoryName:
+          type: string
+          example: "Pantai & Pesisir"
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        locationName:
+          type: string
+          example: "Pujut, Lombok Tengah"
+        latitude:
+          type: number
+          format: double
+          example: -8.9083
+        longitude:
+          type: number
+          format: double
+          example: 116.3218
+        rating:
+          type: number
+          format: float
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 1420
+        entranceFee:
+          type: number
+          example: 10000
+        currency:
+          type: string
+          default: "IDR"
+          example: "IDR"
+        openingHours:
+          type: string
+          example: "06:00 - 18:30 WITA"
+        estimatedDurationMinutes:
+          type: integer
+          example: 120
+        bestVisitingTime:
+          type: string
+          example: "Pagi hari (08:00) atau menjelang Sunset (16:30)"
+        difficulty:
+          $ref: '#/components/schemas/DifficultyLevel'
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["Pasir Merica", "Sunset Spot", "Berenang", "Fotografi", "Mandalika"]
+        coverImageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"
+        images:
+          type: array
+          items:
+            type: string
+          example:
+            - "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"
+            - "https://images.unsplash.com/photo-1570789210967-2cac24afeb00?q=80&w=1000"
+        facilities:
+          type: array
+          items:
+            type: string
+          example: ["Area Parkir", "Warung Lokal & Kelapa Muda", "Toilet", "Sewa Gazebo", "Spot Foto"]
+        tips:
+          type: array
+          items:
+            type: string
+          example:
+            - "Kombinasikan kunjungan dengan mendaki Bukit Merese untuk sunset."
+            - "Gunakan alas kaki yang nyaman jika ingin mendaki bukit sekitar."
+        isFeatured:
+          type: boolean
+          example: true
+        isFavorite:
+          type: boolean
+          example: false
+
+    NearbyDestinationDto:
+      allOf:
+        - $ref: '#/components/schemas/DestinationDto'
+        - type: object
+          required:
+            - distanceKm
+          properties:
+            distanceKm:
+              type: number
+              format: float
+              example: 3.4
+
+    DestinationListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching destinations"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationDto'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    NearbyDestinationListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching nearby destinations"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/NearbyDestinationDto'
+
+    DestinationDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching destination detail"
+        data:
+          $ref: '#/components/schemas/DestinationDto'
+
+    # --- CATEGORY SCHEMAS ---
+    CategoryDto:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - iconName
+        - destinationCount
+        - coverImageUrl
+      properties:
+        id:
+          type: string
+          example: "cat_beach"
+        name:
+          type: string
+          example: "Pantai & Pesisir"
+        slug:
+          type: string
+          example: "beach"
+        description:
+          type: string
+          example: "Eksplorasi pantai pasir putih, teluk toska, dan ombak selancar kelas dunia."
+        iconName:
+          type: string
+          example: "beach_access"
+        destinationCount:
+          type: integer
+          example: 12
+        coverImageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=600"
+
+    CategoryListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching categories"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CategoryDto'
+
+    # --- RECOMMENDATION SCHEMAS ---
+    RecommendationDto:
+      type: object
+      required:
+        - id
+        - title
+        - subtitle
+        - bannerUrl
+        - travelStyle
+        - recommendedDays
+        - destinations
+      properties:
+        id:
+          type: string
+          example: "rec_south_lombok_beach"
+        title:
+          type: string
+          example: "Eksotika Bahari Lombok Selatan"
+        subtitle:
+          type: string
+          example: "Jelajahi pantai pasir merica, bukit perawan, dan ombak Mandalika."
+        bannerUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1570789210967-2cac24afeb00?q=80&w=1000"
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        recommendedDays:
+          type: integer
+          example: 3
+        estimatedBudget:
+          type: number
+          example: 1500000
+        destinations:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationDto'
+
+    RecommendationResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching recommendations"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RecommendationDto'
+
+    # --- ITINERARY SCHEMAS ---
+    ItineraryActivityDto:
+      type: object
+      required:
+        - id
+        - orderIndex
+        - timeSlot
+        - destinationId
+        - destinationName
+        - destinationCategory
+        - imageUrl
+        - estimatedDurationMinutes
+        - activityNotes
+        - estimatedCost
+      properties:
+        id:
+          type: string
+          example: "act_101"
+        orderIndex:
+          type: integer
+          example: 1
+        timeSlot:
+          type: string
+          example: "08:30 - 10:30"
+        destinationId:
+          type: string
+          example: "dest_tanjung_aan"
+        destinationName:
+          type: string
+          example: "Pantai Tanjung Aan"
+        destinationCategory:
+          type: string
+          example: "Pantai & Pesisir"
+        imageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=600"
+        estimatedDurationMinutes:
+          type: integer
+          example: 120
+        activityNotes:
+          type: string
+          example: "Berenang di air tenang dan santai di warung kelapa muda."
+        estimatedCost:
+          type: number
+          example: 25000
+
+    ItineraryDayDto:
+      type: object
+      required:
+        - dayNumber
+        - title
+        - date
+        - activities
+      properties:
+        dayNumber:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Hari 1: Mandalika Coastal Explorer"
+        date:
+          type: string
+          example: "2026-09-10"
+        notes:
+          type: string
+          example: "Fokus perjalanan di pesisir selatan Lombok Tengah."
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryActivityDto'
+
+    ItineraryDto:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - coverImageUrl
+        - totalDays
+        - totalEstimatedBudget
+        - travelStyle
+        - budgetLevel
+        - days
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: "itin_3days_lombok_classic"
+        title:
+          type: string
+          example: "3 Hari Jelajah Pesona Lombok Selatan & Gili"
+        description:
+          type: string
+          example: "Itinerary lengkap dari pantai eksotis Mandalika, bukit savana Merese, hingga snorkeling air kristal Gili Trawangan."
+        coverImageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"
+        totalDays:
+          type: integer
+          example: 3
+        totalEstimatedBudget:
+          type: number
+          example: 1850000
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        isSaved:
+          type: boolean
+          example: true
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryDayDto'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-20T10:00:00Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-20T10:00:00Z"
+
+    GenerateItineraryRequest:
+      type: object
+      required:
+        - days
+        - travelStyle
+        - budgetLevel
+        - preferredRegions
+      properties:
+        days:
+          type: integer
+          minimum: 1
+          maximum: 7
+          example: 3
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        pace:
+          type: string
+          enum: [RELAXED, BALANCED, INTENSE]
+          default: BALANCED
+          example: "BALANCED"
+        preferredRegions:
+          type: array
+          items:
+            $ref: '#/components/schemas/LombokRegion'
+          example: ["LOMBOK_SELATAN", "GILI_ISLANDS"]
+        includeCulinary:
+          type: boolean
+          default: true
+          example: true
+
+    CreateItineraryRequest:
+      type: object
+      required:
+        - title
+        - totalDays
+        - travelStyle
+        - budgetLevel
+        - days
+      properties:
+        title:
+          type: string
+          example: "Trip Liburan Keluarga Lombok"
+        description:
+          type: string
+          example: "Rencana santai bersama keluarga."
+        totalDays:
+          type: integer
+          example: 3
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryDayDto'
+
+    UpdateItineraryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryDayDto'
+
+    ItineraryListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching itineraries"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryDto'
+
+    ItineraryDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching itinerary"
+        data:
+          $ref: '#/components/schemas/ItineraryDto'
+
+    # --- WEATHER SCHEMAS ---
+    WeatherForecastDto:
+      type: object
+      required:
+        - date
+        - dayOfWeek
+        - condition
+        - tempMinCelsius
+        - tempMaxCelsius
+        - humidityPercent
+        - iconName
+      properties:
+        date:
+          type: string
+          example: "2026-09-10"
+        dayOfWeek:
+          type: string
+          example: "Kamis"
+        condition:
+          type: string
+          example: "Cerah Berawan"
+        tempMinCelsius:
+          type: integer
+          example: 24
+        tempMaxCelsius:
+          type: integer
+          example: 31
+        humidityPercent:
+          type: integer
+          example: 72
+        iconName:
+          type: string
+          example: "partly_cloudy_day"
+
+    WeatherDto:
+      type: object
+      required:
+        - locationName
+        - region
+        - condition
+        - tempCelsius
+        - feelsLikeCelsius
+        - humidityPercent
+        - windSpeedKmh
+        - uvIndex
+        - iconName
+        - forecast
+        - lastUpdated
+      properties:
+        locationName:
+          type: string
+          example: "Kuta Mandalika, Lombok Selatan"
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        condition:
+          type: string
+          example: "Cerah & Tropis"
+        tempCelsius:
+          type: integer
+          example: 29
+        feelsLikeCelsius:
+          type: integer
+          example: 32
+        humidityPercent:
+          type: integer
+          example: 70
+        windSpeedKmh:
+          type: number
+          example: 14.5
+        uvIndex:
+          type: integer
+          example: 7
+        iconName:
+          type: string
+          example: "sunny"
+        recommendationTip:
+          type: string
+          example: "Kondisi sangat ideal untuk aktivitas pantai & snorkeling. Gunakan tabir surya."
+        forecast:
+          type: array
+          items:
+            $ref: '#/components/schemas/WeatherForecastDto'
+        lastUpdated:
+          type: string
+          example: "Hari ini, 10:00 WITA"
+
+    WeatherResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching weather data"
+        data:
+          $ref: '#/components/schemas/WeatherDto'
+
+    # --- RESTAURANTS SCHEMAS ---
+    RestaurantDto:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - cuisineType
+        - specialtyDish
+        - priceRange
+        - rating
+        - reviewCount
+        - address
+        - region
+        - latitude
+        - longitude
+        - openingHours
+        - coverImageUrl
+        - images
+        - isHalalCertified
+      properties:
+        id:
+          type: string
+          example: "rest_ayam_taliwang_h_ipip"
+        name:
+          type: string
+          example: "Ayam Taliwang H. Ipip"
+        description:
+          type: string
+          example: "Kuliner legendaris khas Sasak Lombok dengan sajian ayam bakar pedas manis aromatik dan plecing kangkung segar."
+        cuisineType:
+          type: string
+          example: "Khas Sasak / Tradisional"
+        specialtyDish:
+          type: string
+          example: "Ayam Taliwang Bakar & Plecing Kangkung"
+        priceRange:
+          type: string
+          example: "Rp 35.000 - Rp 85.000 / orang"
+        rating:
+          type: number
+          format: float
+          example: 4.7
+        reviewCount:
+          type: integer
+          example: 890
+        address:
+          type: string
+          example: "Jl. Majapahit No. 45, Mataram"
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        latitude:
+          type: number
+          format: double
+          example: -8.5833
+        longitude:
+          type: number
+          format: double
+          example: 116.1167
+        openingHours:
+          type: string
+          example: "10:00 - 22:00 WITA"
+        coverImageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=600"
+        images:
+          type: array
+          items:
+            type: string
+        isHalalCertified:
+          type: boolean
+          example: true
+
+    RestaurantListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching restaurants"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/RestaurantDto'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # --- ACCOMMODATION SCHEMAS ---
+    AccommodationDto:
+      type: object
+      required:
+        - id
+        - name
+        - type
+        - description
+        - rating
+        - reviewCount
+        - pricePerNight
+        - address
+        - region
+        - latitude
+        - longitude
+        - coverImageUrl
+        - images
+        - amenities
+      properties:
+        id:
+          type: string
+          example: "acc_pullman_mandalika"
+        name:
+          type: string
+          example: "Pullman Lombok Merujani Mandalika Beach Resort"
+        type:
+          type: string
+          example: "Resort Bintang 5"
+        description:
+          type: string
+          example: "Resort tepi pantai premium di jantung Mandalika dengan pemandangan langsung Samudra Hindia dan kolam renang infinity."
+        rating:
+          type: number
+          format: float
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 520
+        pricePerNight:
+          type: number
+          example: 1850000
+        currency:
+          type: string
+          default: "IDR"
+          example: "IDR"
+        address:
+          type: string
+          example: "ITDC Area, Kuta Mandalika, Pujut"
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        latitude:
+          type: number
+          format: double
+          example: -8.8950
+        longitude:
+          type: number
+          format: double
+          example: 116.2900
+        coverImageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600"
+        images:
+          type: array
+          items:
+            type: string
+        amenities:
+          type: array
+          items:
+            type: string
+          example: ["Private Beach", "Infinity Pool", "Spa & Wellness", "Free WiFi", "Breakfast Included", "Fitness Center"]
+
+    AccommodationListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching accommodations"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AccommodationDto'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    # --- REVIEW SCHEMAS ---
+    ReviewDto:
+      type: object
+      required:
+        - id
+        - destinationId
+        - authorName
+        - authorAvatarUrl
+        - rating
+        - content
+        - date
+      properties:
+        id:
+          type: string
+          example: "rev_001"
+        destinationId:
+          type: string
+          example: "dest_tanjung_aan"
+        authorName:
+          type: string
+          example: "Bima Arya"
+        authorAvatarUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        rating:
+          type: number
+          format: float
+          example: 5.0
+        content:
+          type: string
+          example: "Pemandangan luar biasa indah! Pasirnya benar-benar seperti butiran merica dan airnya sangat jernih. Wajib sewa kelapa muda di pinggir pantai."
+        photos:
+          type: array
+          items:
+            type: string
+        date:
+          type: string
+          example: "12 Agustus 2026"
+
+    CreateReviewRequest:
+      type: object
+      required:
+        - rating
+        - content
+      properties:
+        rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          example: 5.0
+        content:
+          type: string
+          minLength: 5
+          example: "Spot favorit saya di Lombok! Sangat bersih dan ramah keluarga."
+        photos:
+          type: array
+          items:
+            type: string
+
+    UpdateReviewRequest:
+      type: object
+      properties:
+        rating:
+          type: number
+          minimum: 1.0
+          maximum: 5.0
+          example: 4.5
+        content:
+          type: string
+          minLength: 5
+          example: "Updated: Pemandangan sangat spektakuler saat matahari terbit."
+        photos:
+          type: array
+          items:
+            type: string
+
+    ReviewListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching reviews"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ReviewDto'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    ReviewDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Review submitted successfully"
+        data:
+          $ref: '#/components/schemas/ReviewDto'
+
+    # --- EXPENSES, JOURNALS & CHECKLISTS ---
+    ExpenseDto:
+      type: object
+      required:
+        - id
+        - title
+        - amount
+        - currency
+        - category
+        - date
+      properties:
+        id:
+          type: string
+          example: "exp_001"
+        title:
+          type: string
+          example: "Sewa Motor NMAX Mandalika (3 Hari)"
+        amount:
+          type: number
+          example: 300000
+        currency:
+          type: string
+          example: "IDR"
+        category:
+          type: string
+          example: "TRANSPORT"
+        date:
+          type: string
+          format: date-time
+          example: "2026-08-23T08:00:00.000Z"
+
+    CreateExpenseRequest:
+      type: object
+      required:
+        - title
+        - amount
+        - category
+      properties:
+        title:
+          type: string
+          example: "Sewa Motor NMAX Mandalika"
+        amount:
+          type: number
+          example: 300000
+        currency:
+          type: string
+          default: "IDR"
+          example: "IDR"
+        category:
+          type: string
+          example: "TRANSPORT"
+        notes:
+          type: string
+          example: "Sewa di bandara Lombok"
+
+    TravelJournalDto:
+      type: object
+      required:
+        - id
+        - title
+        - content
+        - date
+      properties:
+        id:
+          type: string
+          example: "jrn_001"
+        title:
+          type: string
+          example: "Hari Pertama: Sunset Memukau di Bukit Merese"
+        content:
+          type: string
+          example: "Tiba di Lombok siang hari, langsung check-in hotel dan menyewa motor menuju Bukit Merese..."
+        locationName:
+          type: string
+          example: "Bukit Merese, Lombok Selatan"
+        photos:
+          type: array
+          items:
+            type: string
+          example: ["https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"]
+        date:
+          type: string
+          format: date-time
+          example: "2026-08-23T08:00:00.000Z"
+
+    CreateJournalRequest:
+      type: object
+      required:
+        - title
+        - content
+      properties:
+        title:
+          type: string
+          example: "Hari Pertama: Sunset Memukau di Bukit Merese"
+        content:
+          type: string
+          example: "Tiba di Lombok siang hari, langsung check-in hotel..."
+        locationName:
+          type: string
+          example: "Bukit Merese, Lombok Selatan"
+        photos:
+          type: array
+          items:
+            type: string
+
+    ChecklistItemDto:
+      type: object
+      required:
+        - id
+        - item
+        - isChecked
+      properties:
+        id:
+          type: string
+          example: "item_001"
+        item:
+          type: string
+          example: "Kacamata Snorkeling & Masker"
+        isChecked:
+          type: boolean
+          example: false
+        quantity:
+          type: integer
+          example: 1
+
+    ChecklistDto:
+      type: object
+      required:
+        - id
+        - title
+        - items
+      properties:
+        id:
+          type: string
+          example: "chk_001"
+        title:
+          type: string
+          example: "Perlengkapan Snorkeling Gili & Pantai"
+        category:
+          type: string
+          example: "CLOTHING"
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChecklistItemDto'
+

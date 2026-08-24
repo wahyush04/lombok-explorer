@@ -1,0 +1,45 @@
+# Node.js dependencies and builds
+node_modules
+dist
+coverage
+.nyc_output
+
+# Environment files
+.env
+.env.local
+.env.*.local
+.env.development
+.env.test
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Git and IDE configs
+.git
+.gitignore
+.gitattributes
+.vscode
+.idea
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+tests/
+__tests__/
+vitest.config.ts
+
+# User uploaded storage assets
+assets/image/*
+!assets/image/.gitkeep
