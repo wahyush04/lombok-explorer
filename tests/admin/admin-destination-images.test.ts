@@ -105,7 +105,10 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
     });
 
     it('should upload image binary file via multipart/form-data and promote as primary image (201 Created)', async () => {
-      const dummyImageBuffer = Buffer.from('fake-png-data-stream-buffer');
+      const validPngBuffer = Buffer.from(
+        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+        'base64',
+      );
 
       const res = await request(app)
         .post(`/api/v1/admin/destinations/${testDestinationId}/images`)
@@ -114,7 +117,7 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
         .field('altText', 'Hamparan pasir merica dan air laut jernih')
         .field('orderIndex', '0')
         .field('isPrimary', 'true')
-        .attach('image', dummyImageBuffer, 'tanjung_aan_gallery.png');
+        .attach('image', validPngBuffer, 'tanjung_aan_gallery.png');
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
