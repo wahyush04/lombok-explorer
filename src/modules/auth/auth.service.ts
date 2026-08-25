@@ -132,8 +132,9 @@ export class AuthService {
   }
 
   public async login(dto: LoginDto): Promise<AuthTokens> {
-    // 1. Find user by email
-    const user = await this.repository.findByEmail(dto.email);
+    // 1. Find user by email or username
+    const identifier = (dto.email || dto.username || dto.identifier || '').trim();
+    const user = await this.repository.findByEmailOrUsername(identifier);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
@@ -160,10 +161,17 @@ export class AuthService {
       );
     }
 
+    if (user.status === 'INACTIVE') {
+      throw new ForbiddenError(
+        'Your account is inactive. Please contact administrator.',
+        'ACCOUNT_INACTIVE',
+      );
+    }
+
     // 4. Generate tokens
     const tokens = this.generateTokens(user);
 
-    // 4. Save refresh token
+    // 5. Save refresh token
     await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
 
     return {
@@ -179,8 +187,9 @@ export class AuthService {
    * Dedicated Admin login method enforcing ADMIN role and active status.
    */
   public async adminLogin(dto: LoginDto): Promise<AuthTokens> {
-    // 1. Find user by email
-    const user = await this.repository.findByEmail(dto.email);
+    // 1. Find user by email or username
+    const identifier = (dto.email || dto.username || dto.identifier || '').trim();
+    const user = await this.repository.findByEmailOrUsername(identifier);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }

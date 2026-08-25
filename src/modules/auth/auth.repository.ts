@@ -11,6 +11,16 @@ export class AuthRepository {
     });
   }
 
+  public async findByEmailOrUsername(identifier: string): Promise<User | null> {
+    const trimmed = identifier.trim();
+    return prisma.user.findFirst({
+      where: {
+        OR: [{ email: trimmed.toLowerCase() }, { name: { equals: trimmed, mode: 'insensitive' } }],
+        deletedAt: null,
+      },
+    });
+  }
+
   public async findById(id: string): Promise<User | null> {
     return prisma.user.findFirst({
       where: {

@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { adminAuthController } from './admin-auth.controller';
 import { validate } from '../../../common/middleware/validate.middleware';
-import { LoginDtoSchema, RefreshTokenDtoSchema } from '../../auth/dto/auth.dto';
+import { AdminLoginDtoSchema, RefreshTokenDtoSchema } from '../../auth/dto/auth.dto';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
 import { adminAuthLimiter } from '../../../common/middleware/rate-limit.middleware';
@@ -12,7 +12,7 @@ const router = Router();
 router.post(
   '/login',
   adminAuthLimiter,
-  validate(LoginDtoSchema),
+  validate(AdminLoginDtoSchema),
   asyncHandler(adminAuthController.login),
 );
 

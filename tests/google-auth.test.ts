@@ -219,7 +219,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(savedUser?.identities[0].providerAccountId).toBe(testGoogleUser.sub);
     });
 
-    it('should allow subsequent login via Username/Email + Password with SAME User ID', async () => {
+    it('should allow subsequent login via Email + Password with SAME User ID', async () => {
       const res = await request(app).post('/api/v1/auth/login').send({
         email: testGoogleUser.email,
         password: 'securePassword@2026',
@@ -228,6 +228,29 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.user.id).toBe(registeredUserId);
+    });
+
+    it('PHASE 7: should allow login via Username + Password with SAME User ID', async () => {
+      // 1. Using { username, password }
+      const resUsername = await request(app).post('/api/v1/auth/login').send({
+        username: 'wahyutraveler',
+        password: 'securePassword@2026',
+      });
+
+      expect(resUsername.status).toBe(200);
+      expect(resUsername.body.success).toBe(true);
+      expect(resUsername.body.data.user.id).toBe(registeredUserId);
+      expect(resUsername.body.data.user.name).toBe('wahyutraveler');
+
+      // 2. Using { email: username, password }
+      const resEmailAsUsername = await request(app).post('/api/v1/auth/login').send({
+        email: 'wahyutraveler',
+        password: 'securePassword@2026',
+      });
+
+      expect(resEmailAsUsername.status).toBe(200);
+      expect(resEmailAsUsername.body.success).toBe(true);
+      expect(resEmailAsUsername.body.data.user.id).toBe(registeredUserId);
     });
 
     it('should allow subsequent login via Google Sign-In with SAME User ID (CASE A)', async () => {

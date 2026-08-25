@@ -19,7 +19,19 @@ export const RegisterDtoSchema = z.object({
   role: z.nativeEnum(UserRole).optional().default(UserRole.USER),
 });
 
-export const LoginDtoSchema = z.object({
+export const LoginDtoSchema = z
+  .object({
+    email: z.string().min(1, 'Email or username is required').optional(),
+    username: z.string().min(1, 'Username is required').optional(),
+    identifier: z.string().min(1, 'Identifier is required').optional(),
+    password: z.string().min(1, 'Password is required'),
+  })
+  .refine((data) => data.email || data.username || data.identifier, {
+    message: 'Email or username is required',
+    path: ['email'],
+  });
+
+export const AdminLoginDtoSchema = z.object({
   email: z.string().email('Invalid email address format'),
   password: z.string().min(1, 'Password is required'),
 });
