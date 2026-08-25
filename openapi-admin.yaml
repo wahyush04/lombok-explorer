@@ -442,6 +442,179 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # ==========================================
+  # ADMIN DESTINATION IMAGES MANAGEMENT
+  # ==========================================
+  /destinations/{id}/images:
+    get:
+      summary: List Destination Gallery Images
+      description: Returns all gallery images associated with a destination, sorted by orderIndex.
+      operationId: getDestinationImages
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Destination images retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationImageListResponse'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Upload or Add Image to Destination
+      description: Adds a new image to destination gallery via multipart file upload or JSON payload with imageUrl reference.
+      operationId: createDestinationImage
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                caption:
+                  type: string
+                altText:
+                  type: string
+                orderIndex:
+                  type: integer
+                isPrimary:
+                  type: boolean
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDestinationImageRequest'
+      responses:
+        '201':
+          description: Image added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationImageDetailResponse'
+        '400':
+          description: Validation or upload error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /destinations/{id}/images/{imageId}:
+    put:
+      summary: Update Destination Image
+      description: Updates image attributes (caption, altText, orderIndex, isPrimary) or replaces the image file.
+      operationId: updateDestinationImage
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                image:
+                  type: string
+                  format: binary
+                caption:
+                  type: string
+                altText:
+                  type: string
+                orderIndex:
+                  type: integer
+                isPrimary:
+                  type: boolean
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDestinationImageRequest'
+      responses:
+        '200':
+          description: Destination image updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationImageDetailResponse'
+        '404':
+          description: Image or destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Destination Image
+      description: Deletes an image from the destination gallery.
+      operationId: deleteDestinationImage
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Image deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ==========================================
   # ADMIN CATEGORIES MANAGEMENT
   # ==========================================
   /categories:
@@ -1345,6 +1518,107 @@ components:
           example: Category details retrieved successfully
         data:
           $ref: '#/components/schemas/AdminCategoryDto'
+
+    # ==========================================
+    # DESTINATION IMAGES SCHEMAS
+    # ==========================================
+    DestinationImageDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "e6f98c62-8bbd-426b-9c76-2e6b8c8d8b4e"
+        destinationId:
+          type: string
+          example: "dest_tanjung_aan"
+        imageUrl:
+          type: string
+          example: "/assets/image/tanjung-aan-sunset.jpg"
+        caption:
+          type: string
+          nullable: true
+          example: "Sunset memukau di atas Bukit Merese Tanjung Aan"
+        altText:
+          type: string
+          nullable: true
+          example: "Pemandangan bukit merese tanjung aan lombok"
+        orderIndex:
+          type: integer
+          example: 0
+        isPrimary:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateDestinationImageRequest:
+      type: object
+      properties:
+        imageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62"
+        caption:
+          type: string
+          example: "Pantai pasir merica berpasir putih"
+        altText:
+          type: string
+          example: "Foto sudut pantai tanjung aan"
+        orderIndex:
+          type: integer
+          example: 1
+        isPrimary:
+          type: boolean
+          example: false
+
+    UpdateDestinationImageRequest:
+      type: object
+      properties:
+        imageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62"
+        caption:
+          type: string
+          example: "Panorama sudut pandang baru"
+        altText:
+          type: string
+          example: "Deskripsi alt text gambar"
+        orderIndex:
+          type: integer
+          example: 2
+        isPrimary:
+          type: boolean
+          example: true
+
+    DestinationImageListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Destination images retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationImageDto'
+
+    DestinationImageDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Destination image created successfully
+        data:
+          $ref: '#/components/schemas/DestinationImageDto'
+
 
 
 

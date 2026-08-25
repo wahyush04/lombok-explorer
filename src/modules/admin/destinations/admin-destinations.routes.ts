@@ -8,11 +8,15 @@ import {
 } from './dto/admin-destination.dto';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
+import { adminDestinationImageRoutes } from '../destination-images/admin-destination-images.routes';
 
 const router = Router();
 
 // Apply authenticateAdmin across all destination management endpoints
 router.use(authenticateAdmin);
+
+// Destination Images Sub-Router (/api/v1/admin/destinations/:id/images/*)
+router.use('/:id/images', adminDestinationImageRoutes);
 
 // 1. List & filter destinations (with pagination & sorting)
 router.get(

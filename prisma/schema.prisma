@@ -189,10 +189,14 @@ model DestinationImage {
   destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
   imageUrl      String      @db.Text
   caption       String?
+  altText       String?
   orderIndex    Int         @default(0)
+  isPrimary     Boolean     @default(false)
   createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt @default(now())
 
   @@index([destinationId])
+  @@index([orderIndex])
   @@map("destination_images")
 }
 
