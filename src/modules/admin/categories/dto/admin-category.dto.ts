@@ -14,6 +14,14 @@ export const AdminCategoryFilterQuerySchema = z.object({
     .enum(['name', 'slug', 'status', 'createdAt', 'updatedAt', 'destinationsCount'])
     .optional(),
   order: z.enum(['asc', 'desc']).optional().default('asc'),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  sort_order: z.enum(['asc', 'desc']).optional(),
+  createdFrom: z.string().trim().optional(),
+  createdTo: z.string().trim().optional(),
+  startDate: z.string().trim().optional(),
+  fromDate: z.string().trim().optional(),
+  endDate: z.string().trim().optional(),
+  toDate: z.string().trim().optional(),
 });
 
 export const CreateCategorySchema = z.object({

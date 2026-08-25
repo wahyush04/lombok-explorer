@@ -22,13 +22,28 @@ export class AdminDestinationsRepository {
 
     const sortBy = query.sortBy || query.sort_by || 'createdAt';
     const sortField = sortBy === 'ticketPrice' ? 'entranceFee' : sortBy;
-    const order = query.order || 'desc';
+    const order = query.sortOrder || query.sort_order || query.order || 'desc';
 
     const minRating = query.minRating ?? query.min_rating;
     const minPrice = query.minPrice ?? query.min_price;
     const maxPrice = query.maxPrice ?? query.max_price;
     const isFeatured = query.isFeatured ?? query.is_featured;
     const categoryFilter = query.categoryId || query.category;
+
+    // Date range filtering
+    const startDateStr = query.createdFrom || query.startDate || query.fromDate;
+    const endDateStr = query.createdTo || query.endDate || query.toDate;
+    const createdAtFilter: Prisma.DateTimeFilter = {};
+    if (startDateStr) {
+      createdAtFilter.gte = new Date(startDateStr);
+    }
+    if (endDateStr) {
+      const parsedEndDate = new Date(endDateStr);
+      if (endDateStr.length <= 10) {
+        parsedEndDate.setHours(23, 59, 59, 999);
+      }
+      createdAtFilter.lte = parsedEndDate;
+    }
 
     const where: Prisma.DestinationWhereInput = {
       ...(query.includeDeleted ? {} : { deletedAt: null }),
@@ -39,17 +54,18 @@ export class AdminDestinationsRepository {
       ...(minRating !== undefined && { rating: { gte: minRating } }),
       ...(minPrice !== undefined && { entranceFee: { gte: minPrice } }),
       ...(maxPrice !== undefined && { entranceFee: { lte: maxPrice } }),
+      ...(Object.keys(createdAtFilter).length > 0 && { createdAt: createdAtFilter }),
       ...(categoryFilter && {
         OR: [{ categoryId: categoryFilter }, { category: { slug: categoryFilter.toLowerCase() } }],
       }),
       ...(query.search && {
         OR: [
-          { name: { contains: query.search } },
-          { locationName: { contains: query.search } },
-          { description: { contains: query.search } },
-          { shortDescription: { contains: query.search } },
-          { address: { contains: query.search } },
-          { tags: { contains: query.search } },
+          { name: { contains: query.search.trim(), mode: 'insensitive' } },
+          { locationName: { contains: query.search.trim(), mode: 'insensitive' } },
+          { description: { contains: query.search.trim(), mode: 'insensitive' } },
+          { shortDescription: { contains: query.search.trim(), mode: 'insensitive' } },
+          { address: { contains: query.search.trim(), mode: 'insensitive' } },
+          { tags: { contains: query.search.trim(), mode: 'insensitive' } },
         ],
       }),
     };

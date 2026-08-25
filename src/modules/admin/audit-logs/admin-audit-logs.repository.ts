@@ -47,8 +47,8 @@ export class AdminAuditLogsRepository {
     }
 
     // 5. Date range filter
-    const startDateStr = query.startDate || query.fromDate;
-    const endDateStr = query.endDate || query.toDate;
+    const startDateStr = query.createdFrom || query.startDate || query.fromDate;
+    const endDateStr = query.createdTo || query.endDate || query.toDate;
     if (startDateStr || endDateStr) {
       where.createdAt = {};
       if (startDateStr) {
@@ -79,7 +79,7 @@ export class AdminAuditLogsRepository {
     }
 
     const sortBy = query.sortBy || query.sort_by || 'createdAt';
-    const order = query.order || 'desc';
+    const order = query.sortOrder || query.sort_order || query.order || 'desc';
 
     const [items, total] = await Promise.all([
       prisma.auditLog.findMany({

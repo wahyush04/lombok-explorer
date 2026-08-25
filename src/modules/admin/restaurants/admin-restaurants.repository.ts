@@ -12,7 +12,7 @@ export class AdminRestaurantsRepository {
     const skip = (page - 1) * limit;
 
     const sortBy = query.sortBy || query.sort_by || 'createdAt';
-    const order = query.order || 'desc';
+    const order = query.sortOrder || query.sort_order || query.order || 'desc';
 
     const minRating = query.minRating ?? query.min_rating;
     const minPrice = query.minPrice ?? query.min_price;
@@ -20,6 +20,21 @@ export class AdminRestaurantsRepository {
     const isFeatured = query.isFeatured;
     const isHalalCertified = query.isHalalCertified;
     const cuisineFilter = query.cuisineType || query.cuisine || query.category;
+
+    // Date range filtering
+    const startDateStr = query.createdFrom || query.startDate || query.fromDate;
+    const endDateStr = query.createdTo || query.endDate || query.toDate;
+    const createdAtFilter: Prisma.DateTimeFilter = {};
+    if (startDateStr) {
+      createdAtFilter.gte = new Date(startDateStr);
+    }
+    if (endDateStr) {
+      const parsedEndDate = new Date(endDateStr);
+      if (endDateStr.length <= 10) {
+        parsedEndDate.setHours(23, 59, 59, 999);
+      }
+      createdAtFilter.lte = parsedEndDate;
+    }
 
     const where: Prisma.RestaurantWhereInput = {
       ...(query.includeDeleted ? {} : { deletedAt: null }),
@@ -31,16 +46,17 @@ export class AdminRestaurantsRepository {
       ...(minRating !== undefined && { rating: { gte: minRating } }),
       ...(minPrice !== undefined && { minPrice: { gte: minPrice } }),
       ...(maxPrice !== undefined && { maxPrice: { lte: maxPrice } }),
+      ...(Object.keys(createdAtFilter).length > 0 && { createdAt: createdAtFilter }),
       ...(cuisineFilter && {
         cuisineType: { contains: cuisineFilter, mode: 'insensitive' },
       }),
       ...(query.search && {
         OR: [
-          { name: { contains: query.search, mode: 'insensitive' } },
-          { specialtyDish: { contains: query.search, mode: 'insensitive' } },
-          { cuisineType: { contains: query.search, mode: 'insensitive' } },
-          { description: { contains: query.search, mode: 'insensitive' } },
-          { address: { contains: query.search, mode: 'insensitive' } },
+          { name: { contains: query.search.trim(), mode: 'insensitive' } },
+          { specialtyDish: { contains: query.search.trim(), mode: 'insensitive' } },
+          { cuisineType: { contains: query.search.trim(), mode: 'insensitive' } },
+          { description: { contains: query.search.trim(), mode: 'insensitive' } },
+          { address: { contains: query.search.trim(), mode: 'insensitive' } },
         ],
       }),
     };

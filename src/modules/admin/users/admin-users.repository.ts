@@ -21,24 +21,34 @@ export class AdminUsersRepository {
     const skip = (page - 1) * limit;
 
     const sortBy = query.sortBy || query.sort_by || 'createdAt';
-    const order = query.order || 'desc';
+    const order = query.sortOrder || query.sort_order || query.order || 'desc';
+
+    // Date range filtering
+    const startDateStr = query.createdFrom || query.startDate || query.fromDate;
+    const endDateStr = query.createdTo || query.endDate || query.toDate;
+    const createdAtFilter: Prisma.DateTimeFilter = {};
+    if (startDateStr) {
+      createdAtFilter.gte = new Date(startDateStr);
+    }
+    if (endDateStr) {
+      const parsedEndDate = new Date(endDateStr);
+      if (endDateStr.length <= 10) {
+        parsedEndDate.setHours(23, 59, 59, 999);
+      }
+      createdAtFilter.lte = parsedEndDate;
+    }
 
     const where: Prisma.UserWhereInput = {
       ...(query.includeDeleted ? {} : { deletedAt: null }),
       ...(query.role && { role: query.role }),
       ...(query.status && { status: query.status }),
-      ...(query.email && { email: { contains: query.email, mode: 'insensitive' } }),
-      ...((query.startDate || query.endDate) && {
-        createdAt: {
-          ...(query.startDate && { gte: new Date(query.startDate) }),
-          ...(query.endDate && { lte: new Date(query.endDate) }),
-        },
-      }),
+      ...(query.email && { email: { contains: query.email.trim(), mode: 'insensitive' } }),
+      ...(Object.keys(createdAtFilter).length > 0 && { createdAt: createdAtFilter }),
       ...(query.search && {
         OR: [
-          { name: { contains: query.search, mode: 'insensitive' } },
-          { email: { contains: query.search, mode: 'insensitive' } },
-          { phone: { contains: query.search, mode: 'insensitive' } },
+          { name: { contains: query.search.trim(), mode: 'insensitive' } },
+          { email: { contains: query.search.trim(), mode: 'insensitive' } },
+          { phone: { contains: query.search.trim(), mode: 'insensitive' } },
         ],
       }),
     };

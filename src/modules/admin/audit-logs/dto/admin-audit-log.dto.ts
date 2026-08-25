@@ -14,10 +14,15 @@ export const AdminAuditLogFilterQuerySchema = z.object({
   fromDate: z.string().trim().optional(),
   endDate: z.string().trim().optional(),
   toDate: z.string().trim().optional(),
+  createdFrom: z.string().trim().optional(),
+  createdTo: z.string().trim().optional(),
+  status: z.string().trim().optional(),
   search: z.string().trim().optional(),
   sortBy: z.enum(['createdAt', 'action', 'entity']).default('createdAt'),
   sort_by: z.enum(['createdAt', 'action', 'entity']).optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  sort_order: z.enum(['asc', 'desc']).optional(),
 });
 
 export type AdminAuditLogFilterQuery = z.infer<typeof AdminAuditLogFilterQuerySchema>;

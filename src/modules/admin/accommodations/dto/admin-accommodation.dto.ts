@@ -39,6 +39,14 @@ export const AdminAccommodationFilterQuerySchema = z.object({
     .enum(['name', 'type', 'rating', 'reviewCount', 'pricePerNight', 'createdAt', 'updatedAt'])
     .optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  sort_order: z.enum(['asc', 'desc']).optional(),
+  createdFrom: z.string().trim().optional(),
+  createdTo: z.string().trim().optional(),
+  startDate: z.string().trim().optional(),
+  fromDate: z.string().trim().optional(),
+  endDate: z.string().trim().optional(),
+  toDate: z.string().trim().optional(),
 });
 
 export const CreateAccommodationSchema = z.object({

@@ -18,15 +18,31 @@ export class AdminCategoriesRepository {
     const skip = (page - 1) * limit;
 
     const sortBy = query.sortBy || query.sort_by || 'name';
-    const order = query.order || 'asc';
+    const order = query.sortOrder || query.sort_order || query.order || 'asc';
+
+    // Date range filtering
+    const startDateStr = query.createdFrom || query.startDate || query.fromDate;
+    const endDateStr = query.createdTo || query.endDate || query.toDate;
+    const createdAtFilter: Prisma.DateTimeFilter = {};
+    if (startDateStr) {
+      createdAtFilter.gte = new Date(startDateStr);
+    }
+    if (endDateStr) {
+      const parsedEndDate = new Date(endDateStr);
+      if (endDateStr.length <= 10) {
+        parsedEndDate.setHours(23, 59, 59, 999);
+      }
+      createdAtFilter.lte = parsedEndDate;
+    }
 
     const where: Prisma.CategoryWhereInput = {
       ...(query.status && { status: query.status }),
+      ...(Object.keys(createdAtFilter).length > 0 && { createdAt: createdAtFilter }),
       ...(query.search && {
         OR: [
-          { name: { contains: query.search } },
-          { description: { contains: query.search } },
-          { slug: { contains: query.search } },
+          { name: { contains: query.search.trim(), mode: 'insensitive' } },
+          { description: { contains: query.search.trim(), mode: 'insensitive' } },
+          { slug: { contains: query.search.trim(), mode: 'insensitive' } },
         ],
       }),
     };

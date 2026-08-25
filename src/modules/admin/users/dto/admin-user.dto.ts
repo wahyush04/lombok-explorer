@@ -8,8 +8,12 @@ export const AdminUserFilterQuerySchema = z.object({
   email: z.string().trim().optional(),
   role: z.nativeEnum(UserRole).optional(),
   status: z.nativeEnum(UserStatus).optional(),
-  startDate: z.string().datetime().optional(),
-  endDate: z.string().datetime().optional(),
+  startDate: z.string().trim().optional(),
+  fromDate: z.string().trim().optional(),
+  endDate: z.string().trim().optional(),
+  toDate: z.string().trim().optional(),
+  createdFrom: z.string().trim().optional(),
+  createdTo: z.string().trim().optional(),
   includeDeleted: z
     .preprocess((val) => {
       if (val === 'true' || val === true) return true;
@@ -22,6 +26,8 @@ export const AdminUserFilterQuerySchema = z.object({
     .default('createdAt'),
   sort_by: z.enum(['name', 'email', 'role', 'status', 'createdAt', 'updatedAt']).optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
+  sortOrder: z.enum(['asc', 'desc']).optional(),
+  sort_order: z.enum(['asc', 'desc']).optional(),
 });
 
 export const UpdateUserSchema = z.object({
