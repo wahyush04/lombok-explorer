@@ -9,6 +9,9 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
   let userToken = '';
   let createdRestaurantId = '';
   let secondRestaurantId = '';
+  const testSuffix = Date.now();
+  const testSlug1 = `warung-nasi-balap-puyung-${testSuffix}`;
+  const testSlug2 = `seafood-segar-pantai-nipah-${testSuffix}`;
 
   beforeAll(async () => {
     app = createApp();
@@ -101,8 +104,8 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
 
     it('should create a new restaurant successfully (201 Created)', async () => {
       const payload = {
-        name: 'Warung Nasi Balap Puyung Cap Inaq',
-        slug: 'warung-nasi-balap-puyung-cap-inaq',
+        name: `Warung Nasi Balap Puyung Cap Inaq ${testSuffix}`,
+        slug: testSlug1,
         description: 'Kuliner pedas khas Lombok Tengah dengan suwiran ayam gurih pedas dan kedelai goreng.',
         cuisineType: 'Tradisional Sasak',
         specialtyDish: 'Nasi Balap Puyung Super Pedas',
@@ -146,7 +149,7 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
           name: 'Warung Nasi Balap Puyung Duplikat',
-          slug: 'warung-nasi-balap-puyung-cap-inaq',
+          slug: testSlug1,
           description: 'Deskripsi restoran duplikat',
           cuisineType: 'Tradisional Sasak',
           specialtyDish: 'Nasi Balap',
@@ -169,8 +172,8 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
         .post('/api/v1/admin/restaurants')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Seafood Segar Pantai Nipah',
-          slug: 'seafood-segar-pantai-nipah',
+          name: `Seafood Segar Pantai Nipah ${testSuffix}`,
+          slug: testSlug2,
           description: 'Ikan bakar segar tepi pantai Nipah dengan sambal beberoq pedas.',
           cuisineType: 'Seafood & Bakaran',
           specialtyDish: 'Ikan Baronang Bakar Madu',
@@ -208,7 +211,7 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.id).toBe(createdRestaurantId);
-      expect(res.body.data.name).toBe('Warung Nasi Balap Puyung Cap Inaq');
+      expect(res.body.data.slug).toBe(testSlug1);
     });
   });
 
@@ -235,7 +238,7 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
         .put(`/api/v1/admin/restaurants/${createdRestaurantId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          slug: 'seafood-segar-pantai-nipah',
+          slug: testSlug2,
         });
 
       expect(res.status).toBe(409);

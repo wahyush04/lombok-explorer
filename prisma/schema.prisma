@@ -407,15 +407,19 @@ model Accommodation {
   images        String       @db.Text // JSON array of image URLs
   amenities     String       @db.Text // JSON array of amenities
   contactPhone  String?
-  websiteUrl    String?      @db.Text
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
+  websiteUrl    String?           @db.Text
+  status        DestinationStatus @default(PUBLISHED)
+  isFeatured    Boolean           @default(false)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
   deletedAt     DateTime?
 
   @@index([region])
   @@index([type])
   @@index([pricePerNight])
   @@index([rating])
+  @@index([status])
+  @@index([isFeatured])
   @@map("accommodations")
 }
 

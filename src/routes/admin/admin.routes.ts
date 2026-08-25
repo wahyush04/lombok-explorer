@@ -4,6 +4,7 @@ import { adminDashboardRoutes } from '../../modules/admin/dashboard/admin-dashbo
 import { adminDestinationRoutes } from '../../modules/admin/destinations/admin-destinations.routes';
 import { adminCategoryRoutes } from '../../modules/admin/categories/admin-categories.routes';
 import { adminRestaurantRoutes } from '../../modules/admin/restaurants/admin-restaurants.routes';
+import { adminAccommodationRoutes } from '../../modules/admin/accommodations/admin-accommodations.routes';
 
 const router = Router();
 
@@ -25,5 +26,8 @@ router.use('/categories', adminCategoryRoutes);
 
 // 5. Admin Restaurants Management (/api/v1/admin/restaurants)
 router.use('/restaurants', adminRestaurantRoutes);
+
+// 6. Admin Accommodations Management (/api/v1/admin/accommodations)
+router.use('/accommodations', adminAccommodationRoutes);
 
 export const adminRoutes = router;
