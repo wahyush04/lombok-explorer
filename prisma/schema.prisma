@@ -116,6 +116,7 @@ model User {
   expenses        Expense[]
   journals        TravelJournal[]
   checklists      Checklist[]
+  auditLogs       AuditLog[]
 
   @@index([email])
   @@index([role])
@@ -541,9 +542,12 @@ model WeatherCache {
 model AuditLog {
   id         String   @id @default(uuid())
   userId     String?
+  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   action     String   // CREATE, UPDATE, DELETE, MODERATE, LOGIN, LOGOUT
-  entity     String   // Destination, Category, Review, User, etc.
+  entity     String   // Destination, Category, Review, User, Restaurant, Accommodation, etc.
   entityId   String?
+  oldValues  String?  @db.Text // JSON string of before state
+  newValues  String?  @db.Text // JSON string of after state
   details    String?  @db.Text // JSON string of operation metadata
   ipAddress  String?
   userAgent  String?
@@ -552,7 +556,9 @@ model AuditLog {
   @@index([userId])
   @@index([action])
   @@index([entity])
+  @@index([entityId])
   @@index([createdAt])
   @@map("audit_logs")
 }
+
 
