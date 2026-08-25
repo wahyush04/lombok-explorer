@@ -18,8 +18,8 @@ export const generalLimiter: RateLimitRequestHandler = rateLimit({
 });
 
 /**
- * Authentication Rate Limiter (Brute-force protection)
- * Applied to sensitive auth endpoints (/v1/auth/*)
+ * Public Authentication Rate Limiter (Brute-force protection)
+ * Applied to public auth endpoints (/v1/auth/*)
  */
 export const authLimiter: RateLimitRequestHandler = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
@@ -30,6 +30,23 @@ export const authLimiter: RateLimitRequestHandler = rateLimit({
     success: false,
     message: 'Too many authentication attempts from this IP, please try again after 15 minutes.',
     errorCode: 'AUTH_RATE_LIMIT_EXCEEDED',
+  },
+});
+
+/**
+ * Dedicated Admin Authentication Rate Limiter (High-risk Brute-force protection)
+ * Applied specifically to Admin Auth endpoints (/admin/auth/login, /admin/auth/refresh)
+ */
+export const adminAuthLimiter: RateLimitRequestHandler = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: config.app.isTest ? 1000 : 5, // Strict: 5 attempts per 15 minutes in production
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message:
+      'Too many administrator authentication attempts from this IP, please try again after 15 minutes.',
+    errorCode: 'ADMIN_AUTH_RATE_LIMIT_EXCEEDED',
   },
 });
 

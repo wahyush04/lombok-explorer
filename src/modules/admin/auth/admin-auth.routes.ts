@@ -4,22 +4,22 @@ import { validate } from '../../../common/middleware/validate.middleware';
 import { LoginDtoSchema, RefreshTokenDtoSchema } from '../../auth/dto/auth.dto';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
-import { authLimiter } from '../../../common/middleware/rate-limit.middleware';
+import { adminAuthLimiter } from '../../../common/middleware/rate-limit.middleware';
 
 const router = Router();
 
-// 1. Admin Login (rate limited & schema validated)
+// 1. Admin Login (rate limited with specialized adminAuthLimiter & schema validated)
 router.post(
   '/login',
-  authLimiter,
+  adminAuthLimiter,
   validate(LoginDtoSchema),
   asyncHandler(adminAuthController.login),
 );
 
-// 2. Admin Token Refresh (schema validated)
+// 2. Admin Token Refresh (rate limited & schema validated)
 router.post(
   '/refresh',
-  authLimiter,
+  adminAuthLimiter,
   validate(RefreshTokenDtoSchema),
   asyncHandler(adminAuthController.refreshToken),
 );

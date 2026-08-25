@@ -7,13 +7,20 @@ import { AuthUserPayload } from '../types';
 export const authenticate = (req: Request, _res: Response, next: NextFunction): void => {
   const authHeader = req.headers.authorization;
 
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader) {
     throw new UnauthorizedError('Authentication token is required', 'TOKEN_MISSING');
   }
 
-  const token = authHeader.split(' ')[1];
+  if (!authHeader.startsWith('Bearer ')) {
+    throw new UnauthorizedError(
+      'Malformed authorization header, Bearer scheme required',
+      'TOKEN_MALFORMED',
+    );
+  }
+
+  const token = authHeader.substring(7).trim();
   if (!token) {
-    throw new UnauthorizedError('Malformed authorization header', 'TOKEN_MALFORMED');
+    throw new UnauthorizedError('Malformed authorization header, token missing', 'TOKEN_MALFORMED');
   }
 
   try {
