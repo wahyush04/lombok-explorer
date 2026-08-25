@@ -10,6 +10,8 @@ describe('Admin Authentication & Authorization Suite (Phase 1 & 2)', () => {
   let userAccessToken = '';
   let userRefreshToken = '';
 
+  let adminEmail = '';
+
   beforeAll(async () => {
     app = createApp();
 
@@ -22,12 +24,26 @@ describe('Admin Authentication & Authorization Suite (Phase 1 & 2)', () => {
     });
     userAccessToken = userRes.body.data.accessToken;
     userRefreshToken = userRes.body.data.refreshToken;
+
+    // Create a dedicated admin user to avoid race conditions with other test files
+    adminEmail = `dedicated.admin.${userSuffix}@lombokexplorer.com`;
+    await request(app).post('/api/v1/auth/register').send({
+      name: `Admin Test User ${userSuffix}`,
+      email: adminEmail,
+      password: 'Password123!',
+    });
+    // Promote user to ADMIN in DB
+    const { prisma } = await import('../../src/database/prisma');
+    await prisma.user.update({
+      where: { email: adminEmail },
+      data: { role: 'ADMIN' },
+    });
   });
 
   describe('POST /api/v1/admin/auth/login', () => {
     it('should successfully authenticate an administrator and return admin tokens', async () => {
       const response = await request(app).post('/api/v1/admin/auth/login').send({
-        email: 'admin@lombokexplorer.com',
+        email: adminEmail,
         password: 'Password123!',
       });
 
@@ -36,7 +52,7 @@ describe('Admin Authentication & Authorization Suite (Phase 1 & 2)', () => {
       expect(response.body.message).toBe('Login successful');
       expect(response.body.data).toHaveProperty('accessToken');
       expect(response.body.data).toHaveProperty('refreshToken');
-      expect(response.body.data.user).toHaveProperty('email', 'admin@lombokexplorer.com');
+      expect(response.body.data.user).toHaveProperty('email', adminEmail);
       expect(response.body.data.user).toHaveProperty('role', 'ADMIN');
       expect(response.body.data.user).not.toHaveProperty('password');
       expect(response.body.data.user).not.toHaveProperty('refreshToken');
@@ -137,7 +153,7 @@ describe('Admin Authentication & Authorization Suite (Phase 1 & 2)', () => {
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('email', 'admin@lombokexplorer.com');
+      expect(response.body.data).toHaveProperty('email', adminEmail);
       expect(response.body.data).toHaveProperty('role', 'ADMIN');
       expect(response.body.data).not.toHaveProperty('password');
     });

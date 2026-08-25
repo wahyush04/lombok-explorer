@@ -25,9 +25,19 @@ export const authenticate = (req: Request, _res: Response, next: NextFunction): 
 
   try {
     const decoded = jwt.verify(token, config.jwt.accessSecret) as AuthUserPayload;
+    if (
+      !decoded.userId ||
+      !decoded.role ||
+      (decoded as unknown as Record<string, unknown>).type === 'google_registration'
+    ) {
+      throw new UnauthorizedError('Invalid access token signature or payload', 'INVALID_TOKEN');
+    }
     req.user = decoded;
     next();
   } catch (err: unknown) {
+    if (err instanceof UnauthorizedError) {
+      throw err;
+    }
     if (err instanceof jwt.TokenExpiredError) {
       throw new UnauthorizedError('Access token has expired, please refresh', 'TOKEN_EXPIRED');
     }

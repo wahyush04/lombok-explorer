@@ -2,7 +2,9 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { AuthProvider, User, UserRole } from '@prisma/client';
 import { config } from '../../config/config';
+import { prisma } from '../../database/prisma';
 import {
+  BadRequestError,
   ConflictError,
   ForbiddenError,
   NotFoundError,
@@ -11,6 +13,8 @@ import {
 import { authRepository, AuthRepository } from './auth.repository';
 import {
   AuthTokens,
+  CompleteGoogleRegistrationDto,
+  CompleteGoogleRegistrationResult,
   GoogleAuthDto,
   GoogleAuthResult,
   LoginDto,
@@ -276,14 +280,85 @@ export class AuthService {
   }
 
   /**
-   * Google Sign-In & Single-Account Linking flow:
+   * Generates a signed, short-lived registration token for new Google users.
+   * Tamper-resistant, contains Google profile data, and cannot be used as access token.
+   */
+  public generateGoogleRegistrationToken(profile: {
+    sub: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  }): string {
+    return jwt.sign(
+      {
+        sub: profile.sub,
+        email: profile.email,
+        name: profile.name,
+        avatarUrl: profile.avatarUrl,
+        type: 'google_registration',
+      },
+      config.jwt.accessSecret,
+      { expiresIn: '15m' },
+    );
+  }
+
+  /**
+   * Verifies and decodes Google registration token.
+   */
+  public verifyGoogleRegistrationToken(token: string): {
+    sub: string;
+    email: string;
+    name: string;
+    avatarUrl?: string;
+  } {
+    try {
+      const decoded = jwt.verify(token, config.jwt.accessSecret) as {
+        sub: string;
+        email: string;
+        name: string;
+        avatarUrl?: string;
+        type: string;
+      };
+
+      if (decoded.type !== 'google_registration' || !decoded.sub || !decoded.email) {
+        throw new UnauthorizedError(
+          'Invalid registration token payload',
+          'INVALID_REGISTRATION_TOKEN',
+        );
+      }
+
+      return {
+        sub: decoded.sub,
+        email: decoded.email,
+        name: decoded.name,
+        avatarUrl: decoded.avatarUrl,
+      };
+    } catch (err: unknown) {
+      if (err instanceof UnauthorizedError) {
+        throw err;
+      }
+      if (err instanceof jwt.TokenExpiredError) {
+        throw new UnauthorizedError(
+          'Registration token has expired. Please sign in with Google again.',
+          'REGISTRATION_TOKEN_EXPIRED',
+        );
+      }
+      throw new UnauthorizedError(
+        'Invalid or malformed registration token',
+        'INVALID_REGISTRATION_TOKEN',
+      );
+    }
+  }
+
+  /**
+   * Google Sign-In & Single-Account Linking flow (Phase 4 & 5):
    * 1. Validate & verify Google ID Token cryptographically
    * 2. Extract Google sub, email, name, avatar
    * 3. Look up AuthIdentity(provider: GOOGLE, providerAccountId: sub)
    * 4. If found -> CASE A: Log in to existing linked account
    *    If not found -> Check if user with same verified email exists:
-   *      - If exists -> CASE B: Link Google identity to existing User account
-   *      - If not exists -> CASE C: Create new User + Google AuthIdentity
+   *      - If exists -> CASE B: Link Google identity to existing User account & return LOGIN_SUCCESS
+   *      - If not exists -> PHASE 5: Return REGISTRATION_REQUIRED with registrationToken & profile
    * 5. Enforce account status checks (deleted, suspended, inactive)
    * 6. Issue access & refresh JWT tokens
    */
@@ -307,17 +382,24 @@ export class AuthService {
         await this.repository.createIdentity(existingUser.id, AuthProvider.GOOGLE, googleUser.sub);
         user = existingUser;
       } else {
-        // CASE C: Brand new user -> Create User + Google AuthIdentity
-        user = await this.repository.create({
+        // PHASE 5: Google identity tidak ditemukan dan user belum ada
+        // Jangan langsung membuat User. Return status REGISTRATION_REQUIRED with signed registrationToken
+        const registrationToken = this.generateGoogleRegistrationToken({
+          sub: googleUser.sub,
           email: googleUser.email,
           name: googleUser.name,
-          password: null,
           avatarUrl: googleUser.avatarUrl,
-          isEmailVerified: googleUser.isEmailVerified,
-          role: UserRole.USER,
         });
 
-        await this.repository.createIdentity(user.id, AuthProvider.GOOGLE, googleUser.sub);
+        return {
+          status: 'REGISTRATION_REQUIRED',
+          registrationToken,
+          profile: {
+            name: googleUser.name,
+            email: googleUser.email,
+            avatarUrl: googleUser.avatarUrl || null,
+          },
+        };
       }
     }
 
@@ -349,6 +431,111 @@ export class AuthService {
     // 6. Return Login Success Response
     return {
       status: 'LOGIN_SUCCESS',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      tokenType: 'Bearer',
+      user: this.sanitizeUser(user),
+    };
+  }
+
+  /**
+   * Complete Google Registration (Phase 6):
+   * 1. Verify short-lived registrationToken and recover Google profile
+   * 2. Validate username & password
+   * 3. Run Prisma transaction:
+   *    - Check duplicate email or sub
+   *    - Hash password with bcrypt
+   *    - Create User
+   *    - Create AuthIdentity(provider: GOOGLE, providerAccountId: sub)
+   * 4. Issue JWT access & refresh tokens
+   * 5. Return session with REGISTRATION_SUCCESS
+   */
+  public async completeGoogleRegistration(
+    dto: CompleteGoogleRegistrationDto,
+  ): Promise<CompleteGoogleRegistrationResult> {
+    // 1. Verify Registration Token & recover Google profile
+    const googleProfile = this.verifyGoogleRegistrationToken(dto.registrationToken);
+
+    const username = dto.username || dto.name || googleProfile.name;
+    if (!username || username.trim().length < 2) {
+      throw new BadRequestError('Username must be at least 2 characters', 'INVALID_USERNAME');
+    }
+
+    if (!dto.password || dto.password.length < 6) {
+      throw new BadRequestError('Password must be at least 6 characters', 'INVALID_PASSWORD');
+    }
+
+    // 2. Hash Password with bcrypt
+    const hashedPassword = await this.hashPassword(dto.password);
+
+    // 3. Execute Prisma Transaction
+    const user = await prisma.$transaction(async (tx) => {
+      // Check if email already exists
+      const existingUser = await tx.user.findFirst({
+        where: {
+          email: googleProfile.email.toLowerCase().trim(),
+          deletedAt: null,
+        },
+      });
+
+      if (existingUser) {
+        throw new ConflictError(
+          'An account with this email address already exists',
+          'EMAIL_ALREADY_EXISTS',
+        );
+      }
+
+      // Check if Google identity is already linked
+      const existingIdentity = await tx.authIdentity.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider: AuthProvider.GOOGLE,
+            providerAccountId: googleProfile.sub,
+          },
+        },
+      });
+
+      if (existingIdentity) {
+        throw new ConflictError(
+          'This Google account is already registered',
+          'IDENTITY_ALREADY_EXISTS',
+        );
+      }
+
+      // Create User
+      const newUser = await tx.user.create({
+        data: {
+          name: username.trim(),
+          email: googleProfile.email.toLowerCase().trim(),
+          password: hashedPassword,
+          avatarUrl: googleProfile.avatarUrl,
+          isEmailVerified: true,
+          role: UserRole.USER,
+        },
+      });
+
+      // Create AuthIdentity
+      await tx.authIdentity.create({
+        data: {
+          userId: newUser.id,
+          provider: AuthProvider.GOOGLE,
+          providerAccountId: googleProfile.sub,
+        },
+      });
+
+      return newUser;
+    });
+
+    // 4. Generate JWT tokens
+    const tokens = this.generateTokens(user);
+
+    // 5. Update refresh token in DB
+    await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
+
+    // 6. Return Registration Success
+    return {
+      status: 'REGISTRATION_SUCCESS',
       accessToken: tokens.accessToken,
       refreshToken: tokens.refreshToken,
       expiresIn: tokens.expiresIn,

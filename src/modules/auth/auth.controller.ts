@@ -2,7 +2,13 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../common/utils/async-handler.util';
 import { ResponseUtil } from '../../common/utils/api-response.util';
 import { authService, AuthService } from './auth.service';
-import { GoogleAuthDto, LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
+import {
+  CompleteGoogleRegistrationDto,
+  GoogleAuthDto,
+  LoginDto,
+  RefreshTokenDto,
+  RegisterDto,
+} from './dto/auth.dto';
 import { HttpStatus } from '../../common/constants';
 
 export class AuthController {
@@ -28,7 +34,15 @@ export class AuthController {
   public googleLogin = asyncHandler(async (req: Request, res: Response) => {
     const dto = req.body as GoogleAuthDto;
     const result = await this.service.googleLogin(dto);
-    return ResponseUtil.sendSuccess(res, result, 'Login successful');
+    const message =
+      result.status === 'REGISTRATION_REQUIRED' ? 'Registration required' : 'Login successful';
+    return ResponseUtil.sendSuccess(res, result, message);
+  });
+
+  public completeGoogleRegistration = asyncHandler(async (req: Request, res: Response) => {
+    const dto = req.body as CompleteGoogleRegistrationDto;
+    const result = await this.service.completeGoogleRegistration(dto);
+    return ResponseUtil.sendSuccess(res, result, 'Registration successful', HttpStatus.CREATED);
   });
 
   public refresh = asyncHandler(async (req: Request, res: Response) => {

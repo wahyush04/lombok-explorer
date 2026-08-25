@@ -164,7 +164,7 @@ paths:
         Authenticates user with a cryptographically verified Google ID Token.
         - If Google identity is already linked -> logs in directly.
         - If Google identity is not yet linked but email matches existing account -> links Google account to existing user and logs in.
-        - If user does not exist -> creates new user and links Google identity.
+        - If user does not exist -> returns REGISTRATION_REQUIRED with short-lived registrationToken.
       operationId: googleLogin
       tags:
         - Auth
@@ -176,7 +176,7 @@ paths:
               $ref: '#/components/schemas/GoogleAuthRequest'
       responses:
         '200':
-          description: Login successful
+          description: Login or registration required response
           content:
             application/json:
               schema:
@@ -195,6 +195,45 @@ paths:
                 errorCode: "INVALID_GOOGLE_TOKEN"
         '403':
           $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/google/register:
+    post:
+      summary: Complete user registration with Google account and set password
+      description: |
+        Completes registration for a new user using a signed `registrationToken` received from `POST /auth/google`.
+        Creates User record, sets initial password hash, links Google `AuthIdentity`, and returns active JWT session.
+      operationId: completeGoogleRegistration
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteGoogleRegistrationRequest'
+      responses:
+        '201':
+          description: Registration successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteGoogleRegistrationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: Invalid or expired registration token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Registration token has expired. Please sign in with Google again."
+                errorCode: "REGISTRATION_TOKEN_EXPIRED"
+        '409':
+          $ref: '#/components/responses/ConflictError'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1789,7 +1828,106 @@ components:
           type: string
           example: "Login successful"
         data:
-          $ref: '#/components/schemas/GoogleAuthData'
+          type: object
+          properties:
+            status:
+              type: string
+              enum:
+                - LOGIN_SUCCESS
+                - REGISTRATION_REQUIRED
+              example: "LOGIN_SUCCESS"
+            accessToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            refreshToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            expiresIn:
+              type: integer
+              example: 900
+            tokenType:
+              type: string
+              example: "Bearer"
+            registrationToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            profile:
+              type: object
+              properties:
+                name:
+                  type: string
+                  example: "Wahyu Traveler"
+                email:
+                  type: string
+                  example: "traveler@example.com"
+                avatarUrl:
+                  type: string
+                  nullable: true
+                  example: "https://lh3.googleusercontent.com/a/photo"
+            user:
+              $ref: '#/components/schemas/UserDto'
+
+    CompleteGoogleRegistrationRequest:
+      type: object
+      required:
+        - registrationToken
+        - username
+        - password
+      properties:
+        registrationToken:
+          type: string
+          description: Short-lived signed registration token from POST /auth/google
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        username:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "wahyu"
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          example: "secure-password123"
+
+    CompleteGoogleRegistrationResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Registration successful"
+        data:
+          type: object
+          required:
+            - status
+            - accessToken
+            - refreshToken
+            - expiresIn
+            - user
+          properties:
+            status:
+              type: string
+              example: "REGISTRATION_SUCCESS"
+            accessToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            refreshToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            expiresIn:
+              type: integer
+              example: 900
+            tokenType:
+              type: string
+              example: "Bearer"
+            user:
+              $ref: '#/components/schemas/UserDto'
 
     UpdateProfileRequest:
       type: object

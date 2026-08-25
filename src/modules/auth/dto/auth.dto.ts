@@ -36,10 +36,40 @@ export const GoogleAuthDtoSchema = z.object({
     .min(1, 'Google idToken cannot be empty'),
 });
 
+export const CompleteGoogleRegistrationDtoSchema = z
+  .object({
+    registrationToken: z
+      .string({
+        required_error: 'registrationToken is required',
+      })
+      .min(1, 'registrationToken cannot be empty'),
+    username: z
+      .string()
+      .min(2, 'Username must be at least 2 characters')
+      .max(100, 'Username must not exceed 100 characters')
+      .optional(),
+    name: z
+      .string()
+      .min(2, 'Name must be at least 2 characters')
+      .max(100, 'Name must not exceed 100 characters')
+      .optional(),
+    password: z
+      .string({
+        required_error: 'Password is required',
+      })
+      .min(6, 'Password must be at least 6 characters')
+      .max(100, 'Password must not exceed 100 characters'),
+  })
+  .refine((data) => data.username || data.name, {
+    message: 'Username is required',
+    path: ['username'],
+  });
+
 export type RegisterDto = z.infer<typeof RegisterDtoSchema>;
 export type LoginDto = z.infer<typeof LoginDtoSchema>;
 export type RefreshTokenDto = z.infer<typeof RefreshTokenDtoSchema>;
 export type GoogleAuthDto = z.infer<typeof GoogleAuthDtoSchema>;
+export type CompleteGoogleRegistrationDto = z.infer<typeof CompleteGoogleRegistrationDtoSchema>;
 
 export interface SanitizedUser {
   id: string;
@@ -64,8 +94,27 @@ export interface AuthTokens {
   user: SanitizedUser;
 }
 
-export interface GoogleAuthResult {
-  status: 'LOGIN_SUCCESS' | 'NEED_REGISTRATION';
+export type GoogleAuthResult =
+  | {
+      status: 'LOGIN_SUCCESS';
+      accessToken: string;
+      refreshToken: string;
+      expiresIn: number;
+      tokenType: 'Bearer';
+      user: SanitizedUser;
+    }
+  | {
+      status: 'REGISTRATION_REQUIRED';
+      registrationToken: string;
+      profile: {
+        name: string;
+        email: string;
+        avatarUrl?: string | null;
+      };
+    };
+
+export interface CompleteGoogleRegistrationResult {
+  status: 'REGISTRATION_SUCCESS';
   accessToken: string;
   refreshToken: string;
   expiresIn: number;

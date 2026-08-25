@@ -6,11 +6,11 @@ import { prisma } from '../src/database/prisma';
 import { AuthProvider, UserRole, UserStatus } from '@prisma/client';
 import { googleAuthService } from '../src/modules/auth/google-auth.service';
 
-describe('Google Authentication & Single Account Linking (Phase 4)', () => {
+describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 6)', () => {
   let app: Application;
 
   const testGoogleUser = {
-    email: 'google.traveler@example.com',
+    email: 'new.google.traveler@example.com',
     sub: 'google_sub_109283746501928374650',
     name: 'Google Traveler',
     avatarUrl: 'https://lh3.googleusercontent.com/a/mock-photo-url',
@@ -103,9 +103,10 @@ describe('Google Authentication & Single Account Linking (Phase 4)', () => {
     });
   });
 
-  describe('3. Google Login - CASE C (New User Registration via Google)', () => {
-    it('should create new User and AuthIdentity when user does not exist', async () => {
-      // Mock Google Token Verification
+  describe('3. Phase 5 — Google Account Belum Terdaftar (REGISTRATION_REQUIRED)', () => {
+    let registrationToken: string;
+
+    it('should return REGISTRATION_REQUIRED with registrationToken and profile when user does not exist', async () => {
       vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
         sub: testGoogleUser.sub,
         email: testGoogleUser.email,
@@ -120,31 +121,38 @@ describe('Google Authentication & Single Account Linking (Phase 4)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('success', true);
-      expect(res.body).toHaveProperty('message', 'Login successful');
-      expect(res.body.data).toHaveProperty('status', 'LOGIN_SUCCESS');
-      expect(res.body.data).toHaveProperty('accessToken');
-      expect(res.body.data).toHaveProperty('refreshToken');
-      expect(res.body.data).toHaveProperty('tokenType', 'Bearer');
-      expect(res.body.data.user).toHaveProperty('email', testGoogleUser.email);
-      expect(res.body.data.user).toHaveProperty('name', testGoogleUser.name);
-      expect(res.body.data.user).toHaveProperty('isEmailVerified', true);
+      expect(res.body).toHaveProperty('message', 'Registration required');
+      expect(res.body.data).toHaveProperty('status', 'REGISTRATION_REQUIRED');
+      expect(res.body.data).toHaveProperty('registrationToken');
+      expect(res.body.data).toHaveProperty('profile');
+      expect(res.body.data.profile).toHaveProperty('email', testGoogleUser.email);
+      expect(res.body.data.profile).toHaveProperty('name', testGoogleUser.name);
+      expect(res.body.data.profile).toHaveProperty('avatarUrl', testGoogleUser.avatarUrl);
 
-      // Verify Database records
-      const savedUser = await prisma.user.findUnique({
+      registrationToken = res.body.data.registrationToken;
+
+      // Ensure user has NOT been created in DB yet
+      const userInDb = await prisma.user.findUnique({
         where: { email: testGoogleUser.email },
-        include: { identities: true },
       });
+      expect(userInDb).toBeNull();
+    });
 
-      expect(savedUser).toBeDefined();
-      expect(savedUser?.identities.length).toBe(1);
-      expect(savedUser?.identities[0].provider).toBe(AuthProvider.GOOGLE);
-      expect(savedUser?.identities[0].providerAccountId).toBe(testGoogleUser.sub);
+    it('should NOT allow registrationToken to be used as an accessToken for protected routes', async () => {
+      const res = await request(app)
+        .get('/api/v1/auth/me')
+        .set('Authorization', `Bearer ${registrationToken}`);
+
+      expect(res.status).toBe(401);
     });
   });
 
-  describe('4. Google Login - CASE A (Already Linked Google Identity)', () => {
-    it('should find existing AuthIdentity and return login success', async () => {
-      // Mock Google Token Verification returning the same sub
+  describe('4. Phase 6 — Complete Google Registration (POST /api/v1/auth/google/register)', () => {
+    let registrationToken: string;
+    let registeredUserId: string;
+
+    beforeAll(async () => {
+      // Obtain fresh registration token
       vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
         sub: testGoogleUser.sub,
         email: testGoogleUser.email,
@@ -155,17 +163,93 @@ describe('Google Authentication & Single Account Linking (Phase 4)', () => {
 
       const res = await request(app)
         .post('/api/v1/auth/google')
-        .send({ idToken: 'valid_mock_google_id_token_existing' });
+        .send({ idToken: 'valid_mock_google_id_token_new_user_2' });
+
+      registrationToken = res.body.data.registrationToken;
+    });
+
+    it('should reject registration when registrationToken or password is missing', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/google/register')
+        .send({ username: 'wahyu' });
+
+      expect(res.status).toBe(400);
+      expect(res.body.errorCode).toBe('VALIDATION_ERROR');
+    });
+
+    it('should reject invalid or tampered registrationToken', async () => {
+      const res = await request(app).post('/api/v1/auth/google/register').send({
+        registrationToken: 'tampered.token.here',
+        username: 'wahyu',
+        password: 'secure-password-123',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('INVALID_REGISTRATION_TOKEN');
+    });
+
+    it('should successfully complete registration and create User + AuthIdentity in transaction', async () => {
+      const res = await request(app).post('/api/v1/auth/google/register').send({
+        registrationToken,
+        username: 'wahyutraveler',
+        password: 'securePassword@2026',
+      });
+
+      expect(res.status).toBe(201);
+      expect(res.body).toHaveProperty('success', true);
+      expect(res.body).toHaveProperty('message', 'Registration successful');
+      expect(res.body.data).toHaveProperty('status', 'REGISTRATION_SUCCESS');
+      expect(res.body.data).toHaveProperty('accessToken');
+      expect(res.body.data).toHaveProperty('refreshToken');
+      expect(res.body.data.user).toHaveProperty('email', testGoogleUser.email);
+      expect(res.body.data.user).toHaveProperty('name', 'wahyutraveler');
+
+      registeredUserId = res.body.data.user.id;
+
+      // Verify Database records
+      const savedUser = await prisma.user.findUnique({
+        where: { id: registeredUserId },
+        include: { identities: true },
+      });
+
+      expect(savedUser).toBeDefined();
+      expect(savedUser?.password).not.toBeNull();
+      expect(savedUser?.identities.length).toBe(1);
+      expect(savedUser?.identities[0].provider).toBe(AuthProvider.GOOGLE);
+      expect(savedUser?.identities[0].providerAccountId).toBe(testGoogleUser.sub);
+    });
+
+    it('should allow subsequent login via Username/Email + Password with SAME User ID', async () => {
+      const res = await request(app).post('/api/v1/auth/login').send({
+        email: testGoogleUser.email,
+        password: 'securePassword@2026',
+      });
 
       expect(res.status).toBe(200);
-      expect(res.body).toHaveProperty('success', true);
-      expect(res.body.data).toHaveProperty('status', 'LOGIN_SUCCESS');
-      expect(res.body.data).toHaveProperty('accessToken');
-      expect(res.body.data.user).toHaveProperty('email', testGoogleUser.email);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.user.id).toBe(registeredUserId);
+    });
+
+    it('should allow subsequent login via Google Sign-In with SAME User ID (CASE A)', async () => {
+      vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
+        sub: testGoogleUser.sub,
+        email: testGoogleUser.email,
+        name: testGoogleUser.name,
+        isEmailVerified: true,
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/google')
+        .send({ idToken: 'valid_mock_google_id_token_subsequent' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.status).toBe('LOGIN_SUCCESS');
+      expect(res.body.data.user.id).toBe(registeredUserId);
     });
   });
 
-  describe('5. Google Login - CASE B (Account Linking to Existing Password User)', () => {
+  describe('5. Single-Account Linking (Existing Password User -> Google Sign-In)', () => {
     let passwordUserId: string;
 
     it('should register a standard Password user first', async () => {
@@ -180,8 +264,7 @@ describe('Google Authentication & Single Account Linking (Phase 4)', () => {
       passwordUserId = res.body.data.user.id;
     });
 
-    it('should link Google AuthIdentity to the SAME User ID when logging in with same email', async () => {
-      // Mock Google Token Verification with same email as password user
+    it('should automatically link Google AuthIdentity to the SAME User ID when logging in with same email', async () => {
       vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
         sub: existingPasswordUser.googleSub,
         email: existingPasswordUser.email,
@@ -197,7 +280,6 @@ describe('Google Authentication & Single Account Linking (Phase 4)', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.status).toBe('LOGIN_SUCCESS');
-      // CRITICAL REQUIREMENT: Must produce the exact same User ID!
       expect(res.body.data.user.id).toBe(passwordUserId);
 
       // Verify that the user in DB now has the GOOGLE identity linked
@@ -211,18 +293,15 @@ describe('Google Authentication & Single Account Linking (Phase 4)', () => {
       expect(userInDb?.identities[0].providerAccountId).toBe(existingPasswordUser.googleSub);
     });
 
-    it('should allow subsequent login via Username/Email + Password with SAME User ID', async () => {
-      const res = await request(app).post('/api/v1/auth/login').send({
+    it('should allow login via password and login via Google resulting in identical User ID', async () => {
+      // 1. Login via Password
+      const passLoginRes = await request(app).post('/api/v1/auth/login').send({
         email: existingPasswordUser.email,
         password: existingPasswordUser.password,
       });
+      expect(passLoginRes.body.data.user.id).toBe(passwordUserId);
 
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.user.id).toBe(passwordUserId);
-    });
-
-    it('should allow subsequent login via Google with SAME User ID', async () => {
+      // 2. Login via Google
       vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
         sub: existingPasswordUser.googleSub,
         email: existingPasswordUser.email,
@@ -230,14 +309,10 @@ describe('Google Authentication & Single Account Linking (Phase 4)', () => {
         isEmailVerified: true,
       });
 
-      const res = await request(app)
+      const googleLoginRes = await request(app)
         .post('/api/v1/auth/google')
-        .send({ idToken: 'valid_mock_google_id_token_subsequent' });
-
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(res.body.data.status).toBe('LOGIN_SUCCESS');
-      expect(res.body.data.user.id).toBe(passwordUserId);
+        .send({ idToken: 'valid_mock_google_id_token_check' });
+      expect(googleLoginRes.body.data.user.id).toBe(passwordUserId);
     });
   });
 

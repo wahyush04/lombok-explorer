@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authController } from './auth.controller';
 import { validate } from '../../common/middleware/validate.middleware';
 import {
+  CompleteGoogleRegistrationDtoSchema,
   GoogleAuthDtoSchema,
   LoginDtoSchema,
   RefreshTokenDtoSchema,
@@ -19,6 +20,11 @@ router.use(authLimiter);
 router.post('/register', validate(RegisterDtoSchema), authController.register);
 router.post('/login', validate(LoginDtoSchema), authController.login);
 router.post('/google', validate(GoogleAuthDtoSchema), authController.googleLogin);
+router.post(
+  '/google/register',
+  validate(CompleteGoogleRegistrationDtoSchema),
+  authController.completeGoogleRegistration,
+);
 router.post('/refresh', validate(RefreshTokenDtoSchema), authController.refresh);
 router.post('/refresh-token', validate(RefreshTokenDtoSchema), authController.refresh);
 
