@@ -815,6 +815,240 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # ==========================================
+  # ADMIN RESTAURANTS MANAGEMENT
+  # ==========================================
+  /restaurants:
+    get:
+      summary: List Restaurants (Admin)
+      description: Returns a paginated list of culinary spots and restaurants with search, region, cuisine, rating, price range, status, and featured filters.
+      operationId: getAdminRestaurants
+      tags:
+        - Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: cuisineType
+          in: query
+          schema:
+            type: string
+        - name: region
+          in: query
+          schema:
+            type: string
+            enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PUBLISHED, DRAFT, ARCHIVED]
+        - name: minRating
+          in: query
+          schema:
+            type: number
+        - name: minPrice
+          in: query
+          schema:
+            type: number
+        - name: maxPrice
+          in: query
+          schema:
+            type: number
+        - name: priceRange
+          in: query
+          schema:
+            type: string
+        - name: isFeatured
+          in: query
+          schema:
+            type: boolean
+        - name: isHalalCertified
+          in: query
+          schema:
+            type: boolean
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, rating, reviewCount, minPrice, maxPrice, createdAt, updatedAt]
+            default: createdAt
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Restaurants retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRestaurantListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create Restaurant (Admin)
+      description: Creates a new restaurant entry with auto-generated slug and validation.
+      operationId: createAdminRestaurant
+      tags:
+        - Restaurants
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRestaurantRequest'
+      responses:
+        '201':
+          description: Restaurant created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Restaurant slug or name already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /restaurants/{id}:
+    get:
+      summary: Get Restaurant Details (Admin)
+      description: Retrieves full details of a restaurant by its UUID or slug.
+      operationId: getAdminRestaurantById
+      tags:
+        - Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Restaurant details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
+        '404':
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update Restaurant (Admin)
+      description: Updates restaurant information and attributes.
+      operationId: updateAdminRestaurant
+      tags:
+        - Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRestaurantRequest'
+      responses:
+        '200':
+          description: Restaurant updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
+        '404':
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Conflict (e.g. duplicate slug)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Restaurant (Admin)
+      description: Deletes a restaurant (soft-delete by default, permanent with ?hard=true).
+      operationId: deleteAdminRestaurant
+      tags:
+        - Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hard
+          in: query
+          description: If true, permanently deletes record from database
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Restaurant deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1618,6 +1852,247 @@ components:
           example: Destination image created successfully
         data:
           $ref: '#/components/schemas/DestinationImageDto'
+
+    # ==========================================
+    # RESTAURANTS SCHEMAS
+    # ==========================================
+    AdminRestaurantDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: "rest_ayam_taliwang_khas"
+        name:
+          type: string
+          example: "Rumah Makan Ayam Taliwang Asli Khas Lombok"
+        slug:
+          type: string
+          example: "rumah-makan-ayam-taliwang-asli-khas-lombok"
+        description:
+          type: string
+          example: "Kuliner legendaris ayam taliwang dengan bumbu plecing pedas khas Sasak."
+        cuisineType:
+          type: string
+          example: "Tradisional Lombok / Sasak"
+        specialtyDish:
+          type: string
+          example: "Ayam Taliwang Bakar Madu & Plecing Kangkung"
+        priceRange:
+          type: string
+          example: "Rp 35.000 - Rp 85.000"
+        minPrice:
+          type: number
+          example: 35000
+        maxPrice:
+          type: number
+          example: 85000
+        rating:
+          type: number
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 42
+        address:
+          type: string
+          example: "Jl. Ade Irma Suryani No. 10, Cakranegara, Kota Mataram"
+        region:
+          type: string
+          example: "LOMBOK_BARAT"
+        latitude:
+          type: number
+          example: -8.5833
+        longitude:
+          type: number
+          example: 116.1167
+        openingHours:
+          type: string
+          example: "10:00 - 22:00 WITA"
+        coverImageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544025162-d76694265947"
+        images:
+          type: array
+          items:
+            type: string
+        isHalalCertified:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [PUBLISHED, DRAFT, ARCHIVED]
+          example: "PUBLISHED"
+        isFeatured:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateRestaurantRequest:
+      type: object
+      required:
+        - name
+        - description
+        - cuisineType
+        - specialtyDish
+        - priceRange
+        - address
+        - region
+        - latitude
+        - longitude
+        - openingHours
+        - coverImageUrl
+      properties:
+        name:
+          type: string
+          example: "Warung Nasi Balap Puyung Inaq Esun"
+        slug:
+          type: string
+          example: "warung-nasi-balap-puyung-inaq-esun"
+        description:
+          type: string
+          example: "Nasi balap puyung legendaris dengan suwiran ayam pedas dan kacang kedelai renyah."
+        cuisineType:
+          type: string
+          example: "Tradisional Sasak"
+        specialtyDish:
+          type: string
+          example: "Nasi Balap Puyung Komplit"
+        priceRange:
+          type: string
+          example: "Rp 20.000 - Rp 45.000"
+        minPrice:
+          type: number
+          example: 20000
+        maxPrice:
+          type: number
+          example: 45000
+        address:
+          type: string
+          example: "Desa Puyung, Jonggat, Lombok Tengah"
+        region:
+          type: string
+          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          example: "LOMBOK_TENGAH"
+        latitude:
+          type: number
+          example: -8.705
+        longitude:
+          type: number
+          example: 116.248
+        openingHours:
+          type: string
+          example: "08:00 - 21:00 WITA"
+        coverImageUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1544025162-d76694265947"
+        images:
+          type: array
+          items:
+            type: string
+        isHalalCertified:
+          type: boolean
+          example: true
+        status:
+          type: string
+          enum: [PUBLISHED, DRAFT, ARCHIVED]
+          example: "PUBLISHED"
+        isFeatured:
+          type: boolean
+          example: false
+
+    UpdateRestaurantRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        cuisineType:
+          type: string
+        specialtyDish:
+          type: string
+        priceRange:
+          type: string
+        minPrice:
+          type: number
+        maxPrice:
+          type: number
+        address:
+          type: string
+        region:
+          type: string
+          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+        latitude:
+          type: number
+        longitude:
+          type: number
+        openingHours:
+          type: string
+        coverImageUrl:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        isHalalCertified:
+          type: boolean
+        status:
+          type: string
+          enum: [PUBLISHED, DRAFT, ARCHIVED]
+        isFeatured:
+          type: boolean
+
+    AdminRestaurantListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Restaurants retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminRestaurantDto'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 8
+            totalPages:
+              type: integer
+              example: 1
+
+    AdminRestaurantDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Restaurant details retrieved successfully
+        data:
+          $ref: '#/components/schemas/AdminRestaurantDto'
+
 
 
 

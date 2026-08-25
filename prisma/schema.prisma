@@ -374,14 +374,18 @@ model Restaurant {
   openingHours     String
   coverImageUrl    String       @db.Text
   images           String       @db.Text // JSON array of image URLs
-  isHalalCertified Boolean      @default(true)
-  createdAt        DateTime     @default(now())
-  updatedAt        DateTime     @updatedAt
+  isHalalCertified Boolean           @default(true)
+  status           DestinationStatus @default(PUBLISHED)
+  isFeatured       Boolean           @default(false)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   deletedAt        DateTime?
 
   @@index([region])
   @@index([cuisineType])
   @@index([rating])
+  @@index([status])
+  @@index([isFeatured])
   @@map("restaurants")
 }
 
