@@ -76,6 +76,12 @@ enum ReviewStatus {
   REJECTED
 }
 
+enum DestinationStatus {
+  PUBLISHED
+  DRAFT
+  ARCHIVED
+}
+
 // ==========================================
 // USER MANAGEMENT
 // ==========================================
@@ -153,11 +159,12 @@ model Destination {
   difficulty               DifficultyLevel @default(EASY)
   tags                     String          @db.Text // JSON array: ["Pasir Merica", "Sunset"]
   coverImageUrl            String          @db.Text
-  facilities               String          @db.Text // JSON array: ["Area Parkir", "Toilet"]
-  tips                     String?         @db.Text // JSON array: ["Kunjungi saat sore"]
-  isFeatured               Boolean         @default(false)
-  createdAt                DateTime        @default(now())
-  updatedAt                DateTime        @updatedAt
+  facilities               String            @db.Text // JSON array: ["Area Parkir", "Toilet"]
+  tips                     String?           @db.Text // JSON array: ["Kunjungi saat sore"]
+  status                   DestinationStatus @default(PUBLISHED)
+  isFeatured               Boolean           @default(false)
+  createdAt                DateTime          @default(now())
+  updatedAt                DateTime          @updatedAt
   deletedAt                DateTime?
 
   // Relations
@@ -171,6 +178,7 @@ model Destination {
   @@index([region])
   @@index([rating])
   @@index([isFeatured])
+  @@index([status])
   @@index([latitude, longitude])
   @@map("destinations")
 }

@@ -228,6 +228,219 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # ==========================================
+  # ADMIN DESTINATIONS MANAGEMENT
+  # ==========================================
+  /destinations:
+    get:
+      summary: List and Filter Destinations (Admin)
+      description: Returns a paginated list of destinations with support for search, category, region, difficulty, rating, price, and status filters.
+      operationId: getAdminDestinations
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: categoryId
+          in: query
+          schema:
+            type: string
+        - name: region
+          in: query
+          schema:
+            type: string
+            enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [PUBLISHED, DRAFT, ARCHIVED]
+        - name: isFeatured
+          in: query
+          schema:
+            type: boolean
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, rating, reviewCount, entranceFee, ticketPrice, createdAt, updatedAt]
+            default: createdAt
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Destinations retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDestinationListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create a New Destination
+      description: Creates a new tourism destination record. Generates unique slug automatically if omitted.
+      operationId: createAdminDestination
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDestinationRequest'
+      responses:
+        '201':
+          description: Destination created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDestinationDetailResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /destinations/{id}:
+    get:
+      summary: Get Destination by ID or Slug
+      description: Returns complete destination details including reviews count and favorite statistics.
+      operationId: getAdminDestinationById
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Destination details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDestinationDetailResponse'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update Destination
+      description: Updates an existing destination's attributes, pricing, or status.
+      operationId: updateAdminDestination
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDestinationRequest'
+      responses:
+        '200':
+          description: Destination updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDestinationDetailResponse'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Destination
+      description: Deletes a destination (soft-delete by default, or permanent deletion with `?hard=true`).
+      operationId: deleteAdminDestination
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hard
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Destination deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -517,4 +730,310 @@ components:
           example: Dashboard statistics retrieved successfully
         data:
           $ref: '#/components/schemas/DashboardStatisticsDto'
+
+    CreateDestinationRequest:
+      type: object
+      required:
+        - name
+        - description
+        - categoryId
+        - region
+        - locationName
+        - latitude
+        - longitude
+      properties:
+        name:
+          type: string
+          example: Pantai Tanjung Aan
+        slug:
+          type: string
+          example: pantai-tanjung-aan
+        shortDescription:
+          type: string
+          example: Pantai pasir merica berpasir putih di Lombok Tengah
+        description:
+          type: string
+          example: Pantai Tanjung Aan menawarkan pemandangan bukit dan laut biru dengan pasir putih bulat seperti butiran merica.
+        categoryId:
+          type: string
+          example: cat_beach
+        region:
+          type: string
+          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          example: LOMBOK_SELATAN
+        locationName:
+          type: string
+          example: Sengkol, Pujut, Lombok Tengah
+        address:
+          type: string
+          example: Desa Sengkol, Kecamatan Pujut, Kabupaten Lombok Tengah, NTB
+        latitude:
+          type: number
+          example: -8.9056
+        longitude:
+          type: number
+          example: 116.3211
+        ticketPrice:
+          type: number
+          example: 10000
+        entranceFee:
+          type: number
+          example: 10000
+        currency:
+          type: string
+          example: IDR
+        openingHours:
+          type: string
+          example: 07:00 - 18:00
+        estimatedDurationMinutes:
+          type: integer
+          example: 120
+        bestVisitingTime:
+          type: string
+          example: Sore hari menjelang sunset
+        difficulty:
+          type: string
+          enum: [EASY, MODERATE, CHALLENGING]
+          example: EASY
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["Pasir Merica", "Sunset", "Pantai", "Bukit Merese"]
+        coverImageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        images:
+          type: array
+          items:
+            type: string
+          example: ["https://images.unsplash.com/photo-1544644181-1484b3fdfc62"]
+        facilities:
+          type: array
+          items:
+            type: string
+          example: ["Area Parkir", "Toilet", "Warung Kuliner", "Penyewaan Perahu"]
+        tips:
+          type: array
+          items:
+            type: string
+          example: ["Mendaki Bukit Merese untuk pemandangan terbaik"]
+        status:
+          type: string
+          enum: [PUBLISHED, DRAFT, ARCHIVED]
+          example: PUBLISHED
+        isFeatured:
+          type: boolean
+          example: true
+
+    UpdateDestinationRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        shortDescription:
+          type: string
+        description:
+          type: string
+        categoryId:
+          type: string
+        region:
+          type: string
+          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+        locationName:
+          type: string
+        address:
+          type: string
+        latitude:
+          type: number
+        longitude:
+          type: number
+        ticketPrice:
+          type: number
+        entranceFee:
+          type: number
+        currency:
+          type: string
+        openingHours:
+          type: string
+        estimatedDurationMinutes:
+          type: integer
+        bestVisitingTime:
+          type: string
+        difficulty:
+          type: string
+          enum: [EASY, MODERATE, CHALLENGING]
+        tags:
+          type: array
+          items:
+            type: string
+        coverImageUrl:
+          type: string
+        facilities:
+          type: array
+          items:
+            type: string
+        tips:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [PUBLISHED, DRAFT, ARCHIVED]
+        isFeatured:
+          type: boolean
+
+    AdminDestinationDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: dest_tanjung_aan
+        slug:
+          type: string
+          example: pantai-tanjung-aan
+        name:
+          type: string
+          example: Pantai Tanjung Aan
+        shortDescription:
+          type: string
+          example: Pantai pasir merica berpasir putih di Lombok Tengah
+        description:
+          type: string
+          example: Pantai Tanjung Aan menawarkan pemandangan bukit dan laut biru...
+        categoryId:
+          type: string
+          example: cat_beach
+        categoryName:
+          type: string
+          example: Wisata Bahari & Pantai
+        categorySlug:
+          type: string
+          example: bahari-pantai
+        region:
+          type: string
+          example: LOMBOK_SELATAN
+        locationName:
+          type: string
+          example: Sengkol, Pujut, Lombok Tengah
+        address:
+          type: string
+          nullable: true
+          example: Desa Sengkol, NTB
+        latitude:
+          type: number
+          example: -8.9056
+        longitude:
+          type: number
+          example: 116.3211
+        rating:
+          type: number
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 32
+        entranceFee:
+          type: number
+          example: 10000
+        ticketPrice:
+          type: number
+          example: 10000
+        currency:
+          type: string
+          example: IDR
+        openingHours:
+          type: string
+          example: 07:00 - 18:00
+        estimatedDurationMinutes:
+          type: integer
+          example: 120
+        bestVisitingTime:
+          type: string
+          example: Sore hari menjelang sunset
+        difficulty:
+          type: string
+          example: EASY
+        tags:
+          type: array
+          items:
+            type: string
+        coverImageUrl:
+          type: string
+        images:
+          type: array
+          items:
+            type: string
+        facilities:
+          type: array
+          items:
+            type: string
+        tips:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          example: PUBLISHED
+        isFeatured:
+          type: boolean
+          example: true
+        reviewsCount:
+          type: integer
+          example: 32
+        favoritesCount:
+          type: integer
+          example: 18
+        deletedAt:
+          type: string
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AdminDestinationListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Destinations retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminDestinationDto'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 35
+            totalPages:
+              type: integer
+              example: 4
+
+    AdminDestinationDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Destination details retrieved successfully
+        data:
+          $ref: '#/components/schemas/AdminDestinationDto'
+
 
