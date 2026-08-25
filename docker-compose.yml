@@ -1,18 +1,19 @@
 services:
-  # Database Service (MySQL 8.0)
+  # Database Service (PostgreSQL 16)
   db:
-    image: mysql:8.0
+    image: postgres:16-alpine
     container_name: lombok_explorer_db
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:-root}
-      MYSQL_DATABASE: ${DB_NAME:-lombok_explorer}
+      POSTGRES_USER: ${DB_USER:-root}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
+      POSTGRES_DB: ${DB_NAME:-lombok_explorer}
     ports:
-      - "${DB_PORT:-3306}:3306"
+      - "${DB_PORT:-5432}:5432"
     volumes:
-      - db_data:/var/lib/mysql
+      - db_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${DB_ROOT_PASSWORD:-root}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-root} -d ${DB_NAME:-lombok_explorer}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -32,7 +33,7 @@ services:
       PORT: ${PORT:-8080}
       HOST: 0.0.0.0
       API_PREFIX: ${API_PREFIX:-/v1}
-      DATABASE_URL: ${DATABASE_URL:-mysql://root:root@db:3306/lombok_explorer}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://root:root@db:5432/lombok_explorer?schema=public}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-lombok_explorer_super_secret_access_jwt_key_2026}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-lombok_explorer_super_secret_refresh_jwt_key_2026}

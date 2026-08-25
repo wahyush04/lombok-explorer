@@ -118,10 +118,10 @@
 └───────────────────────────────────────────────┼──────────────────────────────────────────────────┘
                                                 │
                                                 ▼
-                                  ┌───────────────────────────┐
-                                  │      MySQL 8.0 Database   │
-                                  │   (17 Relational Models)  │
-                                  └───────────────────────────┘
+                                   ┌───────────────────────────┐
+                                   │   PostgreSQL 16 Database  │
+                                   │   (17 Relational Models)  │
+                                   └───────────────────────────┘
 ```
 
 ---
@@ -224,7 +224,7 @@ Configure your `.env` file according to your local environment:
 | `PORT` | `number` | `8080` | Port number for the HTTP server |
 | `HOST` | `string` | `0.0.0.0` | Host IP address to bind to |
 | `API_PREFIX` | `string` | `/api/v1` | Primary API routing prefix |
-| `DATABASE_URL` | `string` | *Required* | MySQL connection string: `mysql://root:root@localhost:3306/lombok_explorer` |
+| `DATABASE_URL` | `string` | *Required* | PostgreSQL connection string: `postgresql://root:root@localhost:5432/lombok_explorer?schema=public` |
 | `JWT_ACCESS_SECRET` | `string` | *Required (min 16 chars)* | Secret key for signing short-lived Access JWTs |
 | `JWT_ACCESS_EXPIRES_IN` | `string` | `15m` | Access token lifespan |
 | `JWT_REFRESH_SECRET` | `string` | *Required (min 16 chars)* | Secret key for signing long-lived Refresh JWTs |
