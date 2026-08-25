@@ -42,7 +42,7 @@ export class AdminReviewsRepository {
     if (endDateStr) {
       const parsedEndDate = new Date(endDateStr);
       if (endDateStr.length <= 10) {
-        parsedEndDate.setHours(23, 59, 59, 999);
+        parsedEndDate.setUTCHours(23, 59, 59, 999);
       }
       createdAtFilter.lte = parsedEndDate;
     }

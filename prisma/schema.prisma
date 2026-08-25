@@ -25,6 +25,11 @@ enum UserStatus {
   INACTIVE
 }
 
+enum AuthProvider {
+  PASSWORD
+  GOOGLE
+}
+
 enum LombokRegion {
   LOMBOK_SELATAN   // Kuta, Mandalika, Tanjung Aan, Merese, Mawun, Selong Belanak
   LOMBOK_UTARA     // Senaru, Rinjani, Tiu Kelep, Bayan, Gili Islands
@@ -89,13 +94,13 @@ enum DestinationStatus {
 }
 
 // ==========================================
-// USER MANAGEMENT
+// USER MANAGEMENT & AUTHENTICATION
 // ==========================================
 
 model User {
   id              String        @id @default(uuid())
   email           String        @unique
-  password        String
+  password        String?
   name            String
   avatarUrl       String?       @db.Text
   phone           String?
@@ -110,6 +115,7 @@ model User {
   deletedAt       DateTime?
 
   // Relations
+  identities      AuthIdentity[]
   favorites       Favorite[]
   reviews         Review[]
   itineraries     Itinerary[]
@@ -123,6 +129,22 @@ model User {
   @@index([status])
   @@index([createdAt])
   @@map("users")
+}
+
+model AuthIdentity {
+  id                String       @id @default(uuid())
+  userId            String
+  provider          AuthProvider
+  providerAccountId String
+
+  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+  @@map("auth_identities")
 }
 
 // ==========================================

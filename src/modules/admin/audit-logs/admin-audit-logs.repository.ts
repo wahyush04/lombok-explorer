@@ -58,7 +58,7 @@ export class AdminAuditLogsRepository {
         const parsedEndDate = new Date(endDateStr);
         // If date only (e.g. YYYY-MM-DD), set to end of that day
         if (endDateStr.length <= 10) {
-          parsedEndDate.setHours(23, 59, 59, 999);
+          parsedEndDate.setUTCHours(23, 59, 59, 999);
         }
         where.createdAt.lte = parsedEndDate;
       }

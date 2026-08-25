@@ -123,6 +123,10 @@ export class AuthService {
     }
 
     // 2. Verify password with bcrypt
+    if (!user.password) {
+      throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
     const isValidPassword = await this.comparePassword(dto.password, user.password);
     if (!isValidPassword) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
@@ -178,6 +182,10 @@ export class AuthService {
     }
 
     // 3. Verify password with bcrypt
+    if (!user.password) {
+      throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
     const isValidPassword = await this.comparePassword(dto.password, user.password);
     if (!isValidPassword) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
