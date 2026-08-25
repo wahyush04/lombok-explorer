@@ -50,6 +50,19 @@ export class AdminAccommodationsController {
     ResponseUtil.sendSuccess(res, data, 'Accommodation updated successfully');
   };
 
+  public updateAccommodationStatus = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const data = await this.service.updateAccommodationStatus(
+      id as string,
+      status,
+      req.user?.userId,
+      req.ip,
+      req.headers['user-agent'] as string | undefined,
+    );
+    ResponseUtil.sendSuccess(res, data, 'Accommodation status updated successfully');
+  };
+
   public deleteAccommodation = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const query = req.query as unknown as DeleteAccommodationQueryDto;

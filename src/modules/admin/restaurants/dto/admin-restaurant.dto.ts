@@ -99,9 +99,16 @@ export const DeleteRestaurantQuerySchema = z.object({
     .default(false),
 });
 
+export const UpdateRestaurantStatusSchema = z.object({
+  status: z.nativeEnum(DestinationStatus, {
+    errorMap: () => ({ message: "Status must be either 'DRAFT', 'PUBLISHED', or 'ARCHIVED'" }),
+  }),
+});
+
 export type AdminRestaurantFilterQuery = z.infer<typeof AdminRestaurantFilterQuerySchema>;
 export type CreateRestaurantDto = z.infer<typeof CreateRestaurantSchema>;
 export type UpdateRestaurantDto = z.infer<typeof UpdateRestaurantSchema>;
+export type UpdateRestaurantStatusDto = z.infer<typeof UpdateRestaurantStatusSchema>;
 export type DeleteRestaurantQueryDto = z.infer<typeof DeleteRestaurantQuerySchema>;
 
 export interface AdminRestaurantDto {

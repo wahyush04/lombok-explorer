@@ -1,3 +1,4 @@
+import { DestinationStatus } from '@prisma/client';
 import {
   adminCategoriesRepository,
   AdminCategoriesRepository,
@@ -35,9 +36,11 @@ export class AdminCategoriesService {
       description: category.description,
       iconName: category.iconName,
       coverImageUrl: category.coverImageUrl,
+      status: category.status ?? DestinationStatus.PUBLISHED,
       destinationsCount: category._count?.destinations ?? 0,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
+      deletedAt: category.deletedAt,
     };
   };
 
@@ -62,8 +65,11 @@ export class AdminCategoriesService {
     };
   }
 
-  public async getCategoryByIdOrSlug(idOrSlug: string): Promise<AdminCategoryDto> {
-    const category = await this.repository.findByIdOrSlug(idOrSlug);
+  public async getCategoryByIdOrSlug(
+    idOrSlug: string,
+    includeDeleted = false,
+  ): Promise<AdminCategoryDto> {
+    const category = await this.repository.findByIdOrSlug(idOrSlug, includeDeleted);
     if (!category) {
       throw new NotFoundError(`Category '${idOrSlug}' not found`, 'CATEGORY_NOT_FOUND');
     }
@@ -76,19 +82,19 @@ export class AdminCategoriesService {
     ipAddress?: string,
     userAgent?: string,
   ): Promise<AdminCategoryDto> {
-    // 1. Verify Name Uniqueness
-    const existingName = await this.repository.findByName(dto.name);
-    if (existingName) {
+    // 1. Check if name already exists
+    const existingByName = await this.repository.findByName(dto.name.trim());
+    if (existingByName) {
       throw new ConflictError(
         `Category with name '${dto.name}' already exists`,
         'CATEGORY_NAME_EXISTS',
       );
     }
 
-    // 2. Generate and Verify Slug Uniqueness
+    // 2. Generate and check slug
     const slug = dto.slug ? this.slugify(dto.slug) : this.slugify(dto.name);
-    const existingSlug = await this.repository.findBySlug(slug);
-    if (existingSlug) {
+    const existingBySlug = await this.repository.findBySlug(slug);
+    if (existingBySlug) {
       throw new ConflictError(
         `Category with slug '${slug}' already exists`,
         'CATEGORY_SLUG_EXISTS',
@@ -97,11 +103,12 @@ export class AdminCategoriesService {
 
     // 3. Create Category
     const created = await this.repository.create({
-      name: dto.name,
+      name: dto.name.trim(),
       slug,
-      description: dto.description,
-      iconName: dto.iconName,
+      description: dto.description.trim(),
+      iconName: dto.iconName.trim(),
       coverImageUrl: dto.coverImageUrl || '',
+      status: dto.status ?? DestinationStatus.PUBLISHED,
     });
 
     // Invalidate public categories cache
@@ -122,21 +129,21 @@ export class AdminCategoriesService {
   }
 
   public async updateCategory(
-    id: string,
+    idOrSlug: string,
     dto: UpdateCategoryDto,
     adminUserId?: string,
     ipAddress?: string,
     userAgent?: string,
   ): Promise<AdminCategoryDto> {
     // 1. Verify Category exists
-    const category = await this.repository.findByIdOrSlug(id);
+    const category = await this.repository.findByIdOrSlug(idOrSlug);
     if (!category) {
-      throw new NotFoundError(`Category '${id}' not found`, 'CATEGORY_NOT_FOUND');
+      throw new NotFoundError(`Category '${idOrSlug}' not found`, 'CATEGORY_NOT_FOUND');
     }
 
-    // 2. Check Name Uniqueness if updated
-    if (dto.name && dto.name !== category.name) {
-      const existingName = await this.repository.findByName(dto.name);
+    // 2. Check Name uniqueness if changed
+    if (dto.name && dto.name.trim() !== category.name) {
+      const existingName = await this.repository.findByName(dto.name.trim());
       if (existingName && existingName.id !== category.id) {
         throw new ConflictError(
           `Category with name '${dto.name}' already exists`,
@@ -145,8 +152,8 @@ export class AdminCategoriesService {
       }
     }
 
-    // 3. Check Slug Uniqueness if updated
-    let slugToUpdate = category.slug;
+    // 3. Check Slug uniqueness if changed
+    let slugToUpdate: string | undefined;
     if (dto.slug && dto.slug !== category.slug) {
       const formattedSlug = this.slugify(dto.slug);
       const existingSlug = await this.repository.findBySlug(formattedSlug);
@@ -166,6 +173,7 @@ export class AdminCategoriesService {
       ...(dto.description && { description: dto.description }),
       ...(dto.iconName && { iconName: dto.iconName }),
       ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
+      ...(dto.status && { status: dto.status }),
     });
 
     // Invalidate public categories and destinations caches
@@ -186,6 +194,41 @@ export class AdminCategoriesService {
     return this.mapToAdminDto(updated);
   }
 
+  public async updateCategoryStatus(
+    idOrSlug: string,
+    status: DestinationStatus,
+    adminUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AdminCategoryDto> {
+    const category = await this.repository.findByIdOrSlug(idOrSlug, true);
+    if (!category) {
+      throw new NotFoundError(`Category '${idOrSlug}' not found`, 'CATEGORY_NOT_FOUND');
+    }
+
+    const updated = await this.repository.update(category.id, {
+      status,
+      deletedAt: status === 'ARCHIVED' ? new Date() : null,
+    });
+
+    // Invalidate public categories and destinations caches
+    categoriesService.clearCache();
+    destinationsService.clearCache();
+
+    // Audit Log
+    await this.repository.createAuditLog({
+      userId: adminUserId,
+      action: 'UPDATE_CATEGORY_STATUS',
+      entity: 'Category',
+      entityId: updated.id,
+      details: JSON.stringify({ previousStatus: category.status, newStatus: status }),
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapToAdminDto(updated);
+  }
+
   public async deleteCategory(
     id: string,
     query: DeleteCategoryQuery,
@@ -194,7 +237,7 @@ export class AdminCategoriesService {
     userAgent?: string,
   ): Promise<void> {
     // 1. Verify Category exists
-    const category = await this.repository.findByIdOrSlug(id);
+    const category = await this.repository.findByIdOrSlug(id, true);
     if (!category) {
       throw new NotFoundError(`Category '${id}' not found`, 'CATEGORY_NOT_FOUND');
     }
@@ -228,8 +271,12 @@ export class AdminCategoriesService {
       }
     }
 
-    // 3. Delete Category
-    await this.repository.delete(category.id);
+    // 3. Delete Category (hard or soft)
+    if (query.force) {
+      await this.repository.hardDelete(category.id);
+    } else {
+      await this.repository.softDelete(category.id);
+    }
 
     // Invalidate caches
     categoriesService.clearCache();
@@ -238,13 +285,14 @@ export class AdminCategoriesService {
     // Audit Log
     await this.repository.createAuditLog({
       userId: adminUserId,
-      action: 'DELETE_CATEGORY',
+      action: query.force ? 'HARD_DELETE_CATEGORY' : 'SOFT_DELETE_CATEGORY',
       entity: 'Category',
       entityId: category.id,
       details: JSON.stringify({
         name: category.name,
         slug: category.slug,
         reassignedTo: query.reassignTo ?? null,
+        force: query.force ?? false,
       }),
       ipAddress,
       userAgent,

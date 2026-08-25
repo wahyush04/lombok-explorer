@@ -6,6 +6,7 @@ import {
   CreateCategorySchema,
   DeleteCategoryQuerySchema,
   UpdateCategorySchema,
+  UpdateCategoryStatusSchema,
 } from './dto/admin-category.dto';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
@@ -39,7 +40,14 @@ router.put(
   asyncHandler(adminCategoriesController.updateCategory),
 );
 
-// 5. Delete category (safe check for destinations in use, supports ?reassignTo=<categoryId>)
+// 5. Update category status specifically
+router.patch(
+  '/:id/status',
+  validate(UpdateCategoryStatusSchema),
+  asyncHandler(adminCategoriesController.updateCategoryStatus),
+);
+
+// 6. Delete category (safe check for destinations in use, supports ?reassignTo=<categoryId>)
 router.delete(
   '/:id',
   validate({ query: DeleteCategoryQuerySchema }),

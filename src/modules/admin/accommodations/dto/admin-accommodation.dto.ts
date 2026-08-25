@@ -96,9 +96,16 @@ export const DeleteAccommodationQuerySchema = z.object({
     .default(false),
 });
 
+export const UpdateAccommodationStatusSchema = z.object({
+  status: z.nativeEnum(DestinationStatus, {
+    errorMap: () => ({ message: "Status must be either 'DRAFT', 'PUBLISHED', or 'ARCHIVED'" }),
+  }),
+});
+
 export type AdminAccommodationFilterQuery = z.infer<typeof AdminAccommodationFilterQuerySchema>;
 export type CreateAccommodationDto = z.infer<typeof CreateAccommodationSchema>;
 export type UpdateAccommodationDto = z.infer<typeof UpdateAccommodationSchema>;
+export type UpdateAccommodationStatusDto = z.infer<typeof UpdateAccommodationStatusSchema>;
 export type DeleteAccommodationQueryDto = z.infer<typeof DeleteAccommodationQuerySchema>;
 
 export interface AdminAccommodationDto {

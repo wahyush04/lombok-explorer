@@ -85,6 +85,13 @@ export const CreateDestinationSchema = z.object({
 
 export const UpdateDestinationSchema = CreateDestinationSchema.partial();
 
+export const UpdateDestinationStatusSchema = z.object({
+  status: z.nativeEnum(DestinationStatus, {
+    errorMap: () => ({ message: "Status must be either 'DRAFT', 'PUBLISHED', or 'ARCHIVED'" }),
+  }),
+});
+
 export type AdminDestinationFilterQuery = z.infer<typeof AdminDestinationFilterQuerySchema>;
 export type CreateDestinationDto = z.infer<typeof CreateDestinationSchema>;
 export type UpdateDestinationDto = z.infer<typeof UpdateDestinationSchema>;
+export type UpdateDestinationStatusDto = z.infer<typeof UpdateDestinationStatusSchema>;

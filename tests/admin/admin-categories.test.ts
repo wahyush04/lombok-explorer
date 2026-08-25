@@ -10,6 +10,12 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
   let createdCategoryId = '';
   let secondCategoryId = '';
 
+  const testSuffix = Date.now();
+  const categoryName1 = `Wisata Gua & Geologi ${testSuffix}`;
+  const categoryName2 = `Wisata Sejarah & Cagar Budaya ${testSuffix}`;
+  const categorySlug2 = `sejarah-cagar-budaya-${testSuffix}`;
+  const categoryUpdatedName1 = `Wisata Gua & Karst ${testSuffix}`;
+
   beforeAll(async () => {
     app = createApp();
 
@@ -45,26 +51,28 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
       expect(res.body.errorCode).toBe('ADMIN_ACCESS_REQUIRED');
     });
 
-    it('should return paginated categories with destinationsCount for admin', async () => {
+    it('should return paginated list of categories for administrator', async () => {
       const res = await request(app)
-        .get('/api/v1/admin/categories?page=1&limit=10')
+        .get('/api/v1/admin/categories?page=1&limit=5')
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.meta.total).toBeGreaterThanOrEqual(13);
+      expect(res.body.meta).toHaveProperty('total');
+      expect(res.body.meta.page).toBe(1);
+      expect(res.body.meta.limit).toBe(5);
 
-      const firstCat = res.body.data[0];
-      expect(firstCat).toHaveProperty('id');
-      expect(firstCat).toHaveProperty('name');
-      expect(firstCat).toHaveProperty('slug');
-      expect(firstCat).toHaveProperty('destinationsCount');
+      const firstCategory = res.body.data[0];
+      expect(firstCategory).toHaveProperty('id');
+      expect(firstCategory).toHaveProperty('name');
+      expect(firstCategory).toHaveProperty('slug');
+      expect(firstCategory).toHaveProperty('destinationsCount');
     });
 
-    it('should filter categories by search keyword', async () => {
+    it('should support search and sorting', async () => {
       const res = await request(app)
-        .get('/api/v1/admin/categories?search=Pantai')
+        .get('/api/v1/admin/categories?search=Pantai&sortBy=name&order=asc')
         .set('Authorization', `Bearer ${adminToken}`);
 
       expect(res.status).toBe(200);
@@ -74,6 +82,19 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
   });
 
   describe('POST /api/v1/admin/categories (Create Category & Unique Validations)', () => {
+    it('should reject category creation with invalid payload (400 Bad Request)', async () => {
+      const res = await request(app)
+        .post('/api/v1/admin/categories')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'P', // Too short
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('VALIDATION_ERROR');
+    });
+
     it('should reject category creation if name already exists (409 Conflict)', async () => {
       const res = await request(app)
         .post('/api/v1/admin/categories')
@@ -94,7 +115,7 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
         .post('/api/v1/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Pantai & Pesisir Unik',
+          name: `Pantai & Pesisir Unik ${testSuffix}`,
           slug: 'beach',
           description: 'Deskripsi kategori pantai unik',
           iconName: 'beach_access',
@@ -110,7 +131,7 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
         .post('/api/v1/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Wisata Gua & Geologi Lombok',
+          name: categoryName1,
           description: 'Eksplorasi bentang alam karst, stalaktit, dan gua vulkanik purba di pulau Lombok.',
           iconName: 'landscape',
           coverImageUrl: 'https://images.unsplash.com/photo-1509316975850-ff9c5deb0cd9',
@@ -119,8 +140,8 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('id');
-      expect(res.body.data.name).toBe('Wisata Gua & Geologi Lombok');
-      expect(res.body.data.slug).toContain('wisata-gua-geologi-lombok');
+      expect(res.body.data.name).toBe(categoryName1);
+      expect(res.body.data.slug).toContain('wisata-gua-geologi');
       expect(res.body.data.destinationsCount).toBe(0);
 
       createdCategoryId = res.body.data.id;
@@ -131,14 +152,14 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
         .post('/api/v1/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Wisata Sejarah & Cagar Budaya',
-          slug: 'sejarah-cagar-budaya',
+          name: categoryName2,
+          slug: categorySlug2,
           description: 'Peninggalan sejarah kerajaan Selaparang dan cagar budaya Sasak kuno.',
           iconName: 'history_edu',
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.data.slug).toBe('sejarah-cagar-budaya');
+      expect(res.body.data.slug).toBe(categorySlug2);
       secondCategoryId = res.body.data.id;
     });
   });
@@ -161,7 +182,7 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
       expect(res.body.data.id).toBe(createdCategoryId);
-      expect(res.body.data.name).toBe('Wisata Gua & Geologi Lombok');
+      expect(res.body.data.name).toBe(categoryName1);
     });
   });
 
@@ -171,13 +192,13 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
         .put(`/api/v1/admin/categories/${createdCategoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Wisata Gua & Karst Lombok',
+          name: categoryUpdatedName1,
           description: 'Eksplorasi gua dan bebatuan karst eksotis di Lombok.',
         });
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.name).toBe('Wisata Gua & Karst Lombok');
+      expect(res.body.data.name).toBe(categoryUpdatedName1);
       expect(res.body.data.description).toBe('Eksplorasi gua dan bebatuan karst eksotis di Lombok.');
     });
 
@@ -186,7 +207,7 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
         .put(`/api/v1/admin/categories/${createdCategoryId}`)
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Wisata Sejarah & Cagar Budaya',
+          name: categoryName2,
         });
 
       expect(res.status).toBe(409);

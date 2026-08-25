@@ -3,6 +3,7 @@ import {
   AdminDestinationsRepository,
   AdminDestinationWithRelations,
 } from './admin-destinations.repository';
+import { DestinationStatus } from '@prisma/client';
 import {
   AdminDestinationFilterQuery,
   CreateDestinationDto,
@@ -292,6 +293,40 @@ export class AdminDestinationsService {
       entity: 'Destination',
       entityId: updated.id,
       details: JSON.stringify({ name: updated.name, changes: Object.keys(dto) }),
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapToAdminDto(updated);
+  }
+
+  public async updateDestinationStatus(
+    idOrSlug: string,
+    status: DestinationStatus,
+    adminUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ) {
+    const destination = await this.repository.findByIdOrSlug(idOrSlug, true);
+    if (!destination) {
+      throw new NotFoundError(`Destination '${idOrSlug}' not found`, 'DESTINATION_NOT_FOUND');
+    }
+
+    const updated = await this.repository.update(destination.id, {
+      status,
+      deletedAt: status === 'ARCHIVED' ? new Date() : null,
+    });
+
+    // Invalidate public destinations cache
+    destinationsService.clearCache();
+
+    // Audit Log
+    await this.repository.createAuditLog({
+      userId: adminUserId,
+      action: 'UPDATE_DESTINATION_STATUS',
+      entity: 'Destination',
+      entityId: updated.id,
+      details: JSON.stringify({ previousStatus: destination.status, newStatus: status }),
       ipAddress,
       userAgent,
     });

@@ -5,6 +5,7 @@ import {
   AdminDestinationFilterQuerySchema,
   CreateDestinationSchema,
   UpdateDestinationSchema,
+  UpdateDestinationStatusSchema,
 } from './dto/admin-destination.dto';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
@@ -42,7 +43,14 @@ router.put(
   asyncHandler(adminDestinationsController.updateDestination),
 );
 
-// 5. Delete destination (supports ?hard=true for permanent deletion)
+// 5. Update destination status specifically
+router.patch(
+  '/:id/status',
+  validate(UpdateDestinationStatusSchema),
+  asyncHandler(adminDestinationsController.updateDestinationStatus),
+);
+
+// 6. Delete destination (supports ?hard=true for permanent deletion)
 router.delete('/:id', asyncHandler(adminDestinationsController.deleteDestination));
 
 export const adminDestinationRoutes = router;

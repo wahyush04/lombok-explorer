@@ -134,14 +134,17 @@ model Category {
   name          String
   description   String        @db.Text
   iconName      String
-  coverImageUrl String        @db.Text
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  coverImageUrl String            @db.Text
+  status        DestinationStatus @default(PUBLISHED)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  deletedAt     DateTime?
 
   // Relations
   destinations  Destination[]
 
   @@index([slug])
+  @@index([status])
   @@map("categories")
 }
 

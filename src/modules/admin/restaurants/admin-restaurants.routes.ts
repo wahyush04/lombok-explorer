@@ -6,6 +6,7 @@ import {
   CreateRestaurantSchema,
   DeleteRestaurantQuerySchema,
   UpdateRestaurantSchema,
+  UpdateRestaurantStatusSchema,
 } from './dto/admin-restaurant.dto';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
@@ -39,7 +40,14 @@ router.put(
   asyncHandler(adminRestaurantsController.updateRestaurant),
 );
 
-// 5. Delete restaurant (supports ?hard=true)
+// 5. Update restaurant status specifically
+router.patch(
+  '/:id/status',
+  validate(UpdateRestaurantStatusSchema),
+  asyncHandler(adminRestaurantsController.updateRestaurantStatus),
+);
+
+// 6. Delete restaurant (supports ?hard=true)
 router.delete(
   '/:id',
   validate({ query: DeleteRestaurantQuerySchema }),

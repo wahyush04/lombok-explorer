@@ -6,6 +6,7 @@ import {
   CreateAccommodationSchema,
   DeleteAccommodationQuerySchema,
   UpdateAccommodationSchema,
+  UpdateAccommodationStatusSchema,
 } from './dto/admin-accommodation.dto';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
@@ -39,7 +40,14 @@ router.put(
   asyncHandler(adminAccommodationsController.updateAccommodation),
 );
 
-// 5. Delete accommodation (supports ?hard=true)
+// 5. Update accommodation status specifically
+router.patch(
+  '/:id/status',
+  validate(UpdateAccommodationStatusSchema),
+  asyncHandler(adminAccommodationsController.updateAccommodationStatus),
+);
+
+// 6. Delete accommodation (supports ?hard=true)
 router.delete(
   '/:id',
   validate({ query: DeleteAccommodationQuerySchema }),

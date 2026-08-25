@@ -47,6 +47,19 @@ export class AdminRestaurantsController {
     ResponseUtil.sendSuccess(res, data, 'Restaurant updated successfully');
   };
 
+  public updateRestaurantStatus = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const data = await this.service.updateRestaurantStatus(
+      id as string,
+      status,
+      req.user?.userId,
+      req.ip,
+      req.headers['user-agent'] as string | undefined,
+    );
+    ResponseUtil.sendSuccess(res, data, 'Restaurant status updated successfully');
+  };
+
   public deleteRestaurant = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const query = req.query as unknown as DeleteRestaurantQueryDto;

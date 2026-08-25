@@ -20,15 +20,16 @@ export class AdminCategoriesRepository {
     const sortBy = query.sortBy || query.sort_by || 'name';
     const order = query.order || 'asc';
 
-    const where: Prisma.CategoryWhereInput = query.search
-      ? {
-          OR: [
-            { name: { contains: query.search } },
-            { description: { contains: query.search } },
-            { slug: { contains: query.search } },
-          ],
-        }
-      : {};
+    const where: Prisma.CategoryWhereInput = {
+      ...(query.status && { status: query.status }),
+      ...(query.search && {
+        OR: [
+          { name: { contains: query.search } },
+          { description: { contains: query.search } },
+          { slug: { contains: query.search } },
+        ],
+      }),
+    };
 
     const orderBy: Prisma.CategoryOrderByWithRelationInput =
       sortBy === 'destinationsCount' ? { destinations: { _count: order } } : { [sortBy]: order };
@@ -53,11 +54,17 @@ export class AdminCategoriesRepository {
     return { items, total };
   }
 
-  public async findByIdOrSlug(idOrSlug: string): Promise<CategoryWithDestinationsCount | null> {
+  public async findByIdOrSlug(
+    idOrSlug: string,
+    includeDeleted = true,
+  ): Promise<CategoryWithDestinationsCount | null> {
+    const where: Prisma.CategoryWhereInput = {
+      OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+      ...(!includeDeleted && { deletedAt: null }),
+    };
+
     return prisma.category.findFirst({
-      where: {
-        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
-      },
+      where,
       include: {
         _count: {
           select: {
@@ -127,6 +134,22 @@ export class AdminCategoriesRepository {
     return prisma.destination.updateMany({
       where: { categoryId: oldCategoryId },
       data: { categoryId: newCategoryId },
+    });
+  }
+
+  public async softDelete(id: string): Promise<Category> {
+    return prisma.category.update({
+      where: { id },
+      data: {
+        status: 'ARCHIVED',
+        deletedAt: new Date(),
+      },
+    });
+  }
+
+  public async hardDelete(id: string): Promise<Category> {
+    return prisma.category.delete({
+      where: { id },
     });
   }
 

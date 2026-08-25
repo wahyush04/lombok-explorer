@@ -1,4 +1,4 @@
-import { Restaurant } from '@prisma/client';
+import { DestinationStatus, Restaurant } from '@prisma/client';
 import {
   adminRestaurantsRepository,
   AdminRestaurantsRepository,
@@ -198,6 +198,37 @@ export class AdminRestaurantsService {
       entity: 'Restaurant',
       entityId: updated.id,
       details: JSON.stringify({ changes: dto }),
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapToDto(updated);
+  }
+
+  public async updateRestaurantStatus(
+    idOrSlug: string,
+    status: DestinationStatus,
+    adminUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AdminRestaurantDto> {
+    const existing = await this.repository.findByIdOrSlug(idOrSlug, true);
+    if (!existing) {
+      throw new NotFoundError(`Restaurant '${idOrSlug}' not found`, 'RESTAURANT_NOT_FOUND');
+    }
+
+    const updated = await this.repository.update(existing.id, {
+      status,
+      deletedAt: status === 'ARCHIVED' ? new Date() : null,
+    });
+
+    // Audit log
+    await this.repository.createAuditLog({
+      userId: adminUserId,
+      action: 'UPDATE_RESTAURANT_STATUS',
+      entity: 'Restaurant',
+      entityId: updated.id,
+      details: JSON.stringify({ previousStatus: existing.status, newStatus: status }),
       ipAddress,
       userAgent,
     });

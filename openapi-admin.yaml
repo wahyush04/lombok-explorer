@@ -441,6 +441,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /destinations/{id}/status:
+    patch:
+      summary: Update Destination Status
+      description: Updates destination publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
+      operationId: updateDestinationStatus
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContentStatusRequest'
+      responses:
+        '200':
+          description: Destination status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDestinationDetailResponse'
+        '404':
+          description: Destination not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   # ==========================================
   # ADMIN DESTINATION IMAGES MANAGEMENT
   # ==========================================
@@ -809,7 +844,42 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
         '409':
-          description: Category in use by destinations without reassignment target
+          description: Category in use by destinations
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /categories/{id}/status:
+    patch:
+      summary: Update Category Status
+      description: Updates category publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
+      operationId: updateCategoryStatus
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContentStatusRequest'
+      responses:
+        '200':
+          description: Category status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryDetailResponse'
+        '404':
+          description: Category not found
           content:
             application/json:
               schema:
@@ -1049,6 +1119,41 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /restaurants/{id}/status:
+    patch:
+      summary: Update Restaurant Status
+      description: Updates restaurant publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
+      operationId: updateRestaurantStatus
+      tags:
+        - Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContentStatusRequest'
+      responses:
+        '200':
+          description: Restaurant status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
+        '404':
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   # ==========================================
   # ADMIN ACCOMMODATIONS MANAGEMENT
   # ==========================================
@@ -1272,6 +1377,41 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          description: Accommodation not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /accommodations/{id}/status:
+    patch:
+      summary: Update Accommodation Status
+      description: Updates accommodation publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
+      operationId: updateAccommodationStatus
+      tags:
+        - Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateContentStatusRequest'
+      responses:
+        '200':
+          description: Accommodation status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccommodationDetailResponse'
         '404':
           description: Accommodation not found
           content:
@@ -1521,6 +1661,16 @@ components:
       description: Enter standard JWT Bearer token obtained from `/auth/login`
 
   schemas:
+    UpdateContentStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          example: PUBLISHED
+
     AdminLoginRequest:
       type: object
       required:

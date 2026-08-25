@@ -1,4 +1,4 @@
-import { Accommodation } from '@prisma/client';
+import { Accommodation, DestinationStatus } from '@prisma/client';
 import {
   adminAccommodationsRepository,
   AdminAccommodationsRepository,
@@ -209,6 +209,37 @@ export class AdminAccommodationsService {
       entity: 'Accommodation',
       entityId: updated.id,
       details: JSON.stringify({ changes: dto }),
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapToDto(updated);
+  }
+
+  public async updateAccommodationStatus(
+    idOrSlug: string,
+    status: DestinationStatus,
+    adminUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AdminAccommodationDto> {
+    const existing = await this.repository.findByIdOrSlug(idOrSlug, true);
+    if (!existing) {
+      throw new NotFoundError(`Accommodation '${idOrSlug}' not found`, 'ACCOMMODATION_NOT_FOUND');
+    }
+
+    const updated = await this.repository.update(existing.id, {
+      status,
+      deletedAt: status === 'ARCHIVED' ? new Date() : null,
+    });
+
+    // Audit log
+    await this.repository.createAuditLog({
+      userId: adminUserId,
+      action: 'UPDATE_ACCOMMODATION_STATUS',
+      entity: 'Accommodation',
+      entityId: updated.id,
+      details: JSON.stringify({ previousStatus: existing.status, newStatus: status }),
       ipAddress,
       userAgent,
     });

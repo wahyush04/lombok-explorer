@@ -46,6 +46,19 @@ export class AdminDestinationsController {
     ResponseUtil.sendSuccess(res, data, 'Destination updated successfully');
   };
 
+  public updateDestinationStatus = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const data = await this.service.updateDestinationStatus(
+      id as string,
+      status,
+      req.user?.userId,
+      req.ip,
+      req.headers['user-agent'] as string | undefined,
+    );
+    ResponseUtil.sendSuccess(res, data, 'Destination status updated successfully');
+  };
+
   public deleteDestination = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const hardDelete = req.query.hard === 'true';

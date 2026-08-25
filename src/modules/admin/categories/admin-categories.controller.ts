@@ -47,6 +47,19 @@ export class AdminCategoriesController {
     ResponseUtil.sendSuccess(res, data, 'Category updated successfully');
   };
 
+  public updateCategoryStatus = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const { status } = req.body;
+    const data = await this.service.updateCategoryStatus(
+      id as string,
+      status,
+      req.user?.userId,
+      req.ip,
+      req.headers['user-agent'] as string | undefined,
+    );
+    ResponseUtil.sendSuccess(res, data, 'Category status updated successfully');
+  };
+
   public deleteCategory = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const query = req.query as unknown as DeleteCategoryQuery;
