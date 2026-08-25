@@ -2,12 +2,15 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../src/app';
 import { Application } from 'express';
+import { weatherService } from '../src/modules/weather/weather.service';
+import { mockWeatherProvider } from '../src/modules/weather/providers';
 
 describe('API Versioning Architecture (Phase 23)', () => {
   let app: Application;
 
   beforeAll(() => {
     app = createApp();
+    weatherService.setProvider(mockWeatherProvider);
   });
 
   describe('Primary Version 1: /api/v1', () => {

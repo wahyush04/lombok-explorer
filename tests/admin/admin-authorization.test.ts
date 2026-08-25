@@ -20,12 +20,13 @@ describe('Admin Backend Authorization Security Matrix (Phase 16)', () => {
     adminToken = adminRes.body.data.accessToken;
 
     // 2. Register regular traveler user (role: USER)
+    const suffix = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     const userRes = await request(app).post('/api/v1/auth/register').send({
-      name: `Regular Traveler ${testSuffix}`,
-      email: `traveler_${testSuffix}@lombokexplorer.com`,
+      name: `Regular Traveler ${suffix}`,
+      email: `traveler_auth_${suffix}@lombokexplorer.com`,
       password: 'Password123!',
     });
-    userToken = userRes.body.data.accessToken;
+    userToken = userRes.body?.data?.accessToken || '';
   });
 
   const protectedEndpoints: { method: 'get' | 'post' | 'put' | 'patch' | 'delete'; path: string; name: string }[] = [
