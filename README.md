@@ -1,14 +1,14 @@
 # Lombok Explorer API
 
-> Production-ready, high-performance RESTful API backend platform for Lombok tourism, smart itinerary generation with TSP route optimization, rule-based recommendation engine, live weather integration, financial expense tracking, travel journals, and packing checklists.
+> Production-ready, high-performance RESTful API backend platform for Lombok tourism, smart itinerary generation with TSP route optimization, rule-based recommendation engine, live weather integration, financial expense tracking, travel journals, packing checklists, and enterprise-grade administrative portal.
 
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.6-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
 [![Node.js](https://img.shields.io/badge/Node.js-22%20LTS-green.svg?logo=node.js)](https://nodejs.org/)
 [![Prisma](https://img.shields.io/badge/Prisma-5.22-darkblue.svg?logo=prisma)](https://www.prisma.io/)
-[![MySQL](https://img.shields.io/badge/MySQL-8.0-orange.svg?logo=mysql)](https://www.mysql.com/)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-blue.svg?logo=postgresql)](https://www.postgresql.org/)
 [![Express](https://img.shields.io/badge/Express-4.21-lightgrey.svg?logo=express)](https://expressjs.com/)
 [![OpenAPI](https://img.shields.io/badge/OpenAPI-3.0.3-brightgreen.svg?logo=openapi-initiative)](https://swagger.io/specification/)
-[![Vitest](https://img.shields.io/badge/Tests-236%20Passed-success.svg?logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-501%20Passed-success.svg?logo=vitest)](https://vitest.dev/)
 [![Coverage](https://img.shields.io/badge/Coverage->90%25-brightgreen.svg)]()
 [![Docker](https://img.shields.io/badge/Docker-Multi--Stage-blue.svg?logo=docker)](https://www.docker.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -17,13 +17,14 @@
 
 ## Overview
 
-**Lombok Explorer API** is an enterprise-grade, comprehensive backend service tailored for exploring the island of Lombok, West Nusa Tenggara (NTB), Indonesia. Built following clean architecture, domain-driven module separation, and contract-first OpenAPI 3.0 principles, this API powers rich travel mobile and web applications with intelligent travel planning capabilities.
+**Lombok Explorer API** is an enterprise-grade, comprehensive backend service tailored for exploring the island of Lombok, West Nusa Tenggara (NTB), Indonesia. Built following clean architecture, domain-driven module separation, and contract-first OpenAPI 3.0 principles, this API powers rich travel mobile and web applications with intelligent travel planning capabilities and a full-featured administration suite.
 
 ### Key Highlights
 - **Smart Itinerary Engine**: Multi-day scheduling powered by Geographic Clustering and Nearest-Neighbor Traveling Salesperson Problem (TSP) optimization.
 - **Rule-Based Recommendation Engine**: Multi-criteria destination matching combining user favorites history, review ratings, logarithmic popularity scaling, and Haversine geospatial proximity.
 - **Live Weather Integration**: Real-time meteorological forecasting via WeatherAPI.com with an automated 10-minute in-memory caching layer and provider abstraction.
-- **Enterprise Security & Reliability**: Helmet security headers, CORS origin whitelisting, multi-tier rate limiting, Prisma SQL injection immunity, bcrypt password hashing, non-root Docker execution, and fail-fast Zod environment validation.
+- **Enterprise Administration**: Dedicated Administrative Portal (`/api/v1/admin/*`) featuring granular RBAC, sensitive action audit logging, review moderation, destination gallery management, and content lifecycle state transitions.
+- **Enterprise Security & Reliability**: Helmet security headers, CORS origin whitelisting, multi-tier rate limiting (with dedicated Admin Auth rate limiter), Prisma SQL injection immunity, bcrypt password hashing (12 rounds), non-root Docker execution, and fail-fast Zod environment validation.
 
 ---
 
@@ -32,6 +33,7 @@
 | Feature Domain | Capabilities |
 |---|---|
 | 🔐 **Authentication & Users** | Register, Login, JWT Access/Refresh Token rotation, Logout revocation, Role-Based Access Control (`USER`, `ADMIN`), User Profile preferences. |
+| 🛡️ **Admin Portal Management** | Dedicated administrative namespace (`/api/v1/admin/*`), KPI Dashboard analytics, full-lifecycle Destination/Category/Culinary/Accommodation CRUD, bulk status & deletion, Review moderation, User suspension, and comprehensive Audit Logs. |
 | 🏝️ **Destinations Catalog** | 35+ seeded Lombok attractions, Haversine nearby search, full-text search, category filtering, difficulty level, entrance fee range, average ratings. |
 | 🏷️ **Categories** | 13 categories (Beach, Waterfall, Mountain, Gili Islands, Sasak Culture, Surfing, Diving, etc.) with dynamic destination counts and in-memory caching. |
 | ❤️ **Favorites** | User-isolated bookmarking, duplicate prevention with database unique constraints, paginated listing. |
@@ -52,140 +54,17 @@
 
 - **Runtime**: Node.js 22 LTS
 - **Framework**: Express.js 4.21
-- **Language**: Strict TypeScript 5.6
-- **Database**: MySQL 8.0
+- **Language**: Strict TypeScript 5.7
+- **Database**: PostgreSQL 16
 - **ORM & Query Builder**: Prisma ORM 5.22
-- **Validation**: Zod 3.23
-- **Authentication**: JWT (jsonwebtoken) & bcrypt (10 salt rounds)
+- **Validation**: Zod 3.24
+- **Authentication**: JWT (jsonwebtoken) & bcrypt (12 salt rounds)
 - **Security**: Helmet, CORS, Express-Rate-Limit
 - **Logging**: Pino & Pino-Http with structured JSON output and sensitive data redaction
-- **Documentation**: OpenAPI 3.0.3 & Swagger UI Express
+- **Documentation**: OpenAPI 3.0.3 & Swagger UI Express (Public & Admin specs)
 - **File Upload**: Multer (5MB limit, image MIME enforcement)
-- **Testing**: Vitest 3.2 & Supertest (236 tests, >90% coverage)
+- **Testing**: Vitest 3.2 & Supertest (501+ tests across 47 suites, 100% Passing)
 - **Containerization**: Docker (Multi-stage Alpine Linux, 524MB) & Docker Compose
-
----
-
-## Architecture
-
-```
-                                  ┌────────────────────────────────┐
-                                  │      Client (Web / Mobile)     │
-                                  └───────────────┬────────────────┘
-                                                  │ HTTP / JSON
-                                                  ▼
-                                  ┌────────────────────────────────┐
-                                  │       Reverse Proxy / ALB      │
-                                  │   (Rate Limiting & SSL Term)   │
-                                  └───────────────┬────────────────┘
-                                                  │
-                                                  ▼
-┌──────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                   Lombok Explorer Express App                                    │
-│                                                                                                  │
-│  ┌────────────────────────────────────────────────────────────────────────────────────────────┐  │
-│  │                                     Global Middleware                                      │  │
-│  │   RequestId (UUIDv4) ──► Helmet ──► CORS ──► RateLimit ──► PinoLogger ──► JsonParser (2MB)  │  │
-│  └──────────────────────────────────────────────┬─────────────────────────────────────────────┘  │
-│                                                 │                                                │
-│         ┌───────────────────────────────────────┴───────────────────────────────────────┐        │
-│         ▼                                                                               ▼        │
-│  ┌──────────────┐                                                                ┌────────────┐  │
-│  │ /api/docs    │ (Swagger UI OpenAPI Documentation)                             │ /health    │  │
-│  └──────────────┘                                                                │ /health/rd │  │
-│                                                                                  └────────────┘  │
-│         ┌───────────────────────────────────────────────────────────────────────────────┐        │
-│         │                         Versioned Router (/api/v1/*)                          │        │
-│         └───────┬──────────────┬──────────────┬──────────────┬──────────────┬───────────┘        │
-│                 │              │              │              │              │                    │
-│                 ▼              ▼              ▼              ▼              ▼                    │
-│           ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌───────────┐              │
-│           │   Auth    │  │Destinatio.│  │Itineraries│  │ Recommen. │  │  Weather  │ ...          │
-│           └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘              │
-│                 │              │              │              │              │                    │
-│                 ▼              ▼              ▼              ▼              ▼                    │
-│           ┌───────────────────────────────────────────────────────────────────────┐              │
-│           │                       Service Layer (Business Logic)                  │              │
-│           │  ItineraryGeneratorService (TSP) │ RuleBasedRecommendationService     │              │
-│           │  WeatherService (10m Cache)      │ StorageService (Provider Swappable)│              │
-│           └───────────────────────────────────┬───────────────────────────────────┘              │
-│                                               │                                                  │
-│                                               ▼                                                  │
-│           ┌───────────────────────────────────────────────────────────────────────┐              │
-│           │                     Repository Layer (Prisma Client)                  │              │
-│           │       (Strict Pagination, Selected Fields, Anti-N+1 Queries)          │              │
-│           └───────────────────────────────────┬───────────────────────────────────┘              │
-└───────────────────────────────────────────────┼──────────────────────────────────────────────────┘
-                                                │
-                                                ▼
-                                   ┌───────────────────────────┐
-                                   │   PostgreSQL 16 Database  │
-                                   │   (17 Relational Models)  │
-                                   └───────────────────────────┘
-```
-
----
-
-## Project Structure
-
-```
-lombok-explorer/
-├── assets/
-│   └── image/                     # Stored user-uploaded media files
-├── prisma/
-│   ├── migrations/                # Version-controlled SQL migration files
-│   ├── schema.prisma              # Database schema definition (17 models)
-│   └── seed.ts                    # Authentic Lombok tourism dataset seeder
-├── src/
-│   ├── app.ts                     # Express application factory & middleware chain
-│   ├── server.ts                  # Server bootstrap & graceful shutdown handler
-│   ├── common/
-│   │   ├── constants/             # HTTP status codes & Error code enums
-│   │   ├── errors/                # Custom AppError hierarchy (BadRequest, NotFound, etc.)
-│   │   ├── middleware/            # Auth, Error, Logger, RateLimit, Validate, NotFound
-│   │   ├── types/                 # Express Request augmentation & Pagination types
-│   │   └── utils/                 # Response envelope builder, Pino logger, Async handler
-│   ├── config/
-│   │   ├── config.ts              # Centralized immutable configuration object
-│   │   └── env.ts                 # Zod environment variable schema & validator
-│   ├── database/
-│   │   └── prisma.ts              # Prisma client singleton & connection lifecycle
-│   ├── modules/
-│   │   ├── auth/                  # Authentication, JWT rotation, User management
-│   │   ├── categories/            # Tourism categories with cached counts
-│   │   ├── checklists/            # Travel packing checklists & progress tracking
-│   │   ├── destinations/          # Destination catalog, Geospatial search & filters
-│   │   ├── expenses/              # Financial expense tracker & budget calculations
-│   │   ├── favorites/             # User bookmarks & favorite management
-│   │   ├── health/                # Probes: /health, /health/ready, /health/live
-│   │   ├── itineraries/           # Itinerary CRUD & Smart AI Generator (TSP Engine)
-│   │   ├── journals/              # Travel diary journals (soft-delete enabled)
-│   │   ├── recommendations/       # Rule-based destination recommendation engine
-│   │   ├── reviews/               # Ratings & reviews with automatic destination avg
-│   │   ├── storage/               # Pluggable Storage Service (Local / Cloud)
-│   │   └── weather/               # Live WeatherAPI.com integration & caching
-│   └── routes/
-│       ├── index.ts               # Version router aggregator (/api/v1, /v1, /api/v2)
-│       ├── v1/v1.routes.ts        # Canonical API v1 route definitions
-│       └── v2/v2.routes.ts        # Extensible API v2 foundation
-├── tests/
-│   ├── api-contract-matrix.test.ts # OpenAPI status code matrix verification
-│   ├── api-versioning.test.ts     # Multi-version routing tests
-│   ├── auth.test.ts               # Authentication integration test suite
-│   ├── destinations.test.ts       # Destinations & geospatial test suite
-│   ├── health.test.ts             # Health, readiness, and liveness probe tests
-│   ├── performance.test.ts        # Pagination, caching, and N+1 query tests
-│   ├── security.test.ts           # Helmet, CORS, rate limiting, SQLi tests
-│   ├── storage.test.ts            # Image upload & MIME filtering tests
-│   ├── unit/                      # Unit test suites (TSP, Budget, Scoring, Zod)
-│   └── weather.test.ts            # Weather API & caching tests
-├── docker-compose.yml             # Container orchestration (Backend + MySQL)
-├── Dockerfile                     # Multi-stage production container build
-├── openapi.yaml                   # OpenAPI 3.0.3 specification contract
-├── package.json                   # Project dependencies & scripts
-├── tsconfig.json                  # Strict TypeScript configuration
-└── vitest.config.ts               # Vitest test runner & coverage configuration
-```
 
 ---
 
@@ -194,7 +73,7 @@ lombok-explorer/
 Ensure the following tools are installed on your machine before setup:
 - **Node.js**: `v20.x` or `v22.x` (LTS recommended)
 - **npm**: `v10.x` or higher
-- **MySQL Server**: `v8.0` or **Docker Desktop**
+- **PostgreSQL Database Server**: `v16` or **Docker Desktop**
 
 ---
 
@@ -202,7 +81,7 @@ Ensure the following tools are installed on your machine before setup:
 
 ```bash
 # 1. Clone repository
-git clone https://github.com/wahyu/lombok-explorer.git
+git clone https://github.com/wahyush04/lombok-explorer.git
 cd lombok-explorer
 
 # 2. Install dependencies
@@ -243,18 +122,14 @@ Configure your `.env` file according to your local environment:
 
 ```bash
 # 1. Generate Prisma Client
-npx prisma generate
+npm run prisma:generate
 
-# 2. Push schema to database (or run migrations)
-npx prisma db push
+# 2. Run migrations
+npm run prisma:migrate
 
-# 3. Seed database with 35+ Lombok destinations, categories, culinary & accommodations
-npx prisma db seed
+# 3. Seed database with authentic Lombok destinations, categories, culinary & accommodations
+npm run prisma:seed
 ```
-
-> **Default Seed Accounts:**
-> - **Demo Traveler**: `traveler@lombokexplorer.com` / `Password123!` (Role: `USER`)
-> - **System Admin**: `admin@lombokexplorer.com` / `Password123!` (Role: `ADMIN`)
 
 ---
 
@@ -273,9 +148,96 @@ npm start
 
 ---
 
-## API Documentation
+## Admin API
 
-The API comes with built-in interactive OpenAPI 3.0 documentation:
+The **Admin API** (`/api/v1/admin/*`) is a secured, isolated backend subsystem designed exclusively for platform administrators to manage content, monitor analytics, audit sensitive operations, and oversee community feedback.
+
+### 1. Role Requirement & Authorization Policy
+- **Mandatory Role**: Access to all endpoints under `/api/v1/admin/*` strictly requires an account with `role: ADMIN` and an `ACTIVE` status.
+- **Backend Enforcement**: Authorization is enforced directly at the HTTP server layer using the `authenticate` and `requireAdmin` (`authenticateAdmin`) middleware chain. Never rely solely on frontend client routing for protection.
+- **Access Denial**: Standard traveler accounts (`role: USER`) attempting to access any admin endpoint will be immediately rejected with `403 Forbidden` (`ADMIN_ACCESS_REQUIRED`). Unauthenticated requests are rejected with `401 Unauthorized` (`TOKEN_MISSING`).
+
+### 2. Cara Login Admin (Authentication Workflow)
+Administrators authenticate via the dedicated admin login endpoint:
+
+```http
+POST /api/v1/admin/auth/login
+Content-Type: application/json
+
+{
+  "email": "admin@example.com",
+  "password": "YourAdminSecurePassword!"
+}
+```
+
+**Response (200 OK):**
+```json
+{
+  "success": true,
+  "message": "Login successful",
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIsIn...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIsIn...",
+    "expiresIn": 900,
+    "tokenType": "Bearer",
+    "user": {
+      "id": "usr_admin_01",
+      "name": "Platform Administrator",
+      "email": "admin@example.com",
+      "role": "ADMIN",
+      "status": "ACTIVE"
+    }
+  }
+}
+```
+
+> **Security Note on Admin Login:**
+> - The admin login endpoint is protected by a dedicated strict rate limiter (`adminAuthLimiter` - maximum 5 requests per 15 minutes in production) to mitigate brute-force and credential-stuffing attempts.
+> - Passwords are never returned in responses or stored in audit logs.
+
+### 3. Authentication & Bearer Header
+To access protected admin endpoints, attach the received `accessToken` to the HTTP `Authorization` header:
+
+```http
+Authorization: Bearer <your_admin_access_token>
+```
+
+When the access token expires (15-minute lifespan), refresh the session using:
+```http
+POST /api/v1/admin/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "<your_refresh_token>"
+}
+```
+
+### 4. Interactive Admin Swagger UI
+The Admin API is documented via a dedicated OpenAPI 3.0.3 specification (`openapi-admin.yaml`):
+
+- **Admin Swagger UI**: [`http://localhost:8080/api/docs/admin`](http://localhost:8080/api/docs/admin) *(Alias: [`/docs/admin`](http://localhost:8080/docs/admin))*
+- **Admin OpenAPI JSON Spec**: [`http://localhost:8080/api/docs/admin/json`](http://localhost:8080/api/docs/admin/json)
+- **Admin OpenAPI YAML Spec**: [`http://localhost:8080/api/docs/admin/yaml`](http://localhost:8080/api/docs/admin/yaml)
+
+> **Testing via Swagger UI**: Click the green **Authorize** button at the top right of the Swagger UI and paste your admin `accessToken` to test all administrative endpoints interactively.
+
+### 5. Standardized Endpoint Groups (9 Tags)
+
+| Tag / Group | Primary Endpoints | Description |
+|---|---|---|
+| 🔐 **`Admin Authentication`** | `POST /auth/login`<br>`POST /auth/refresh`<br>`GET /auth/me`<br>`POST /auth/logout` | Administrator session lifecycle, token refresh, profile inspection, and session revocation. |
+| 📊 **`Admin Dashboard`** | `GET /dashboard` | Real-time platform KPI metrics (total users, destinations, categories, restaurants, accommodations, reviews, pending reviews, itineraries) with date range filters. |
+| 🏝️ **`Admin Destinations`** | `GET /destinations`<br>`POST /destinations`<br>`GET /destinations/:id`<br>`PUT /destinations/:id`<br>`DELETE /destinations/:id`<br>`PATCH /destinations/:id/status`<br>`POST /destinations/bulk-delete`<br>`POST /destinations/bulk-status`<br>`POST/PUT/DELETE /destinations/:id/images` | Full destination management, multi-filter search, gallery image uploads, bulk batch operations, and status transitions (`DRAFT`, `PUBLISHED`, `ARCHIVED`). |
+| 🏷️ **`Admin Categories`** | `GET /categories`<br>`POST /categories`<br>`GET /categories/:id`<br>`PUT /categories/:id`<br>`DELETE /categories/:id`<br>`PATCH /categories/:id/status` | Master category management with safe destination reassignment mechanism (`?reassignTo=<categoryId>`). |
+| 🍽️ **`Admin Restaurants`** | `GET /restaurants`<br>`POST /restaurants`<br>`GET /restaurants/:id`<br>`PUT /restaurants/:id`<br>`DELETE /restaurants/:id`<br>`PATCH /restaurants/:id/status` | Culinary directory management, cuisine filtering, halal certification tracking, and status controls. |
+| 🏨 **`Admin Accommodations`** | `GET /accommodations`<br>`POST /accommodations`<br>`GET /accommodations/:id`<br>`PUT /accommodations/:id`<br>`DELETE /accommodations/:id`<br>`PATCH /accommodations/:id/status` | Lodging, resort, villa, hotel, and homestay directory management with amenities and pricing filters. |
+| 👥 **`Admin Users`** | `GET /users`<br>`GET /users/:id`<br>`PUT /users/:id`<br>`DELETE /users/:id`<br>`PATCH /users/:id/status` | User directory management, role promotion/demotion, account suspension/activation (`ACTIVE`, `SUSPENDED`, `INACTIVE`), and soft delete. |
+| ⭐ **`Admin Reviews`** | `GET /reviews`<br>`GET /reviews/:id`<br>`DELETE /reviews/:id`<br>`PATCH /reviews/:id/moderate` | Community review moderation queue (`APPROVED`, `PENDING`, `REJECTED`) with automatic destination rating recalculation. |
+| 📜 **`Admin Audit Logs`** | `GET /audit-logs`<br>`GET /audit-logs/:id` | Immutable security audit trail recording all sensitive mutations (`action`, `entity`, `before`, `after`, `ipAddress`, `userAgent`) with automated sensitive data redaction. |
+
+---
+
+## API Documentation (Public)
 
 - **Swagger UI Interactive Explorer**: [`http://localhost:8080/api/docs`](http://localhost:8080/api/docs)
 - **Raw OpenAPI JSON Spec**: [`http://localhost:8080/api/docs/json`](http://localhost:8080/api/docs/json)
@@ -311,26 +273,12 @@ The API comes with built-in interactive OpenAPI 3.0 documentation:
 
 ---
 
-## Authentication
-
-The API uses **JWT Token Rotation** for secure stateless authentication:
-
-1. **Register / Login**: Send credentials to `POST /api/v1/auth/login`. Receive an `accessToken` (15m) and `refreshToken` (7d).
-2. **Access Protected Endpoints**: Include the token in the `Authorization` header:
-   ```http
-   Authorization: Bearer <your_access_token>
-   ```
-3. **Token Refresh**: When the access token expires, send `POST /api/v1/auth/refresh` with `{ "refreshToken": "<token>" }` to receive a new pair.
-4. **Logout**: Send `POST /api/v1/auth/logout` to revoke the active refresh token.
-
----
-
 ## Testing
 
 The project includes an extensive automated test suite covering unit tests, integration tests, security tests, and OpenAPI contract validation:
 
 ```bash
-# Run all 236 test cases
+# Run all 501+ test cases
 npm test
 
 # Run tests in watch mode
@@ -343,8 +291,9 @@ npm run test:coverage
 ### Test Coverage Breakdown
 - **Unit Tests**: Financial math, TSP route planning heuristics, recommendation scoring rules, Zod validators.
 - **Integration Tests**: Auth token rotation, Destination queries, Category caches, Review calculations, Itinerary transactions.
-- **API Matrix Tests**: Full verification of HTTP 200, 201, 400, 401, 403, 404, 409, 413, and 500 status codes.
-- **Total Test Files**: 29 test suites (**100% Passing**).
+- **Admin Matrix Tests**: 10 administrative modules, RBAC matrices, security boundary probes, CRUD lifecycles, and audit logging.
+- **API Matrix Tests**: Full verification of HTTP 200, 201, 400, 401, 403, 404, 409, 413, 429, and 500 status codes.
+- **Total Test Files**: 47 test suites (**100% Passing**).
 
 ---
 
@@ -401,12 +350,8 @@ docker compose down
 - [x] **Phase 0–6**: OpenAPI 3.0 Contract, Express TypeScript Foundation, Zod Validation, Pino Logging, Swagger UI.
 - [x] **Phase 7–12**: JWT Authentication Rotation, Destinations Geospatial Search, Categories, User Favorites, Reviews & Rating Recalculation.
 - [x] **Phase 13–18**: 3-Level Itinerary Transactions, Smart Itinerary AI Generator (TSP), Rule-Based Recommendations, WeatherAPI Integration, Expense Breakdown, Travel Journals, Packing Checklists.
-- [x] **Phase 19–25**: Pluggable Image Storage, Enterprise Security (Helmet, Multi-tier Rate Limiting), Vitest 236-Test Suite, Multi-Stage Docker Containerization, API Versioning (`/api/v1`), Performance Caching, Production Probes.
-- [ ] **Phase 27+ (Future Extensions)**:
-  - [ ] AI Deep Learning Recommendation Service (`AIRecommendationService` with embeddings)
-  - [ ] Accommodations & Homestay Booking Integration
-  - [ ] Sasak Culinary Directory & Halal Restaurant Locator
-  - [ ] Payment Gateway Webhooks (Midtrans / Xendit integration)
+- [x] **Phase 19–25**: Pluggable Image Storage, Enterprise Security (Helmet, Multi-tier Rate Limiting), Vitest 501-Test Suite, Multi-Stage Docker Containerization, API Versioning (`/api/v1`), Performance Caching, Production Probes.
+- [x] **Admin Suite (Phases 1–21)**: Dedicated Admin Namespace, Dashboard Metrics, Content CRUDs, Bulk Operations, Audit Logs, Review Moderation, Admin Security (12 Pillars), Admin Swagger Documentation, Response Consistency.
 
 ---
 
