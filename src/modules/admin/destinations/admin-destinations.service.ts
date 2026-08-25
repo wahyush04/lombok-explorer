@@ -6,6 +6,8 @@ import {
 import { DestinationStatus } from '@prisma/client';
 import {
   AdminDestinationFilterQuery,
+  BulkDeleteDestinationsDto,
+  BulkUpdateDestinationStatusDto,
   CreateDestinationDto,
   UpdateDestinationDto,
 } from './dto/admin-destination.dto';
@@ -365,6 +367,92 @@ export class AdminDestinationsService {
       ipAddress,
       userAgent,
     });
+  }
+
+  public async bulkDeleteDestinations(
+    dto: BulkDeleteDestinationsDto,
+    adminUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ affectedCount: number; hard: boolean }> {
+    // 1. Validate all IDs exist
+    const existingIds = await this.repository.findExistingIds(dto.ids);
+    const missingIds = dto.ids.filter((id) => !existingIds.includes(id));
+    if (missingIds.length > 0) {
+      throw new NotFoundError(
+        `Destinations not found for ID(s): ${missingIds.join(', ')}`,
+        'DESTINATIONS_NOT_FOUND',
+      );
+    }
+
+    // 2. Perform bulk deletion via Prisma transaction
+    const result = dto.hard
+      ? await this.repository.bulkHardDelete(dto.ids)
+      : await this.repository.bulkSoftDelete(dto.ids);
+
+    // 3. Invalidate public destinations cache
+    destinationsService.clearCache();
+
+    // 4. Audit Log
+    await this.repository.createAuditLog({
+      userId: adminUserId,
+      action: dto.hard ? 'BULK_HARD_DELETE_DESTINATIONS' : 'BULK_SOFT_DELETE_DESTINATIONS',
+      entity: 'Destination',
+      details: JSON.stringify({
+        ids: dto.ids,
+        affectedCount: result.count,
+        hard: dto.hard,
+      }),
+      ipAddress,
+      userAgent,
+    });
+
+    return {
+      affectedCount: result.count,
+      hard: dto.hard ?? false,
+    };
+  }
+
+  public async bulkUpdateDestinationStatus(
+    dto: BulkUpdateDestinationStatusDto,
+    adminUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<{ affectedCount: number; status: DestinationStatus }> {
+    // 1. Validate all IDs exist
+    const existingIds = await this.repository.findExistingIds(dto.ids);
+    const missingIds = dto.ids.filter((id) => !existingIds.includes(id));
+    if (missingIds.length > 0) {
+      throw new NotFoundError(
+        `Destinations not found for ID(s): ${missingIds.join(', ')}`,
+        'DESTINATIONS_NOT_FOUND',
+      );
+    }
+
+    // 2. Perform bulk status update via Prisma transaction
+    const result = await this.repository.bulkUpdateStatus(dto.ids, dto.status);
+
+    // 3. Invalidate public destinations cache
+    destinationsService.clearCache();
+
+    // 4. Audit Log
+    await this.repository.createAuditLog({
+      userId: adminUserId,
+      action: 'BULK_UPDATE_DESTINATION_STATUS',
+      entity: 'Destination',
+      details: JSON.stringify({
+        ids: dto.ids,
+        status: dto.status,
+        affectedCount: result.count,
+      }),
+      ipAddress,
+      userAgent,
+    });
+
+    return {
+      affectedCount: result.count,
+      status: dto.status,
+    };
   }
 }
 

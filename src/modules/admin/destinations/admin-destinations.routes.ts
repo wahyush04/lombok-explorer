@@ -3,6 +3,8 @@ import { adminDestinationsController } from './admin-destinations.controller';
 import { validate } from '../../../common/middleware/validate.middleware';
 import {
   AdminDestinationFilterQuerySchema,
+  BulkDeleteDestinationsSchema,
+  BulkUpdateDestinationStatusSchema,
   CreateDestinationSchema,
   UpdateDestinationSchema,
   UpdateDestinationStatusSchema,
@@ -26,31 +28,44 @@ router.get(
   asyncHandler(adminDestinationsController.getDestinations),
 );
 
-// 2. Get destination details by ID or slug
+// 2. Bulk operations (Phase 12)
+router.post(
+  '/bulk-delete',
+  validate(BulkDeleteDestinationsSchema),
+  asyncHandler(adminDestinationsController.bulkDeleteDestinations),
+);
+
+router.post(
+  '/bulk-status',
+  validate(BulkUpdateDestinationStatusSchema),
+  asyncHandler(adminDestinationsController.bulkUpdateDestinationStatus),
+);
+
+// 3. Get destination details by ID or slug
 router.get('/:id', asyncHandler(adminDestinationsController.getDestinationById));
 
-// 3. Create new destination
+// 4. Create new destination
 router.post(
   '/',
   validate(CreateDestinationSchema),
   asyncHandler(adminDestinationsController.createDestination),
 );
 
-// 4. Update destination
+// 5. Update destination
 router.put(
   '/:id',
   validate(UpdateDestinationSchema),
   asyncHandler(adminDestinationsController.updateDestination),
 );
 
-// 5. Update destination status specifically
+// 6. Update destination status specifically
 router.patch(
   '/:id/status',
   validate(UpdateDestinationStatusSchema),
   asyncHandler(adminDestinationsController.updateDestinationStatus),
 );
 
-// 6. Delete destination (supports ?hard=true for permanent deletion)
+// 7. Delete destination (supports ?hard=true for permanent deletion)
 router.delete('/:id', asyncHandler(adminDestinationsController.deleteDestination));
 
 export const adminDestinationRoutes = router;

@@ -91,7 +91,27 @@ export const UpdateDestinationStatusSchema = z.object({
   }),
 });
 
+export const BulkDeleteDestinationsSchema = z.object({
+  ids: z
+    .array(z.string().min(1, 'ID cannot be empty'))
+    .min(1, 'At least one ID must be provided')
+    .max(100, 'Cannot operate on more than 100 destinations at once'),
+  hard: z.boolean().optional().default(false),
+});
+
+export const BulkUpdateDestinationStatusSchema = z.object({
+  ids: z
+    .array(z.string().min(1, 'ID cannot be empty'))
+    .min(1, 'At least one ID must be provided')
+    .max(100, 'Cannot operate on more than 100 destinations at once'),
+  status: z.nativeEnum(DestinationStatus, {
+    errorMap: () => ({ message: "Status must be either 'DRAFT', 'PUBLISHED', or 'ARCHIVED'" }),
+  }),
+});
+
 export type AdminDestinationFilterQuery = z.infer<typeof AdminDestinationFilterQuerySchema>;
 export type CreateDestinationDto = z.infer<typeof CreateDestinationSchema>;
 export type UpdateDestinationDto = z.infer<typeof UpdateDestinationSchema>;
 export type UpdateDestinationStatusDto = z.infer<typeof UpdateDestinationStatusSchema>;
+export type BulkDeleteDestinationsDto = z.infer<typeof BulkDeleteDestinationsSchema>;
+export type BulkUpdateDestinationStatusDto = z.infer<typeof BulkUpdateDestinationStatusSchema>;

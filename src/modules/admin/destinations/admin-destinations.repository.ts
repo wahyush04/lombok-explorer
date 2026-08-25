@@ -1,4 +1,4 @@
-import { Prisma, Destination, Category, DestinationImage } from '@prisma/client';
+import { Prisma, Destination, Category, DestinationImage, DestinationStatus } from '@prisma/client';
 import { prisma } from '../../../database/prisma';
 import { AdminDestinationFilterQuery } from './dto/admin-destination.dto';
 
@@ -162,6 +162,56 @@ export class AdminDestinationsRepository {
   public async hardDelete(id: string): Promise<Destination> {
     return prisma.destination.delete({
       where: { id },
+    });
+  }
+
+  public async findExistingIds(ids: string[]): Promise<string[]> {
+    const destinations = await prisma.destination.findMany({
+      where: {
+        id: { in: ids },
+      },
+      select: { id: true },
+    });
+    return destinations.map((d) => d.id);
+  }
+
+  public async bulkUpdateStatus(
+    ids: string[],
+    status: DestinationStatus,
+  ): Promise<Prisma.BatchPayload> {
+    return prisma.$transaction(async (tx) => {
+      return tx.destination.updateMany({
+        where: { id: { in: ids } },
+        data: {
+          status,
+          deletedAt: status === 'ARCHIVED' ? new Date() : null,
+        },
+      });
+    });
+  }
+
+  public async bulkSoftDelete(ids: string[]): Promise<Prisma.BatchPayload> {
+    return prisma.$transaction(async (tx) => {
+      return tx.destination.updateMany({
+        where: { id: { in: ids } },
+        data: {
+          deletedAt: new Date(),
+          status: 'ARCHIVED',
+        },
+      });
+    });
+  }
+
+  public async bulkHardDelete(ids: string[]): Promise<Prisma.BatchPayload> {
+    return prisma.$transaction(async (tx) => {
+      // 1. Delete associated images in gallery
+      await tx.destinationImage.deleteMany({
+        where: { destinationId: { in: ids } },
+      });
+      // 2. Delete destination records
+      return tx.destination.deleteMany({
+        where: { id: { in: ids } },
+      });
     });
   }
 

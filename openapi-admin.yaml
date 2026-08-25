@@ -345,6 +345,76 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /destinations/bulk-delete:
+    post:
+      summary: Bulk Delete Destinations (Admin)
+      description: "Deletes multiple destinations within an atomic database transaction. Supports soft-delete by default or hard-delete if hard is true."
+      operationId: bulkDeleteDestinations
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkDeleteDestinationsRequest'
+      responses:
+        '200':
+          description: Destinations deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkDeleteDestinationsResponse'
+        '400':
+          description: Validation error (e.g. empty IDs array)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: One or more destination IDs not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /destinations/bulk-status:
+    post:
+      summary: Bulk Update Destination Status (Admin)
+      description: Updates publication status for multiple destinations within an atomic database transaction.
+      operationId: bulkUpdateDestinationStatus
+      tags:
+        - Destinations
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkUpdateDestinationStatusRequest'
+      responses:
+        '200':
+          description: Destination statuses updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BulkUpdateDestinationStatusResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: One or more destination IDs not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   /destinations/{id}:
     get:
       summary: Get Destination by ID or Slug
@@ -1661,6 +1731,76 @@ components:
       description: Enter standard JWT Bearer token obtained from `/auth/login`
 
   schemas:
+    BulkDeleteDestinationsRequest:
+      type: object
+      required:
+        - ids
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          example: ["dst_merese_hill", "dst_kuta_beach"]
+        hard:
+          type: boolean
+          default: false
+          example: false
+
+    BulkDeleteDestinationsResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Successfully deleted 2 destination(s)"
+        data:
+          type: object
+          properties:
+            affectedCount:
+              type: integer
+              example: 2
+            hard:
+              type: boolean
+              example: false
+
+    BulkUpdateDestinationStatusRequest:
+      type: object
+      required:
+        - ids
+        - status
+      properties:
+        ids:
+          type: array
+          items:
+            type: string
+          example: ["dst_merese_hill", "dst_kuta_beach"]
+        status:
+          type: string
+          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          example: PUBLISHED
+
+    BulkUpdateDestinationStatusResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Successfully updated status of 2 destination(s) to PUBLISHED"
+        data:
+          type: object
+          properties:
+            affectedCount:
+              type: integer
+              example: 2
+            status:
+              type: string
+              enum: [DRAFT, PUBLISHED, ARCHIVED]
+              example: PUBLISHED
+
     UpdateContentStatusRequest:
       type: object
       required:

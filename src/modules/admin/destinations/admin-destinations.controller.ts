@@ -3,6 +3,8 @@ import { adminDestinationsService, AdminDestinationsService } from './admin-dest
 import { ResponseUtil } from '../../../common/utils/api-response.util';
 import {
   AdminDestinationFilterQuery,
+  BulkDeleteDestinationsDto,
+  BulkUpdateDestinationStatusDto,
   CreateDestinationDto,
   UpdateDestinationDto,
 } from './dto/admin-destination.dto';
@@ -57,6 +59,36 @@ export class AdminDestinationsController {
       req.headers['user-agent'] as string | undefined,
     );
     ResponseUtil.sendSuccess(res, data, 'Destination status updated successfully');
+  };
+
+  public bulkDeleteDestinations = async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as BulkDeleteDestinationsDto;
+    const data = await this.service.bulkDeleteDestinations(
+      body,
+      req.user?.userId,
+      req.ip,
+      req.headers['user-agent'] as string | undefined,
+    );
+    ResponseUtil.sendSuccess(
+      res,
+      data,
+      `Successfully deleted ${data.affectedCount} destination(s)`,
+    );
+  };
+
+  public bulkUpdateDestinationStatus = async (req: Request, res: Response): Promise<void> => {
+    const body = req.body as BulkUpdateDestinationStatusDto;
+    const data = await this.service.bulkUpdateDestinationStatus(
+      body,
+      req.user?.userId,
+      req.ip,
+      req.headers['user-agent'] as string | undefined,
+    );
+    ResponseUtil.sendSuccess(
+      res,
+      data,
+      `Successfully updated status of ${data.affectedCount} destination(s) to ${data.status}`,
+    );
   };
 
   public deleteDestination = async (req: Request, res: Response): Promise<void> => {
