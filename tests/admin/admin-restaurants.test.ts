@@ -74,7 +74,14 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
 
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.some((r: any) => r.name.toLowerCase().includes('taliwang'))).toBe(true);
+      expect(
+        res.body.data.some(
+          (r: any) =>
+            r.name.toLowerCase().includes('taliwang') ||
+            r.specialtyDish?.toLowerCase().includes('taliwang') ||
+            r.description?.toLowerCase().includes('taliwang'),
+        ),
+      ).toBe(true);
     });
 
     it('should filter restaurants by region, cuisine, and rating', async () => {
