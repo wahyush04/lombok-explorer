@@ -9,6 +9,7 @@ import {
   UpdateDestinationSchema,
   UpdateDestinationStatusSchema,
 } from './dto/admin-destination.dto';
+import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
 import { adminDestinationImageRoutes } from '../destination-images/admin-destination-images.routes';
@@ -31,41 +32,49 @@ router.get(
 // 2. Bulk operations (Phase 12)
 router.post(
   '/bulk-delete',
-  validate(BulkDeleteDestinationsSchema),
+  validate({ body: BulkDeleteDestinationsSchema }),
   asyncHandler(adminDestinationsController.bulkDeleteDestinations),
 );
 
 router.post(
   '/bulk-status',
-  validate(BulkUpdateDestinationStatusSchema),
+  validate({ body: BulkUpdateDestinationStatusSchema }),
   asyncHandler(adminDestinationsController.bulkUpdateDestinationStatus),
 );
 
 // 3. Get destination details by ID or slug
-router.get('/:id', asyncHandler(adminDestinationsController.getDestinationById));
+router.get(
+  '/:id',
+  validate({ params: idParamSchema }),
+  asyncHandler(adminDestinationsController.getDestinationById),
+);
 
 // 4. Create new destination
 router.post(
   '/',
-  validate(CreateDestinationSchema),
+  validate({ body: CreateDestinationSchema }),
   asyncHandler(adminDestinationsController.createDestination),
 );
 
 // 5. Update destination
 router.put(
   '/:id',
-  validate(UpdateDestinationSchema),
+  validate({ params: idParamSchema, body: UpdateDestinationSchema }),
   asyncHandler(adminDestinationsController.updateDestination),
 );
 
 // 6. Update destination status specifically
 router.patch(
   '/:id/status',
-  validate(UpdateDestinationStatusSchema),
+  validate({ params: idParamSchema, body: UpdateDestinationStatusSchema }),
   asyncHandler(adminDestinationsController.updateDestinationStatus),
 );
 
 // 7. Delete destination (supports ?hard=true for permanent deletion)
-router.delete('/:id', asyncHandler(adminDestinationsController.deleteDestination));
+router.delete(
+  '/:id',
+  validate({ params: idParamSchema }),
+  asyncHandler(adminDestinationsController.deleteDestination),
+);
 
 export const adminDestinationRoutes = router;

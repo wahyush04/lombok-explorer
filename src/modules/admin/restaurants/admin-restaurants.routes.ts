@@ -8,6 +8,7 @@ import {
   UpdateRestaurantSchema,
   UpdateRestaurantStatusSchema,
 } from './dto/admin-restaurant.dto';
+import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
 
@@ -24,33 +25,37 @@ router.get(
 );
 
 // 2. Get restaurant by ID or slug
-router.get('/:id', asyncHandler(adminRestaurantsController.getRestaurantById));
+router.get(
+  '/:id',
+  validate({ params: idParamSchema }),
+  asyncHandler(adminRestaurantsController.getRestaurantById),
+);
 
 // 3. Create restaurant
 router.post(
   '/',
-  validate(CreateRestaurantSchema),
+  validate({ body: CreateRestaurantSchema }),
   asyncHandler(adminRestaurantsController.createRestaurant),
 );
 
 // 4. Update restaurant
 router.put(
   '/:id',
-  validate(UpdateRestaurantSchema),
+  validate({ params: idParamSchema, body: UpdateRestaurantSchema }),
   asyncHandler(adminRestaurantsController.updateRestaurant),
 );
 
 // 5. Update restaurant status specifically
 router.patch(
   '/:id/status',
-  validate(UpdateRestaurantStatusSchema),
+  validate({ params: idParamSchema, body: UpdateRestaurantStatusSchema }),
   asyncHandler(adminRestaurantsController.updateRestaurantStatus),
 );
 
 // 6. Delete restaurant (supports ?hard=true)
 router.delete(
   '/:id',
-  validate({ query: DeleteRestaurantQuerySchema }),
+  validate({ params: idParamSchema, query: DeleteRestaurantQuerySchema }),
   asyncHandler(adminRestaurantsController.deleteRestaurant),
 );
 

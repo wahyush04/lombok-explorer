@@ -7,6 +7,7 @@ import {
   UpdateUserSchema,
   UpdateUserStatusSchema,
 } from './dto/admin-user.dto';
+import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
 
@@ -23,22 +24,30 @@ router.get(
 );
 
 // 2. Get user by ID
-router.get('/:id', asyncHandler(adminUsersController.getUserById));
+router.get(
+  '/:id',
+  validate({ params: idParamSchema }),
+  asyncHandler(adminUsersController.getUserById),
+);
 
 // 3. Update user profile & role & status
-router.put('/:id', validate(UpdateUserSchema), asyncHandler(adminUsersController.updateUser));
+router.put(
+  '/:id',
+  validate({ params: idParamSchema, body: UpdateUserSchema }),
+  asyncHandler(adminUsersController.updateUser),
+);
 
 // 4. Update user status specifically (e.g. ACTIVE, SUSPENDED)
 router.patch(
   '/:id/status',
-  validate(UpdateUserStatusSchema),
+  validate({ params: idParamSchema, body: UpdateUserStatusSchema }),
   asyncHandler(adminUsersController.updateUserStatus),
 );
 
 // 5. Delete user (supports ?hard=true)
 router.delete(
   '/:id',
-  validate({ query: DeleteUserQuerySchema }),
+  validate({ params: idParamSchema, query: DeleteUserQuerySchema }),
   asyncHandler(adminUsersController.deleteUser),
 );
 

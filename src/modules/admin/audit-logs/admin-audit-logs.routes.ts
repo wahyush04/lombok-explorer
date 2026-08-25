@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { adminAuditLogsController } from './admin-audit-logs.controller';
 import { validate } from '../../../common/middleware/validate.middleware';
 import { AdminAuditLogFilterQuerySchema } from './dto/admin-audit-log.dto';
+import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
 
@@ -18,6 +19,10 @@ router.get(
 );
 
 // 2. Get specific audit log detail by ID
-router.get('/:id', asyncHandler(adminAuditLogsController.getAuditLogById));
+router.get(
+  '/:id',
+  validate({ params: idParamSchema }),
+  asyncHandler(adminAuditLogsController.getAuditLogById),
+);
 
 export const adminAuditLogRoutes = router;

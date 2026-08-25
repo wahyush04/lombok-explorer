@@ -8,6 +8,7 @@ import {
   UpdateCategorySchema,
   UpdateCategoryStatusSchema,
 } from './dto/admin-category.dto';
+import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
 
@@ -24,33 +25,37 @@ router.get(
 );
 
 // 2. Get category details by ID or slug
-router.get('/:id', asyncHandler(adminCategoriesController.getCategoryById));
+router.get(
+  '/:id',
+  validate({ params: idParamSchema }),
+  asyncHandler(adminCategoriesController.getCategoryById),
+);
 
 // 3. Create new category (validates unique name & slug)
 router.post(
   '/',
-  validate(CreateCategorySchema),
+  validate({ body: CreateCategorySchema }),
   asyncHandler(adminCategoriesController.createCategory),
 );
 
 // 4. Update category
 router.put(
   '/:id',
-  validate(UpdateCategorySchema),
+  validate({ params: idParamSchema, body: UpdateCategorySchema }),
   asyncHandler(adminCategoriesController.updateCategory),
 );
 
 // 5. Update category status specifically
 router.patch(
   '/:id/status',
-  validate(UpdateCategoryStatusSchema),
+  validate({ params: idParamSchema, body: UpdateCategoryStatusSchema }),
   asyncHandler(adminCategoriesController.updateCategoryStatus),
 );
 
 // 6. Delete category (safe check for destinations in use, supports ?reassignTo=<categoryId>)
 router.delete(
   '/:id',
-  validate({ query: DeleteCategoryQuerySchema }),
+  validate({ params: idParamSchema, query: DeleteCategoryQuerySchema }),
   asyncHandler(adminCategoriesController.deleteCategory),
 );
 

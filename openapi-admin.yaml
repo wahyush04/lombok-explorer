@@ -1723,6 +1723,177 @@ paths:
                 $ref: '#/components/schemas/ErrorResponse'
 
   # ==========================================
+  # ADMIN REVIEWS & MODERATION
+  # ==========================================
+  /reviews:
+    get:
+      summary: List Reviews (Admin)
+      description: Returns a paginated list of user reviews with support for status (APPROVED, PENDING, REJECTED), rating, destination, and user filters.
+      operationId: getAdminReviews
+      tags:
+        - Reviews & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: destinationId
+          in: query
+          schema:
+            type: string
+        - name: userId
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [APPROVED, PENDING, REJECTED]
+        - name: minRating
+          in: query
+          schema:
+            type: number
+        - name: maxRating
+          in: query
+          schema:
+            type: number
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            default: createdAt
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Reviews retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReviewListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reviews/{id}:
+    get:
+      summary: Get Review Details (Admin)
+      description: Retrieves specific review details by ID.
+      operationId: getAdminReviewById
+      tags:
+        - Reviews & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReviewDetailResponse'
+        '404':
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Review (Admin)
+      description: Deletes a user review and recalculates the destination's average rating.
+      operationId: deleteAdminReview
+      tags:
+        - Reviews & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Review deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /reviews/{id}/moderate:
+    patch:
+      summary: Moderate Review (Approve / Reject)
+      description: Updates the moderation status of a review (APPROVED, REJECTED, PENDING) with optional moderation notes.
+      operationId: moderateAdminReview
+      tags:
+        - Reviews & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewModerationRequest'
+      responses:
+        '200':
+          description: Review moderation status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReviewDetailResponse'
+        '404':
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ==========================================
   # ADMIN AUDIT LOGS (PHASE 13)
   # ==========================================
   /audit-logs:
@@ -3414,6 +3585,121 @@ components:
           example: User details retrieved successfully
         data:
           $ref: '#/components/schemas/AdminUserDto'
+
+    # ==========================================
+    # REVIEWS & MODERATION SCHEMAS
+    # ==========================================
+    ReviewModerationRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [APPROVED, PENDING, REJECTED]
+          example: "APPROVED"
+        moderationNotes:
+          type: string
+          example: "Approved after verifying content authenticity."
+        reason:
+          type: string
+          example: "Meets community guidelines."
+
+    AdminReviewDto:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            email:
+              type: string
+            avatarUrl:
+              type: string
+              nullable: true
+        destinationId:
+          type: string
+        destination:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            slug:
+              type: string
+            locationName:
+              type: string
+        rating:
+          type: number
+          example: 5.0
+        content:
+          type: string
+          example: "Incredible sunset views from Bukit Merese!"
+        photos:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [APPROVED, PENDING, REJECTED]
+          example: "APPROVED"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AdminReviewListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Reviews retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminReviewDto'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 12
+            totalPages:
+              type: integer
+              example: 2
+
+    AdminReviewDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Review details retrieved successfully
+        data:
+          $ref: '#/components/schemas/AdminReviewDto'
+
 
 
 

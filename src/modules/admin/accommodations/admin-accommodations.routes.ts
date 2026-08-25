@@ -8,6 +8,7 @@ import {
   UpdateAccommodationSchema,
   UpdateAccommodationStatusSchema,
 } from './dto/admin-accommodation.dto';
+import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
 
@@ -24,33 +25,37 @@ router.get(
 );
 
 // 2. Get accommodation by ID or slug
-router.get('/:id', asyncHandler(adminAccommodationsController.getAccommodationById));
+router.get(
+  '/:id',
+  validate({ params: idParamSchema }),
+  asyncHandler(adminAccommodationsController.getAccommodationById),
+);
 
 // 3. Create accommodation
 router.post(
   '/',
-  validate(CreateAccommodationSchema),
+  validate({ body: CreateAccommodationSchema }),
   asyncHandler(adminAccommodationsController.createAccommodation),
 );
 
 // 4. Update accommodation
 router.put(
   '/:id',
-  validate(UpdateAccommodationSchema),
+  validate({ params: idParamSchema, body: UpdateAccommodationSchema }),
   asyncHandler(adminAccommodationsController.updateAccommodation),
 );
 
 // 5. Update accommodation status specifically
 router.patch(
   '/:id/status',
-  validate(UpdateAccommodationStatusSchema),
+  validate({ params: idParamSchema, body: UpdateAccommodationStatusSchema }),
   asyncHandler(adminAccommodationsController.updateAccommodationStatus),
 );
 
 // 6. Delete accommodation (supports ?hard=true)
 router.delete(
   '/:id',
-  validate({ query: DeleteAccommodationQuerySchema }),
+  validate({ params: idParamSchema, query: DeleteAccommodationQuerySchema }),
   asyncHandler(adminAccommodationsController.deleteAccommodation),
 );
 
