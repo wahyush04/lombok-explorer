@@ -39,9 +39,9 @@ async function main(): Promise<void> {
   await prisma.user.deleteMany({});
 
   // =========================================================================
-  // 2. SEED USERS
+  // 2. SEED USERS & DEVELOPMENT ADMIN ACCOUNT
   // =========================================================================
-  const passwordHash = await bcrypt.hash('Password123!', 10);
+  const passwordHash = await bcrypt.hash('Password123!', 12);
 
   const demoUser = await prisma.user.create({
     data: {
@@ -57,7 +57,8 @@ async function main(): Promise<void> {
     },
   });
 
-  const adminUser = await prisma.user.create({
+  // Base Admin Account (For test suite and baseline integration)
+  const baseAdmin = await prisma.user.create({
     data: {
       id: 'usr_admin_lombok',
       email: 'admin@lombokexplorer.com',
@@ -68,6 +69,36 @@ async function main(): Promise<void> {
       isEmailVerified: true,
     },
   });
+
+  // Dynamic Development Admin Account from Environment Variables
+  const devAdminEmail = process.env.ADMIN_EMAIL || 'wahyush04.colab@example.com';
+  const devAdminRawPassword = process.env.ADMIN_PASSWORD || 'lombokExplorer@2026';
+  const devAdminName = process.env.ADMIN_NAME || 'Development Administrator';
+
+  if (devAdminEmail !== 'admin@lombokexplorer.com') {
+    const devAdminHash = await bcrypt.hash(devAdminRawPassword, 12);
+    await prisma.user.create({
+      data: {
+        id: 'usr_dev_admin_env',
+        email: devAdminEmail.toLowerCase().trim(),
+        password: devAdminHash,
+        name: devAdminName,
+        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200',
+        role: UserRole.ADMIN,
+        isEmailVerified: true,
+      },
+    });
+  }
+
+  // Security Warning Banner
+  console.log('----------------------------------------------------------------');
+  console.log('⚠️  [SECURITY WARNING]: DEVELOPMENT ADMIN ACCOUNT SEEDED!');
+  console.log(`   Email   : ${devAdminEmail}`);
+  console.log(`   Role    : ADMIN`);
+  console.log(`   Status  : ACTIVE`);
+  console.log('   WARNING : This credential is strictly intended for local development & QA testing.');
+  console.log('   WARNING : DO NOT hardcode or use default development credentials in production!');
+  console.log('----------------------------------------------------------------');
 
   const localGuideUser = await prisma.user.create({
     data: {

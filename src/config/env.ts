@@ -75,6 +75,10 @@ export const envSchema = z.object({
       }
       return parsed;
     }),
+
+  ADMIN_EMAIL: z.string().email().optional(),
+  ADMIN_PASSWORD: z.string().min(6).optional(),
+  ADMIN_NAME: z.string().optional().default('Super Admin Lombok Explorer'),
 });
 
 export type Env = z.infer<typeof envSchema>;

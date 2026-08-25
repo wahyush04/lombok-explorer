@@ -36,6 +36,11 @@ export const config = {
     baseUrl: env.WEATHER_API_BASE_URL,
     cacheTtlSeconds: env.WEATHER_CACHE_TTL_SECONDS,
   },
+  adminSeed: {
+    email: env.ADMIN_EMAIL || 'admin@lombokexplorer.com',
+    password: env.ADMIN_PASSWORD || 'Password123!',
+    name: env.ADMIN_NAME || 'Super Admin Lombok Explorer',
+  },
 } as const;
 
 export type AppConfig = typeof config;
