@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../common/utils/async-handler.util';
 import { ResponseUtil } from '../../common/utils/api-response.util';
 import { authService, AuthService } from './auth.service';
-import { LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
+import { GoogleAuthDto, LoginDto, RefreshTokenDto, RegisterDto } from './dto/auth.dto';
 import { HttpStatus } from '../../common/constants';
 
 export class AuthController {
@@ -23,6 +23,12 @@ export class AuthController {
     const dto = req.body as LoginDto;
     const result = await this.service.login(dto);
     return ResponseUtil.sendSuccess(res, result, 'Authentication successful');
+  });
+
+  public googleLogin = asyncHandler(async (req: Request, res: Response) => {
+    const dto = req.body as GoogleAuthDto;
+    const result = await this.service.googleLogin(dto);
+    return ResponseUtil.sendSuccess(res, result, 'Login successful');
   });
 
   public refresh = asyncHandler(async (req: Request, res: Response) => {

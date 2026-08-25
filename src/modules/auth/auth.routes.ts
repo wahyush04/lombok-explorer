@@ -1,7 +1,12 @@
 import { Router } from 'express';
 import { authController } from './auth.controller';
 import { validate } from '../../common/middleware/validate.middleware';
-import { LoginDtoSchema, RefreshTokenDtoSchema, RegisterDtoSchema } from './dto/auth.dto';
+import {
+  GoogleAuthDtoSchema,
+  LoginDtoSchema,
+  RefreshTokenDtoSchema,
+  RegisterDtoSchema,
+} from './dto/auth.dto';
 import { authenticate } from '../../common/middleware/auth.middleware';
 import { authLimiter } from '../../common/middleware/rate-limit.middleware';
 
@@ -13,6 +18,7 @@ router.use(authLimiter);
 // Public routes
 router.post('/register', validate(RegisterDtoSchema), authController.register);
 router.post('/login', validate(LoginDtoSchema), authController.login);
+router.post('/google', validate(GoogleAuthDtoSchema), authController.googleLogin);
 router.post('/refresh', validate(RefreshTokenDtoSchema), authController.refresh);
 router.post('/refresh-token', validate(RefreshTokenDtoSchema), authController.refresh);
 

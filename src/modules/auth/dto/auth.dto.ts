@@ -28,9 +28,18 @@ export const RefreshTokenDtoSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
 });
 
+export const GoogleAuthDtoSchema = z.object({
+  idToken: z
+    .string({
+      required_error: 'Google idToken is required',
+    })
+    .min(1, 'Google idToken cannot be empty'),
+});
+
 export type RegisterDto = z.infer<typeof RegisterDtoSchema>;
 export type LoginDto = z.infer<typeof LoginDtoSchema>;
 export type RefreshTokenDto = z.infer<typeof RefreshTokenDtoSchema>;
+export type GoogleAuthDto = z.infer<typeof GoogleAuthDtoSchema>;
 
 export interface SanitizedUser {
   id: string;
@@ -42,11 +51,21 @@ export interface SanitizedUser {
   travelStyle: TravelStyle | null;
   preferredRegion: LombokRegion | null;
   isEmailVerified: boolean;
+  hasPassword?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
 
 export interface AuthTokens {
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  tokenType: 'Bearer';
+  user: SanitizedUser;
+}
+
+export interface GoogleAuthResult {
+  status: 'LOGIN_SUCCESS' | 'NEED_REGISTRATION';
   accessToken: string;
   refreshToken: string;
   expiresIn: number;

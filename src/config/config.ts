@@ -41,6 +41,9 @@ export const config = {
     password: env.ADMIN_PASSWORD || 'Password123!',
     name: env.ADMIN_NAME || 'Super Admin Lombok Explorer',
   },
+  google: {
+    clientId: env.GOOGLE_CLIENT_ID || 'mock-google-client-id.apps.googleusercontent.com',
+  },
 } as const;
 
 export type AppConfig = typeof config;

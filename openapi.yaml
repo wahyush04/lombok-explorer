@@ -157,6 +157,47 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /auth/google:
+    post:
+      summary: Authenticate user with verified Google ID Token (Google Sign-In)
+      description: |
+        Authenticates user with a cryptographically verified Google ID Token.
+        - If Google identity is already linked -> logs in directly.
+        - If Google identity is not yet linked but email matches existing account -> links Google account to existing user and logs in.
+        - If user does not exist -> creates new user and links Google identity.
+      operationId: googleLogin
+      tags:
+        - Auth
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleAuthRequest'
+      responses:
+        '200':
+          description: Login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: Invalid or expired Google ID Token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Google token verification failed: Invalid signature or expired token"
+                errorCode: "INVALID_GOOGLE_TOKEN"
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /auth/refresh-token:
     post:
       summary: Refresh expired access token using refresh token
@@ -1693,6 +1734,62 @@ components:
         refreshToken:
           type: string
           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    GoogleAuthRequest:
+      type: object
+      required:
+        - idToken
+      properties:
+        idToken:
+          type: string
+          description: Raw Google ID Token string obtained from Google Sign-In SDK
+          example: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMzQ1NiJ9..."
+
+    GoogleAuthData:
+      type: object
+      required:
+        - status
+        - accessToken
+        - refreshToken
+        - expiresIn
+        - user
+      properties:
+        status:
+          type: string
+          enum:
+            - LOGIN_SUCCESS
+            - NEED_REGISTRATION
+          example: "LOGIN_SUCCESS"
+        accessToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expiresIn:
+          type: integer
+          example: 900
+        tokenType:
+          type: string
+          example: "Bearer"
+        user:
+          $ref: '#/components/schemas/UserDto'
+
+    GoogleAuthResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Login successful"
+        data:
+          $ref: '#/components/schemas/GoogleAuthData'
 
     UpdateProfileRequest:
       type: object

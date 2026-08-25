@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { User, UserRole } from '@prisma/client';
+import { AuthProvider, User, UserRole } from '@prisma/client';
 import { config } from '../../config/config';
 import {
   ConflictError,
@@ -9,13 +9,25 @@ import {
   UnauthorizedError,
 } from '../../common/errors/app-error';
 import { authRepository, AuthRepository } from './auth.repository';
-import { AuthTokens, LoginDto, RefreshTokenDto, RegisterDto, SanitizedUser } from './dto/auth.dto';
+import {
+  AuthTokens,
+  GoogleAuthDto,
+  GoogleAuthResult,
+  LoginDto,
+  RefreshTokenDto,
+  RegisterDto,
+  SanitizedUser,
+} from './dto/auth.dto';
 import { AuthUserPayload } from '../../common/types';
+import { googleAuthService, IGoogleAuthService } from './google-auth.service';
 
 export class AuthService {
   private readonly saltRounds = 12;
 
-  constructor(private readonly repository: AuthRepository = authRepository) {}
+  constructor(
+    private readonly repository: AuthRepository = authRepository,
+    private readonly googleAuth: IGoogleAuthService = googleAuthService,
+  ) {}
 
   public async hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, this.saltRounds);
@@ -261,6 +273,88 @@ export class AuthService {
     }
 
     return this.sanitizeUser(user);
+  }
+
+  /**
+   * Google Sign-In & Single-Account Linking flow:
+   * 1. Validate & verify Google ID Token cryptographically
+   * 2. Extract Google sub, email, name, avatar
+   * 3. Look up AuthIdentity(provider: GOOGLE, providerAccountId: sub)
+   * 4. If found -> CASE A: Log in to existing linked account
+   *    If not found -> Check if user with same verified email exists:
+   *      - If exists -> CASE B: Link Google identity to existing User account
+   *      - If not exists -> CASE C: Create new User + Google AuthIdentity
+   * 5. Enforce account status checks (deleted, suspended, inactive)
+   * 6. Issue access & refresh JWT tokens
+   */
+  public async googleLogin(dto: GoogleAuthDto): Promise<GoogleAuthResult> {
+    // 1. Verify Google ID Token
+    const googleUser = await this.googleAuth.verifyIdToken(dto.idToken);
+
+    // 2. Find AuthIdentity
+    const identity = await this.repository.findIdentity(AuthProvider.GOOGLE, googleUser.sub);
+    let user: User;
+
+    if (identity) {
+      // CASE A: SUDAH TERTAUT
+      user = identity.user;
+    } else {
+      // Identity not found -> check if User with verified Google email exists
+      const existingUser = await this.repository.findByEmail(googleUser.email);
+
+      if (existingUser) {
+        // CASE B: User with email exists -> Link Google AuthIdentity to this existing User
+        await this.repository.createIdentity(existingUser.id, AuthProvider.GOOGLE, googleUser.sub);
+        user = existingUser;
+      } else {
+        // CASE C: Brand new user -> Create User + Google AuthIdentity
+        user = await this.repository.create({
+          email: googleUser.email,
+          name: googleUser.name,
+          password: null,
+          avatarUrl: googleUser.avatarUrl,
+          isEmailVerified: googleUser.isEmailVerified,
+          role: UserRole.USER,
+        });
+
+        await this.repository.createIdentity(user.id, AuthProvider.GOOGLE, googleUser.sub);
+      }
+    }
+
+    // 3. Check account active status
+    if (user.deletedAt) {
+      throw new UnauthorizedError('Account has been deleted', 'ACCOUNT_DELETED');
+    }
+
+    if (user.status === 'SUSPENDED') {
+      throw new ForbiddenError(
+        'Your account has been suspended. Please contact administrator.',
+        'ACCOUNT_SUSPENDED',
+      );
+    }
+
+    if (user.status === 'INACTIVE') {
+      throw new ForbiddenError(
+        'Your account is inactive. Please contact administrator.',
+        'ACCOUNT_INACTIVE',
+      );
+    }
+
+    // 4. Issue Access Token & Refresh Token
+    const tokens = this.generateTokens(user);
+
+    // 5. Update Refresh Token for rotation
+    await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
+
+    // 6. Return Login Success Response
+    return {
+      status: 'LOGIN_SUCCESS',
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: tokens.expiresIn,
+      tokenType: 'Bearer',
+      user: this.sanitizeUser(user),
+    };
   }
 }
 

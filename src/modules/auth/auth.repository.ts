@@ -1,4 +1,4 @@
-import { Prisma, User } from '@prisma/client';
+import { AuthIdentity, AuthProvider, Prisma, User } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 
 export class AuthRepository {
@@ -40,6 +40,53 @@ export class AuthRepository {
     await prisma.user.update({
       where: { id: userId },
       data: { refreshToken: null },
+    });
+  }
+
+  public async findIdentity(
+    provider: AuthProvider,
+    providerAccountId: string,
+  ): Promise<(AuthIdentity & { user: User }) | null> {
+    return prisma.authIdentity.findUnique({
+      where: {
+        provider_providerAccountId: {
+          provider,
+          providerAccountId,
+        },
+      },
+      include: {
+        user: true,
+      },
+    });
+  }
+
+  public async createIdentity(
+    userId: string,
+    provider: AuthProvider,
+    providerAccountId: string,
+  ): Promise<AuthIdentity> {
+    return prisma.authIdentity.create({
+      data: {
+        userId,
+        provider,
+        providerAccountId,
+      },
+    });
+  }
+
+  public async findIdentitiesByUserId(userId: string): Promise<AuthIdentity[]> {
+    return prisma.authIdentity.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'asc' },
+    });
+  }
+
+  public async deleteIdentity(userId: string, provider: AuthProvider): Promise<void> {
+    await prisma.authIdentity.deleteMany({
+      where: {
+        userId,
+        provider,
+      },
     });
   }
 }
