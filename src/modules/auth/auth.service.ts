@@ -165,9 +165,16 @@ export class AuthService {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
-    // 2. Check if user is active (not deactivated)
+    // 2. Check if user is active (not deactivated or suspended)
     if (user.deletedAt) {
       throw new UnauthorizedError('User account is deactivated', 'ACCOUNT_DEACTIVATED');
+    }
+
+    if (user.status === 'SUSPENDED' || user.status === 'INACTIVE') {
+      throw new ForbiddenError(
+        'Your administrator account is suspended or inactive. Please contact system owner.',
+        'ACCOUNT_SUSPENDED',
+      );
     }
 
     // 3. Verify password with bcrypt
