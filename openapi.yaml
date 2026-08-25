@@ -1396,6 +1396,16 @@ components:
             success: false
             message: "Unauthorized access, please login"
             errorCode: "UNAUTHORIZED"
+    ForbiddenError:
+      description: Forbidden - Insufficient permissions or role requirement
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "You do not have permission to access this resource"
+            errorCode: "FORBIDDEN"
     NotFoundError:
       description: Resource not found
       content:
@@ -1406,6 +1416,16 @@ components:
             success: false
             message: "Destination not found"
             errorCode: "NOT_FOUND"
+    ConflictError:
+      description: Conflict with existing resource
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Resource already exists"
+            errorCode: "CONFLICT"
     InternalServerError:
       description: Internal server error
       content:
@@ -1416,6 +1436,15 @@ components:
             success: false
             message: "Internal server error occurred"
             errorCode: "INTERNAL_SERVER_ERROR"
+    ActionSuccessResponse:
+      description: Action completed successfully
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ActionSuccessResponse'
+          example:
+            success: true
+            message: "Action completed successfully"
 
   schemas:
     # --- COMMON / META SCHEMAS ---
@@ -1461,6 +1490,41 @@ components:
           items:
             type: string
           nullable: true
+
+    ForbiddenError:
+      type: object
+      required:
+        - success
+        - message
+        - errorCode
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "You do not have permission to access this resource"
+        errorCode:
+          type: string
+          example: "FORBIDDEN"
+        details:
+          type: array
+          items:
+            type: string
+          nullable: true
+
+    ActionSuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Action completed successfully"
 
     StandardActionResponse:
       type: object

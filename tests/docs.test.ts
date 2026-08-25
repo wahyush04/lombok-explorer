@@ -76,6 +76,16 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(schemas).toHaveProperty('ReviewDto');
     expect(schemas).toHaveProperty('PaginationMeta');
     expect(schemas).toHaveProperty('ErrorResponse');
+    expect(schemas).toHaveProperty('ForbiddenError');
+    expect(schemas).toHaveProperty('ActionSuccessResponse');
+
+    // Verify reusable responses
+    const responses = response.body.components.responses;
+    expect(responses).toHaveProperty('BadRequestError');
+    expect(responses).toHaveProperty('UnauthorizedError');
+    expect(responses).toHaveProperty('ForbiddenError');
+    expect(responses).toHaveProperty('NotFoundError');
+    expect(responses).toHaveProperty('ActionSuccessResponse');
   });
 
   it('GET /api/docs/yaml should serve raw OpenAPI YAML specification', async () => {

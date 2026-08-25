@@ -2028,7 +2028,60 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Enter standard JWT Bearer token obtained from `/auth/login`
+  responses:
+    ForbiddenError:
+      description: Forbidden - Admin role and active account status required
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+          example:
+            success: false
+            message: "Admin access required"
+            errorCode: "ADMIN_ACCESS_REQUIRED"
+    ActionSuccessResponse:
+      description: Action performed successfully
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ActionSuccessResponse"
+          example:
+            success: true
+            message: "Action completed successfully"
   schemas:
+    ForbiddenError:
+      type: object
+      required:
+        - success
+        - message
+        - errorCode
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: "Admin access required"
+        errorCode:
+          type: string
+          example: "ADMIN_ACCESS_REQUIRED"
+        details:
+          type: array
+          items:
+            type: string
+          nullable: true
+    ActionSuccessResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Action completed successfully"
     AdminAuditLogDto:
       $ref: "#/components/schemas/AdminAuditLogItem"
     AdminAuditLogItem:
