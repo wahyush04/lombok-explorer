@@ -4,43 +4,40 @@ info:
   description: |
     # Lombok Explorer — Dedicated Admin API Specification
     Comprehensive RESTful Administrative Operations API for the Lombok Explorer Admin Dashboard and Management Portal.
-    
+
     All endpoints in this specification require administrator privileges (`role: ADMIN`). Public users and standard travelers are strictly restricted from accessing these endpoints (`403 Forbidden`).
   version: 1.0.0
   contact:
     name: Lombok Explorer Engineering Team
     email: wahyush04@gmail.com
     url: https://lombokexplorer.com
-
 servers:
   - url: /api/v1/admin
     description: Primary Canonical Admin API v1
   - url: /v1/admin
     description: Backward Compatibility Admin API Alias
-
 tags:
-  - name: Admin Auth
+  - name: Admin Authentication
     description: Administrator authentication, token refresh, and session management
-  - name: Dashboard
-    description: Administrative KPI metrics and analytical overview (Phase 3+)
-  - name: Destinations
-    description: Full destination lifecycle management (Phase 4+)
-  - name: Categories
-    description: Master tourism categories management (Phase 5+)
-  - name: Reviews & Moderation
-    description: Review moderation and user feedback oversight (Phase 9+)
-  - name: User Management
-    description: User directory, role assignment, and account status (Phase 12+)
-  - name: Audit Logs
-    description: System and administrative operation trail logs (Phase 16+)
-
+  - name: Admin Dashboard
+    description: Administrative KPI metrics, counts, and system analytical overview
+  - name: Admin Destinations
+    description: Full destination lifecycle management, bulk operations, and image gallery management
+  - name: Admin Categories
+    description: Master tourism categories management and destination reassignments
+  - name: Admin Restaurants
+    description: Culinary spots and restaurant lifecycle management
+  - name: Admin Accommodations
+    description: Lodging, resort, villa, and hotel lifecycle management
+  - name: Admin Users
+    description: User directory, role assignment, account status, and suspension
+  - name: Admin Reviews
+    description: Review moderation, approval/rejection, rating recalculation, and oversight
+  - name: Admin Audit Logs
+    description: Sensitive administrative operation trail logs and audit tracking
 security:
   - BearerAuth: []
-
 paths:
-  # ==========================================
-  # ADMIN AUTHENTICATION
-  # ==========================================
   /auth/login:
     post:
       summary: Administrator Login
@@ -49,46 +46,45 @@ paths:
         Returns a short-lived access token and a rotating refresh token.
       operationId: adminLogin
       tags:
-        - Admin Auth
+        - Admin Authentication
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/AdminLoginRequest'
+              $ref: "#/components/schemas/AdminLoginRequest"
       responses:
-        '200':
+        "200":
           description: Administrator login successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAuthResponse'
-        '400':
+                $ref: "#/components/schemas/AdminAuthResponse"
+        "400":
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
           description: Invalid email or password, or deactivated account
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: User account exists but lacks ADMIN role
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '429':
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
           description: Too many authentication attempts
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /auth/refresh:
     post:
       summary: Refresh Admin Access Token
@@ -96,95 +92,89 @@ paths:
         Generates a new access token and rotating refresh token using a valid admin refresh token.
       operationId: adminRefreshToken
       tags:
-        - Admin Auth
+        - Admin Authentication
       security: []
       requestBody:
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/RefreshTokenRequest'
+              $ref: "#/components/schemas/RefreshTokenRequest"
       responses:
-        '200':
+        "200":
           description: Tokens refreshed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAuthResponse'
-        '401':
+                $ref: "#/components/schemas/AdminAuthResponse"
+        "401":
           description: Invalid or expired refresh token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Refreshed account is not an ADMIN
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /auth/logout:
     post:
       summary: Administrator Logout
       description: Revokes the active admin refresh token session in the database.
       operationId: adminLogout
       tags:
-        - Admin Auth
+        - Admin Authentication
       security:
         - BearerAuth: []
       responses:
-        '200':
+        "200":
           description: Administrator logged out successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '401':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "401":
           description: Missing or invalid authentication token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Non-admin token rejected
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /auth/me:
     get:
       summary: Get Current Admin Profile
       description: Returns the authenticated administrator user profile details.
       operationId: getAdminMe
       tags:
-        - Admin Auth
+        - Admin Authentication
       security:
         - BearerAuth: []
       responses:
-        '200':
+        "200":
           description: Admin profile retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminProfileResponse'
-        '401':
+                $ref: "#/components/schemas/AdminProfileResponse"
+        "401":
           description: Missing or invalid authentication token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Non-admin token rejected
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN DASHBOARD & ANALYTICS
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /dashboard:
     get:
       summary: Get Admin Dashboard Statistics & Analytics
@@ -192,7 +182,7 @@ paths:
         Aggregates key platform operational metrics including total entities, pending reviews count, new user/review growth rates, and top popular/favorited destinations.
       operationId: getAdminDashboard
       tags:
-        - Dashboard
+        - Admin Dashboard
       security:
         - BearerAuth: []
       parameters:
@@ -201,43 +191,39 @@ paths:
           description: Optional start date filter (ISO string or YYYY-MM-DD)
           schema:
             type: string
-            example: "2026-01-01"
+            example: 2026-01-01
         - name: endDate
           in: query
           description: Optional end date filter (ISO string or YYYY-MM-DD)
           schema:
             type: string
-            example: "2026-12-31"
+            example: 2026-12-31
       responses:
-        '200':
+        "200":
           description: Dashboard statistics retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DashboardResponse'
-        '401':
+                $ref: "#/components/schemas/DashboardResponse"
+        "401":
           description: Missing or invalid authentication token
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Non-admin token rejected
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN DESTINATIONS MANAGEMENT
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /destinations:
     get:
       summary: List and Filter Destinations (Admin)
       description: Returns a paginated list of destinations with support for search, category, region, difficulty, rating, price, and status filters.
       operationId: getAdminDestinations
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -263,12 +249,21 @@ paths:
           in: query
           schema:
             type: string
-            enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+            enum:
+              - LOMBOK_SELATAN
+              - LOMBOK_UTARA
+              - LOMBOK_BARAT
+              - LOMBOK_TIMUR
+              - LOMBOK_TENGAH
+              - GILI_ISLANDS
         - name: status
           in: query
           schema:
             type: string
-            enum: [PUBLISHED, DRAFT, ARCHIVED]
+            enum:
+              - PUBLISHED
+              - DRAFT
+              - ARCHIVED
         - name: isFeatured
           in: query
           schema:
@@ -277,40 +272,48 @@ paths:
           in: query
           schema:
             type: string
-            enum: [name, rating, reviewCount, entranceFee, ticketPrice, createdAt, updatedAt]
+            enum:
+              - name
+              - rating
+              - reviewCount
+              - entranceFee
+              - ticketPrice
+              - createdAt
+              - updatedAt
             default: createdAt
         - name: order
           in: query
           schema:
             type: string
-            enum: [asc, desc]
+            enum:
+              - asc
+              - desc
             default: desc
       responses:
-        '200':
+        "200":
           description: Destinations retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminDestinationListResponse'
-        '401':
+                $ref: "#/components/schemas/AdminDestinationListResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Create a New Destination
       description: Creates a new tourism destination record. Generates unique slug automatically if omitted.
       operationId: createAdminDestination
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       requestBody:
@@ -318,40 +321,39 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateDestinationRequest'
+              $ref: "#/components/schemas/CreateDestinationRequest"
       responses:
-        '201':
+        "201":
           description: Destination created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminDestinationDetailResponse'
-        '400':
+                $ref: "#/components/schemas/AdminDestinationDetailResponse"
+        "400":
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '401':
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /destinations/bulk-delete:
     post:
       summary: Bulk Delete Destinations (Admin)
-      description: "Deletes multiple destinations within an atomic database transaction. Supports soft-delete by default or hard-delete if hard is true."
+      description: Deletes multiple destinations within an atomic database transaction. Supports soft-delete by default or hard-delete if hard is true.
       operationId: bulkDeleteDestinations
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       requestBody:
@@ -359,34 +361,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BulkDeleteDestinationsRequest'
+              $ref: "#/components/schemas/BulkDeleteDestinationsRequest"
       responses:
-        '200':
+        "200":
           description: Destinations deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BulkDeleteDestinationsResponse'
-        '400':
+                $ref: "#/components/schemas/BulkDeleteDestinationsResponse"
+        "400":
           description: Validation error (e.g. empty IDs array)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
           description: One or more destination IDs not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /destinations/bulk-status:
     post:
       summary: Bulk Update Destination Status (Admin)
       description: Updates publication status for multiple destinations within an atomic database transaction.
       operationId: bulkUpdateDestinationStatus
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       requestBody:
@@ -394,34 +395,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/BulkUpdateDestinationStatusRequest'
+              $ref: "#/components/schemas/BulkUpdateDestinationStatusRequest"
       responses:
-        '200':
+        "200":
           description: Destination statuses updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/BulkUpdateDestinationStatusResponse'
-        '400':
+                $ref: "#/components/schemas/BulkUpdateDestinationStatusResponse"
+        "400":
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
           description: One or more destination IDs not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /destinations/{id}:
     get:
       summary: Get Destination by ID or Slug
       description: Returns complete destination details including reviews count and favorite statistics.
       operationId: getAdminDestinationById
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -431,25 +431,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Destination details retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminDestinationDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminDestinationDetailResponse"
+        "404":
           description: Destination not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       summary: Update Destination
       description: Updates an existing destination's attributes, pricing, or status.
       operationId: updateAdminDestination
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -463,27 +462,26 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateDestinationRequest'
+              $ref: "#/components/schemas/UpdateDestinationRequest"
       responses:
-        '200':
+        "200":
           description: Destination updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminDestinationDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminDestinationDetailResponse"
+        "404":
           description: Destination not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       summary: Delete Destination
       description: Deletes a destination (soft-delete by default, or permanent deletion with `?hard=true`).
       operationId: deleteAdminDestination
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -498,26 +496,25 @@ paths:
             type: boolean
             default: false
       responses:
-        '200':
+        "200":
           description: Destination deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '404':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
           description: Destination not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /destinations/{id}/status:
     patch:
       summary: Update Destination Status
       description: Updates destination publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
       operationId: updateDestinationStatus
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -531,31 +528,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateContentStatusRequest'
+              $ref: "#/components/schemas/UpdateContentStatusRequest"
       responses:
-        '200':
+        "200":
           description: Destination status updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminDestinationDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminDestinationDetailResponse"
+        "404":
           description: Destination not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN DESTINATION IMAGES MANAGEMENT
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /destinations/{id}/images:
     get:
       summary: List Destination Gallery Images
       description: Returns all gallery images associated with a destination, sorted by orderIndex.
       operationId: getDestinationImages
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -565,25 +558,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Destination images retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DestinationImageListResponse'
-        '404':
+                $ref: "#/components/schemas/DestinationImageListResponse"
+        "404":
           description: Destination not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Upload or Add Image to Destination
       description: Adds a new image to destination gallery via multipart file upload or JSON payload with imageUrl reference.
       operationId: createDestinationImage
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -611,34 +603,33 @@ paths:
                   type: boolean
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateDestinationImageRequest'
+              $ref: "#/components/schemas/CreateDestinationImageRequest"
       responses:
-        '201':
+        "201":
           description: Image added successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DestinationImageDetailResponse'
-        '400':
+                $ref: "#/components/schemas/DestinationImageDetailResponse"
+        "400":
           description: Validation or upload error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
           description: Destination not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /destinations/{id}/images/{imageId}:
     put:
       summary: Update Destination Image
       description: Updates image attributes (caption, altText, orderIndex, isPrimary) or replaces the image file.
       operationId: updateDestinationImage
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -671,27 +662,26 @@ paths:
                   type: boolean
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateDestinationImageRequest'
+              $ref: "#/components/schemas/UpdateDestinationImageRequest"
       responses:
-        '200':
+        "200":
           description: Destination image updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DestinationImageDetailResponse'
-        '404':
+                $ref: "#/components/schemas/DestinationImageDetailResponse"
+        "404":
           description: Image or destination not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       summary: Delete Destination Image
       description: Deletes an image from the destination gallery.
       operationId: deleteDestinationImage
       tags:
-        - Destinations
+        - Admin Destinations
       security:
         - BearerAuth: []
       parameters:
@@ -706,29 +696,25 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Image deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '404':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
           description: Image not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN CATEGORIES MANAGEMENT
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /categories:
     get:
       summary: List Categories (Admin)
       description: Returns a paginated list of categories with destinations count and search capabilities.
       operationId: getAdminCategories
       tags:
-        - Categories
+        - Admin Categories
       security:
         - BearerAuth: []
       parameters:
@@ -750,40 +736,46 @@ paths:
           in: query
           schema:
             type: string
-            enum: [name, slug, createdAt, updatedAt, destinationsCount]
+            enum:
+              - name
+              - slug
+              - createdAt
+              - updatedAt
+              - destinationsCount
             default: name
         - name: order
           in: query
           schema:
             type: string
-            enum: [asc, desc]
+            enum:
+              - asc
+              - desc
             default: asc
       responses:
-        '200':
+        "200":
           description: Categories retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminCategoryListResponse'
-        '401':
+                $ref: "#/components/schemas/AdminCategoryListResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Create Category
       description: Creates a new tourism category with unique name and unique slug validation.
       operationId: createAdminCategory
       tags:
-        - Categories
+        - Admin Categories
       security:
         - BearerAuth: []
       requestBody:
@@ -791,34 +783,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateCategoryRequest'
+              $ref: "#/components/schemas/CreateCategoryRequest"
       responses:
-        '201':
+        "201":
           description: Category created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminCategoryDetailResponse'
-        '400':
+                $ref: "#/components/schemas/AdminCategoryDetailResponse"
+        "400":
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
           description: Category name or slug conflict
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /categories/{id}:
     get:
       summary: Get Category Details by ID or Slug
       description: Returns category details including the total number of assigned destinations.
       operationId: getAdminCategoryById
       tags:
-        - Categories
+        - Admin Categories
       security:
         - BearerAuth: []
       parameters:
@@ -828,25 +819,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Category details retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminCategoryDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminCategoryDetailResponse"
+        "404":
           description: Category not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       summary: Update Category
       description: Updates category details with unique name/slug enforcement.
       operationId: updateAdminCategory
       tags:
-        - Categories
+        - Admin Categories
       security:
         - BearerAuth: []
       parameters:
@@ -860,33 +850,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateCategoryRequest'
+              $ref: "#/components/schemas/UpdateCategoryRequest"
       responses:
-        '200':
+        "200":
           description: Category updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminCategoryDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminCategoryDetailResponse"
+        "404":
           description: Category not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
           description: Name or slug collision
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       summary: Delete Category
       description: Deletes a category. Rejects deletion with 409 Conflict if destinations are still using this category unless `?reassignTo=<categoryId>` is specified.
       operationId: deleteAdminCategory
       tags:
-        - Categories
+        - Admin Categories
       security:
         - BearerAuth: []
       parameters:
@@ -901,32 +890,31 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Category deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '404':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
           description: Category not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
           description: Category in use by destinations
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /categories/{id}/status:
     patch:
       summary: Update Category Status
       description: Updates category publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
       operationId: updateCategoryStatus
       tags:
-        - Categories
+        - Admin Categories
       security:
         - BearerAuth: []
       parameters:
@@ -940,31 +928,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateContentStatusRequest'
+              $ref: "#/components/schemas/UpdateContentStatusRequest"
       responses:
-        '200':
+        "200":
           description: Category status updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminCategoryDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminCategoryDetailResponse"
+        "404":
           description: Category not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN RESTAURANTS MANAGEMENT
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /restaurants:
     get:
       summary: List Restaurants (Admin)
       description: Returns a paginated list of culinary spots and restaurants with search, region, cuisine, rating, price range, status, and featured filters.
       operationId: getAdminRestaurants
       tags:
-        - Restaurants
+        - Admin Restaurants
       security:
         - BearerAuth: []
       parameters:
@@ -990,12 +974,21 @@ paths:
           in: query
           schema:
             type: string
-            enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+            enum:
+              - LOMBOK_SELATAN
+              - LOMBOK_UTARA
+              - LOMBOK_BARAT
+              - LOMBOK_TIMUR
+              - LOMBOK_TENGAH
+              - GILI_ISLANDS
         - name: status
           in: query
           schema:
             type: string
-            enum: [PUBLISHED, DRAFT, ARCHIVED]
+            enum:
+              - PUBLISHED
+              - DRAFT
+              - ARCHIVED
         - name: minRating
           in: query
           schema:
@@ -1024,40 +1017,48 @@ paths:
           in: query
           schema:
             type: string
-            enum: [name, rating, reviewCount, minPrice, maxPrice, createdAt, updatedAt]
+            enum:
+              - name
+              - rating
+              - reviewCount
+              - minPrice
+              - maxPrice
+              - createdAt
+              - updatedAt
             default: createdAt
         - name: order
           in: query
           schema:
             type: string
-            enum: [asc, desc]
+            enum:
+              - asc
+              - desc
             default: desc
       responses:
-        '200':
+        "200":
           description: Restaurants retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminRestaurantListResponse'
-        '401':
+                $ref: "#/components/schemas/AdminRestaurantListResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Create Restaurant (Admin)
       description: Creates a new restaurant entry with auto-generated slug and validation.
       operationId: createAdminRestaurant
       tags:
-        - Restaurants
+        - Admin Restaurants
       security:
         - BearerAuth: []
       requestBody:
@@ -1065,34 +1066,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateRestaurantRequest'
+              $ref: "#/components/schemas/CreateRestaurantRequest"
       responses:
-        '201':
+        "201":
           description: Restaurant created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
-        '400':
+                $ref: "#/components/schemas/AdminRestaurantDetailResponse"
+        "400":
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
           description: Restaurant slug or name already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /restaurants/{id}:
     get:
       summary: Get Restaurant Details (Admin)
       description: Retrieves full details of a restaurant by its UUID or slug.
       operationId: getAdminRestaurantById
       tags:
-        - Restaurants
+        - Admin Restaurants
       security:
         - BearerAuth: []
       parameters:
@@ -1102,25 +1102,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Restaurant details retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminRestaurantDetailResponse"
+        "404":
           description: Restaurant not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       summary: Update Restaurant (Admin)
       description: Updates restaurant information and attributes.
       operationId: updateAdminRestaurant
       tags:
-        - Restaurants
+        - Admin Restaurants
       security:
         - BearerAuth: []
       parameters:
@@ -1134,33 +1133,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateRestaurantRequest'
+              $ref: "#/components/schemas/UpdateRestaurantRequest"
       responses:
-        '200':
+        "200":
           description: Restaurant updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminRestaurantDetailResponse"
+        "404":
           description: Restaurant not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
           description: Conflict (e.g. duplicate slug)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       summary: Delete Restaurant (Admin)
       description: Deletes a restaurant (soft-delete by default, permanent with ?hard=true).
       operationId: deleteAdminRestaurant
       tags:
-        - Restaurants
+        - Admin Restaurants
       security:
         - BearerAuth: []
       parameters:
@@ -1176,26 +1174,25 @@ paths:
             type: boolean
             default: false
       responses:
-        '200':
+        "200":
           description: Restaurant deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '404':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
           description: Restaurant not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /restaurants/{id}/status:
     patch:
       summary: Update Restaurant Status
       description: Updates restaurant publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
       operationId: updateRestaurantStatus
       tags:
-        - Restaurants
+        - Admin Restaurants
       security:
         - BearerAuth: []
       parameters:
@@ -1209,31 +1206,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateContentStatusRequest'
+              $ref: "#/components/schemas/UpdateContentStatusRequest"
       responses:
-        '200':
+        "200":
           description: Restaurant status updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminRestaurantDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminRestaurantDetailResponse"
+        "404":
           description: Restaurant not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN ACCOMMODATIONS MANAGEMENT
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /accommodations:
     get:
       summary: List Accommodations (Admin)
       description: Returns a paginated list of accommodations with search, type, region, price range, facilities, status, and featured filters.
       operationId: getAdminAccommodations
       tags:
-        - Accommodations
+        - Admin Accommodations
       security:
         - BearerAuth: []
       parameters:
@@ -1259,12 +1252,21 @@ paths:
           in: query
           schema:
             type: string
-            enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+            enum:
+              - LOMBOK_SELATAN
+              - LOMBOK_UTARA
+              - LOMBOK_BARAT
+              - LOMBOK_TIMUR
+              - LOMBOK_TENGAH
+              - GILI_ISLANDS
         - name: status
           in: query
           schema:
             type: string
-            enum: [PUBLISHED, DRAFT, ARCHIVED]
+            enum:
+              - PUBLISHED
+              - DRAFT
+              - ARCHIVED
         - name: minRating
           in: query
           schema:
@@ -1289,40 +1291,48 @@ paths:
           in: query
           schema:
             type: string
-            enum: [name, type, rating, reviewCount, pricePerNight, createdAt, updatedAt]
+            enum:
+              - name
+              - type
+              - rating
+              - reviewCount
+              - pricePerNight
+              - createdAt
+              - updatedAt
             default: createdAt
         - name: order
           in: query
           schema:
             type: string
-            enum: [asc, desc]
+            enum:
+              - asc
+              - desc
             default: desc
       responses:
-        '200':
+        "200":
           description: Accommodations retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAccommodationListResponse'
-        '401':
+                $ref: "#/components/schemas/AdminAccommodationListResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     post:
       summary: Create Accommodation (Admin)
       description: Creates a new hotel, resort, or villa entry with validation and auto-slugification.
       operationId: createAdminAccommodation
       tags:
-        - Accommodations
+        - Admin Accommodations
       security:
         - BearerAuth: []
       requestBody:
@@ -1330,34 +1340,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/CreateAccommodationRequest'
+              $ref: "#/components/schemas/CreateAccommodationRequest"
       responses:
-        '201':
+        "201":
           description: Accommodation created successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAccommodationDetailResponse'
-        '400':
+                $ref: "#/components/schemas/AdminAccommodationDetailResponse"
+        "400":
           description: Validation error
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
           description: Accommodation slug already exists
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /accommodations/{id}:
     get:
       summary: Get Accommodation Details (Admin)
       description: Retrieves full details of an accommodation by UUID or slug.
       operationId: getAdminAccommodationById
       tags:
-        - Accommodations
+        - Admin Accommodations
       security:
         - BearerAuth: []
       parameters:
@@ -1367,25 +1376,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Accommodation details retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAccommodationDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminAccommodationDetailResponse"
+        "404":
           description: Accommodation not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       summary: Update Accommodation (Admin)
       description: Updates accommodation attributes, amenities, price, or status.
       operationId: updateAdminAccommodation
       tags:
-        - Accommodations
+        - Admin Accommodations
       security:
         - BearerAuth: []
       parameters:
@@ -1399,33 +1407,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateAccommodationRequest'
+              $ref: "#/components/schemas/UpdateAccommodationRequest"
       responses:
-        '200':
+        "200":
           description: Accommodation updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAccommodationDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminAccommodationDetailResponse"
+        "404":
           description: Accommodation not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '409':
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
           description: Conflict (e.g. duplicate slug)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       summary: Delete Accommodation (Admin)
       description: Deletes an accommodation (soft-delete by default, permanent with ?hard=true).
       operationId: deleteAdminAccommodation
       tags:
-        - Accommodations
+        - Admin Accommodations
       security:
         - BearerAuth: []
       parameters:
@@ -1441,26 +1448,25 @@ paths:
             type: boolean
             default: false
       responses:
-        '200':
+        "200":
           description: Accommodation deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '404':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
           description: Accommodation not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /accommodations/{id}/status:
     patch:
       summary: Update Accommodation Status
       description: Updates accommodation publication lifecycle status (DRAFT, PUBLISHED, ARCHIVED).
       operationId: updateAccommodationStatus
       tags:
-        - Accommodations
+        - Admin Accommodations
       security:
         - BearerAuth: []
       parameters:
@@ -1474,31 +1480,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateContentStatusRequest'
+              $ref: "#/components/schemas/UpdateContentStatusRequest"
       responses:
-        '200':
+        "200":
           description: Accommodation status updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAccommodationDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminAccommodationDetailResponse"
+        "404":
           description: Accommodation not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN USER MANAGEMENT
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /users:
     get:
       summary: List Users (Admin)
       description: Returns a paginated list of users with search, email, role, status, and registration date range filters.
       operationId: getAdminUsers
       tags:
-        - Users
+        - Admin Users
       security:
         - BearerAuth: []
       parameters:
@@ -1524,12 +1526,17 @@ paths:
           in: query
           schema:
             type: string
-            enum: [USER, ADMIN]
+            enum:
+              - USER
+              - ADMIN
         - name: status
           in: query
           schema:
             type: string
-            enum: [ACTIVE, SUSPENDED, INACTIVE]
+            enum:
+              - ACTIVE
+              - SUSPENDED
+              - INACTIVE
         - name: startDate
           in: query
           schema:
@@ -1544,41 +1551,48 @@ paths:
           in: query
           schema:
             type: string
-            enum: [name, email, role, status, createdAt, updatedAt]
+            enum:
+              - name
+              - email
+              - role
+              - status
+              - createdAt
+              - updatedAt
             default: createdAt
         - name: order
           in: query
           schema:
             type: string
-            enum: [asc, desc]
+            enum:
+              - asc
+              - desc
             default: desc
       responses:
-        '200':
+        "200":
           description: Users retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminUserListResponse'
-        '401':
+                $ref: "#/components/schemas/AdminUserListResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /users/{id}:
     get:
       summary: Get User Details (Admin)
       description: Retrieves comprehensive details and activity statistics for a specific user.
       operationId: getAdminUserById
       tags:
-        - Users
+        - Admin Users
       security:
         - BearerAuth: []
       parameters:
@@ -1588,25 +1602,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: User details retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminUserDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminUserDetailResponse"
+        "404":
           description: User not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     put:
       summary: Update User (Admin)
       description: Updates user attributes, profile information, role, or active status.
       operationId: updateAdminUser
       tags:
-        - Users
+        - Admin Users
       security:
         - BearerAuth: []
       parameters:
@@ -1620,33 +1633,32 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserRequest'
+              $ref: "#/components/schemas/UpdateUserRequest"
       responses:
-        '200':
+        "200":
           description: User updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminUserDetailResponse'
-        '403':
+                $ref: "#/components/schemas/AdminUserDetailResponse"
+        "403":
           description: Forbidden (e.g. attempting to demote or suspend own admin account)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
           description: User not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       summary: Delete User (Admin)
       description: Deletes a user (soft-delete by default, permanent with ?hard=true).
       operationId: deleteAdminUser
       tags:
-        - Users
+        - Admin Users
       security:
         - BearerAuth: []
       parameters:
@@ -1662,32 +1674,31 @@ paths:
             type: boolean
             default: false
       responses:
-        '200':
+        "200":
           description: User deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '403':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "403":
           description: Forbidden (cannot delete own account)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
           description: User not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /users/{id}/status:
     patch:
       summary: Update User Status (Admin)
       description: Quick status transition endpoint (ACTIVE / SUSPENDED / INACTIVE).
       operationId: updateAdminUserStatus
       tags:
-        - Users
+        - Admin Users
       security:
         - BearerAuth: []
       parameters:
@@ -1701,37 +1712,33 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/UpdateUserStatusRequest'
+              $ref: "#/components/schemas/UpdateUserStatusRequest"
       responses:
-        '200':
+        "200":
           description: User status updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminUserDetailResponse'
-        '403':
+                $ref: "#/components/schemas/AdminUserDetailResponse"
+        "403":
           description: Forbidden (cannot suspend own account)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '404':
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
           description: User not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN REVIEWS & MODERATION
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /reviews:
     get:
       summary: List Reviews (Admin)
       description: Returns a paginated list of user reviews with support for status (APPROVED, PENDING, REJECTED), rating, destination, and user filters.
       operationId: getAdminReviews
       tags:
-        - Reviews & Moderation
+        - Admin Reviews
       security:
         - BearerAuth: []
       parameters:
@@ -1761,7 +1768,10 @@ paths:
           in: query
           schema:
             type: string
-            enum: [APPROVED, PENDING, REJECTED]
+            enum:
+              - APPROVED
+              - PENDING
+              - REJECTED
         - name: minRating
           in: query
           schema:
@@ -1779,35 +1789,36 @@ paths:
           in: query
           schema:
             type: string
-            enum: [asc, desc]
+            enum:
+              - asc
+              - desc
             default: desc
       responses:
-        '200':
+        "200":
           description: Reviews retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminReviewListResponse'
-        '401':
+                $ref: "#/components/schemas/AdminReviewListResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /reviews/{id}:
     get:
       summary: Get Review Details (Admin)
       description: Retrieves specific review details by ID.
       operationId: getAdminReviewById
       tags:
-        - Reviews & Moderation
+        - Admin Reviews
       security:
         - BearerAuth: []
       parameters:
@@ -1817,25 +1828,24 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Review details retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminReviewDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminReviewDetailResponse"
+        "404":
           description: Review not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
     delete:
       summary: Delete Review (Admin)
       description: Deletes a user review and recalculates the destination's average rating.
       operationId: deleteAdminReview
       tags:
-        - Reviews & Moderation
+        - Admin Reviews
       security:
         - BearerAuth: []
       parameters:
@@ -1845,26 +1855,25 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Review deleted successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/StandardActionResponse'
-        '404':
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
           description: Review not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /reviews/{id}/moderate:
     patch:
       summary: Moderate Review (Approve / Reject)
       description: Updates the moderation status of a review (APPROVED, REJECTED, PENDING) with optional moderation notes.
       operationId: moderateAdminReview
       tags:
-        - Reviews & Moderation
+        - Admin Reviews
       security:
         - BearerAuth: []
       parameters:
@@ -1878,31 +1887,27 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReviewModerationRequest'
+              $ref: "#/components/schemas/ReviewModerationRequest"
       responses:
-        '200':
+        "200":
           description: Review moderation status updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminReviewDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminReviewDetailResponse"
+        "404":
           description: Review not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
-  # ==========================================
-  # ADMIN AUDIT LOGS (PHASE 13)
-  # ==========================================
+                $ref: "#/components/schemas/ErrorResponse"
   /audit-logs:
     get:
       summary: List Audit Logs (Admin)
       description: Returns paginated administrative audit trail logs with multi-dimensional filtering by admin, action, resource, entity, and date range.
       operationId: getAdminAuditLogs
       tags:
-        - Audit Logs
+        - Admin Audit Logs
       security:
         - BearerAuth: []
       parameters:
@@ -1955,42 +1960,46 @@ paths:
           description: Sort field
           schema:
             type: string
-            enum: [createdAt, action, entity]
+            enum:
+              - createdAt
+              - action
+              - entity
             default: createdAt
         - name: order
           in: query
           description: Sort order
           schema:
             type: string
-            enum: [asc, desc]
+            enum:
+              - asc
+              - desc
             default: desc
       responses:
-        '200':
+        "200":
           description: Audit logs retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAuditLogListResponse'
-        '401':
+                $ref: "#/components/schemas/AdminAuditLogListResponse"
+        "401":
           description: Unauthorized
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-        '403':
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
           description: Forbidden (Admin privileges required)
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
   /audit-logs/{id}:
     get:
       summary: Get Audit Log Details (Admin)
       description: Returns specific audit log detail including before/after state diffs and performer profile.
       operationId: getAdminAuditLogById
       tags:
-        - Audit Logs
+        - Admin Audit Logs
       security:
         - BearerAuth: []
       parameters:
@@ -2000,19 +2009,18 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Audit log details retrieved successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AdminAuditLogDetailResponse'
-        '404':
+                $ref: "#/components/schemas/AdminAuditLogDetailResponse"
+        "404":
           description: Audit log not found
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ErrorResponse'
-
+                $ref: "#/components/schemas/ErrorResponse"
 components:
   securitySchemes:
     BearerAuth:
@@ -2020,18 +2028,19 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Enter standard JWT Bearer token obtained from `/auth/login`
-
   schemas:
+    AdminAuditLogDto:
+      $ref: "#/components/schemas/AdminAuditLogItem"
     AdminAuditLogItem:
       type: object
       properties:
         id:
           type: string
-          example: "log_123e4567-e89b-12d3-a456-426614174000"
+          example: log_123e4567-e89b-12d3-a456-426614174000
         userId:
           type: string
           nullable: true
-          example: "usr_admin_01"
+          example: usr_admin_01
         user:
           type: object
           nullable: true
@@ -2049,21 +2058,21 @@ components:
               nullable: true
         action:
           type: string
-          example: "DESTINATION_CREATED"
+          example: DESTINATION_CREATED
         resource:
           type: string
-          example: "Destination"
+          example: Destination
         resourceId:
           type: string
           nullable: true
-          example: "dst_merese_hill"
+          example: dst_merese_hill
         entity:
           type: string
-          example: "Destination"
+          example: Destination
         entityId:
           type: string
           nullable: true
-          example: "dst_merese_hill"
+          example: dst_merese_hill
         before:
           type: object
           nullable: true
@@ -2076,18 +2085,17 @@ components:
         ipAddress:
           type: string
           nullable: true
-          example: "127.0.0.1"
+          example: 127.0.0.1
         userAgent:
           type: string
           nullable: true
-          example: "Mozilla/5.0"
+          example: Mozilla/5.0
         createdAt:
           type: string
           format: date-time
         timestamp:
           type: string
           format: date-time
-
     AdminAuditLogListResponse:
       type: object
       properties:
@@ -2096,14 +2104,13 @@ components:
           example: true
         message:
           type: string
-          example: "Audit logs retrieved successfully"
+          example: Audit logs retrieved successfully
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AdminAuditLogItem'
+            $ref: "#/components/schemas/AdminAuditLogItem"
         meta:
-          $ref: '#/components/schemas/PaginationMeta'
-
+          $ref: "#/components/schemas/PaginationMeta"
     AdminAuditLogDetailResponse:
       type: object
       properties:
@@ -2112,10 +2119,9 @@ components:
           example: true
         message:
           type: string
-          example: "Audit log details retrieved successfully"
+          example: Audit log details retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminAuditLogItem'
-
+          $ref: "#/components/schemas/AdminAuditLogItem"
     BulkDeleteDestinationsRequest:
       type: object
       required:
@@ -2125,12 +2131,13 @@ components:
           type: array
           items:
             type: string
-          example: ["dst_merese_hill", "dst_kuta_beach"]
+          example:
+            - dst_merese_hill
+            - dst_kuta_beach
         hard:
           type: boolean
           default: false
           example: false
-
     BulkDeleteDestinationsResponse:
       type: object
       properties:
@@ -2139,7 +2146,7 @@ components:
           example: true
         message:
           type: string
-          example: "Successfully deleted 2 destination(s)"
+          example: Successfully deleted 2 destination(s)
         data:
           type: object
           properties:
@@ -2149,7 +2156,6 @@ components:
             hard:
               type: boolean
               example: false
-
     BulkUpdateDestinationStatusRequest:
       type: object
       required:
@@ -2160,12 +2166,16 @@ components:
           type: array
           items:
             type: string
-          example: ["dst_merese_hill", "dst_kuta_beach"]
+          example:
+            - dst_merese_hill
+            - dst_kuta_beach
         status:
           type: string
-          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
           example: PUBLISHED
-
     BulkUpdateDestinationStatusResponse:
       type: object
       properties:
@@ -2174,7 +2184,7 @@ components:
           example: true
         message:
           type: string
-          example: "Successfully updated status of 2 destination(s) to PUBLISHED"
+          example: Successfully updated status of 2 destination(s) to PUBLISHED
         data:
           type: object
           properties:
@@ -2183,9 +2193,11 @@ components:
               example: 2
             status:
               type: string
-              enum: [DRAFT, PUBLISHED, ARCHIVED]
+              enum:
+                - DRAFT
+                - PUBLISHED
+                - ARCHIVED
               example: PUBLISHED
-
     UpdateContentStatusRequest:
       type: object
       required:
@@ -2193,9 +2205,11 @@ components:
       properties:
         status:
           type: string
-          enum: [DRAFT, PUBLISHED, ARCHIVED]
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - ARCHIVED
           example: PUBLISHED
-
     AdminLoginRequest:
       type: object
       required:
@@ -2210,7 +2224,6 @@ components:
           type: string
           format: password
           example: Password123!
-
     RefreshTokenRequest:
       type: object
       required:
@@ -2219,46 +2232,62 @@ components:
         refreshToken:
           type: string
           example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-
     AdminUserDto:
       type: object
       properties:
         id:
           type: string
-          example: "usr_traveler_demo_01"
+          example: usr_traveler_demo_01
         email:
           type: string
           format: email
-          example: "traveler@lombokexplorer.com"
+          example: traveler@lombokexplorer.com
         name:
           type: string
-          example: "Rizky Pratama"
+          example: Rizky Pratama
         avatarUrl:
           type: string
           nullable: true
-          example: "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
+          example: https://images.unsplash.com/photo-1534528741775-53994a69daeb
         phone:
           type: string
           nullable: true
           example: "+6281234567890"
         role:
           type: string
-          enum: [USER, ADMIN]
-          example: "ADMIN"
+          enum:
+            - USER
+            - ADMIN
+          example: ADMIN
         status:
           type: string
-          enum: [ACTIVE, SUSPENDED, INACTIVE]
-          example: "ACTIVE"
+          enum:
+            - ACTIVE
+            - SUSPENDED
+            - INACTIVE
+          example: ACTIVE
         travelStyle:
           type: string
           nullable: true
-          enum: [NATURE_ADVENTURE, BEACH_RELAXATION, CULTURE_HERITAGE, CULINARY_EXPLORER, PHOTOGRAPHY_SPOTS, FAMILY_FRIENDLY]
-          example: "BEACH_RELAXATION"
+          enum:
+            - NATURE_ADVENTURE
+            - BEACH_RELAXATION
+            - CULTURE_HERITAGE
+            - CULINARY_EXPLORER
+            - PHOTOGRAPHY_SPOTS
+            - FAMILY_FRIENDLY
+          example: BEACH_RELAXATION
         preferredRegion:
           type: string
           nullable: true
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
-          example: "LOMBOK_SELATAN"
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
+          example: LOMBOK_SELATAN
         isEmailVerified:
           type: boolean
           example: true
@@ -2287,7 +2316,6 @@ components:
             journalsCount:
               type: integer
               example: 1
-
     AdminAuthData:
       type: object
       properties:
@@ -2304,8 +2332,7 @@ components:
           type: string
           example: Bearer
         user:
-          $ref: '#/components/schemas/AdminUserDto'
-
+          $ref: "#/components/schemas/AdminUserDto"
     AdminAuthResponse:
       type: object
       properties:
@@ -2316,8 +2343,7 @@ components:
           type: string
           example: Login successful
         data:
-          $ref: '#/components/schemas/AdminAuthData'
-
+          $ref: "#/components/schemas/AdminAuthData"
     AdminProfileResponse:
       type: object
       properties:
@@ -2328,8 +2354,7 @@ components:
           type: string
           example: Admin profile retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminUserDto'
-
+          $ref: "#/components/schemas/AdminUserDto"
     StandardActionResponse:
       type: object
       properties:
@@ -2343,7 +2368,6 @@ components:
           type: object
           nullable: true
           example: null
-
     ErrorResponse:
       type: object
       properties:
@@ -2367,7 +2391,6 @@ components:
               message:
                 type: string
           example: null
-
     DashboardOverviewDto:
       type: object
       properties:
@@ -2395,7 +2418,6 @@ components:
         totalItineraries:
           type: integer
           example: 15
-
     DashboardPeriodicMetricsDto:
       type: object
       properties:
@@ -2414,12 +2436,11 @@ components:
             startDate:
               type: string
               nullable: true
-              example: "2026-01-01T00:00:00.000Z"
+              example: 2026-01-01T00:00:00.000Z
             endDate:
               type: string
               nullable: true
-              example: "2026-12-31T23:59:59.999Z"
-
+              example: 2026-12-31T23:59:59.999Z
     DashboardPopularDestinationDto:
       type: object
       properties:
@@ -2447,7 +2468,6 @@ components:
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
-
     DashboardFavoritedDestinationDto:
       type: object
       properties:
@@ -2475,26 +2495,24 @@ components:
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
-
     DashboardStatisticsDto:
       type: object
       properties:
         overview:
-          $ref: '#/components/schemas/DashboardOverviewDto'
+          $ref: "#/components/schemas/DashboardOverviewDto"
         periodicMetrics:
-          $ref: '#/components/schemas/DashboardPeriodicMetricsDto'
+          $ref: "#/components/schemas/DashboardPeriodicMetricsDto"
         highlights:
           type: object
           properties:
             popularDestinations:
               type: array
               items:
-                $ref: '#/components/schemas/DashboardPopularDestinationDto'
+                $ref: "#/components/schemas/DashboardPopularDestinationDto"
             mostFavoritedDestinations:
               type: array
               items:
-                $ref: '#/components/schemas/DashboardFavoritedDestinationDto'
-
+                $ref: "#/components/schemas/DashboardFavoritedDestinationDto"
     DashboardResponse:
       type: object
       properties:
@@ -2505,8 +2523,7 @@ components:
           type: string
           example: Dashboard statistics retrieved successfully
         data:
-          $ref: '#/components/schemas/DashboardStatisticsDto'
-
+          $ref: "#/components/schemas/DashboardStatisticsDto"
     CreateDestinationRequest:
       type: object
       required:
@@ -2535,7 +2552,13 @@ components:
           example: cat_beach
         region:
           type: string
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
           example: LOMBOK_SELATAN
         locationName:
           type: string
@@ -2569,13 +2592,20 @@ components:
           example: Sore hari menjelang sunset
         difficulty:
           type: string
-          enum: [EASY, MODERATE, CHALLENGING]
+          enum:
+            - EASY
+            - MODERATE
+            - CHALLENGING
           example: EASY
         tags:
           type: array
           items:
             type: string
-          example: ["Pasir Merica", "Sunset", "Pantai", "Bukit Merese"]
+          example:
+            - Pasir Merica
+            - Sunset
+            - Pantai
+            - Bukit Merese
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
@@ -2583,25 +2613,33 @@ components:
           type: array
           items:
             type: string
-          example: ["https://images.unsplash.com/photo-1544644181-1484b3fdfc62"]
+          example:
+            - https://images.unsplash.com/photo-1544644181-1484b3fdfc62
         facilities:
           type: array
           items:
             type: string
-          example: ["Area Parkir", "Toilet", "Warung Kuliner", "Penyewaan Perahu"]
+          example:
+            - Area Parkir
+            - Toilet
+            - Warung Kuliner
+            - Penyewaan Perahu
         tips:
           type: array
           items:
             type: string
-          example: ["Mendaki Bukit Merese untuk pemandangan terbaik"]
+          example:
+            - Mendaki Bukit Merese untuk pemandangan terbaik
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
           example: PUBLISHED
         isFeatured:
           type: boolean
           example: true
-
     UpdateDestinationRequest:
       type: object
       properties:
@@ -2617,7 +2655,13 @@ components:
           type: string
         region:
           type: string
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
         locationName:
           type: string
         address:
@@ -2640,7 +2684,10 @@ components:
           type: string
         difficulty:
           type: string
-          enum: [EASY, MODERATE, CHALLENGING]
+          enum:
+            - EASY
+            - MODERATE
+            - CHALLENGING
         tags:
           type: array
           items:
@@ -2657,10 +2704,12 @@ components:
             type: string
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
         isFeatured:
           type: boolean
-
     AdminDestinationDto:
       type: object
       properties:
@@ -2770,7 +2819,6 @@ components:
         updatedAt:
           type: string
           format: date-time
-
     AdminDestinationListResponse:
       type: object
       properties:
@@ -2783,7 +2831,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AdminDestinationDto'
+            $ref: "#/components/schemas/AdminDestinationDto"
         meta:
           type: object
           properties:
@@ -2799,7 +2847,6 @@ components:
             totalPages:
               type: integer
               example: 4
-
     AdminDestinationDetailResponse:
       type: object
       properties:
@@ -2810,8 +2857,7 @@ components:
           type: string
           example: Destination details retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminDestinationDto'
-
+          $ref: "#/components/schemas/AdminDestinationDto"
     CreateCategoryRequest:
       type: object
       required:
@@ -2834,7 +2880,6 @@ components:
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1500937386664-56d1dfef3854
-
     UpdateCategoryRequest:
       type: object
       properties:
@@ -2848,7 +2893,6 @@ components:
           type: string
         coverImageUrl:
           type: string
-
     AdminCategoryDto:
       type: object
       properties:
@@ -2879,7 +2923,6 @@ components:
         updatedAt:
           type: string
           format: date-time
-
     AdminCategoryListResponse:
       type: object
       properties:
@@ -2892,7 +2935,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AdminCategoryDto'
+            $ref: "#/components/schemas/AdminCategoryDto"
         meta:
           type: object
           properties:
@@ -2908,7 +2951,6 @@ components:
             totalPages:
               type: integer
               example: 1
-
     AdminCategoryDetailResponse:
       type: object
       properties:
@@ -2919,31 +2961,27 @@ components:
           type: string
           example: Category details retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminCategoryDto'
-
-    # ==========================================
-    # DESTINATION IMAGES SCHEMAS
-    # ==========================================
+          $ref: "#/components/schemas/AdminCategoryDto"
     DestinationImageDto:
       type: object
       properties:
         id:
           type: string
-          example: "e6f98c62-8bbd-426b-9c76-2e6b8c8d8b4e"
+          example: e6f98c62-8bbd-426b-9c76-2e6b8c8d8b4e
         destinationId:
           type: string
-          example: "dest_tanjung_aan"
+          example: dest_tanjung_aan
         imageUrl:
           type: string
-          example: "/assets/image/tanjung-aan-sunset.jpg"
+          example: /assets/image/tanjung-aan-sunset.jpg
         caption:
           type: string
           nullable: true
-          example: "Sunset memukau di atas Bukit Merese Tanjung Aan"
+          example: Sunset memukau di atas Bukit Merese Tanjung Aan
         altText:
           type: string
           nullable: true
-          example: "Pemandangan bukit merese tanjung aan lombok"
+          example: Pemandangan bukit merese tanjung aan lombok
         orderIndex:
           type: integer
           example: 0
@@ -2956,45 +2994,42 @@ components:
         updatedAt:
           type: string
           format: date-time
-
     CreateDestinationImageRequest:
       type: object
       properties:
         imageUrl:
           type: string
-          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62"
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
         caption:
           type: string
-          example: "Pantai pasir merica berpasir putih"
+          example: Pantai pasir merica berpasir putih
         altText:
           type: string
-          example: "Foto sudut pantai tanjung aan"
+          example: Foto sudut pantai tanjung aan
         orderIndex:
           type: integer
           example: 1
         isPrimary:
           type: boolean
           example: false
-
     UpdateDestinationImageRequest:
       type: object
       properties:
         imageUrl:
           type: string
-          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62"
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
         caption:
           type: string
-          example: "Panorama sudut pandang baru"
+          example: Panorama sudut pandang baru
         altText:
           type: string
-          example: "Deskripsi alt text gambar"
+          example: Deskripsi alt text gambar
         orderIndex:
           type: integer
           example: 2
         isPrimary:
           type: boolean
           example: true
-
     DestinationImageListResponse:
       type: object
       properties:
@@ -3007,8 +3042,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/DestinationImageDto'
-
+            $ref: "#/components/schemas/DestinationImageDto"
     DestinationImageDetailResponse:
       type: object
       properties:
@@ -3019,35 +3053,31 @@ components:
           type: string
           example: Destination image created successfully
         data:
-          $ref: '#/components/schemas/DestinationImageDto'
-
-    # ==========================================
-    # RESTAURANTS SCHEMAS
-    # ==========================================
+          $ref: "#/components/schemas/DestinationImageDto"
     AdminRestaurantDto:
       type: object
       properties:
         id:
           type: string
-          example: "rest_ayam_taliwang_khas"
+          example: rest_ayam_taliwang_khas
         name:
           type: string
-          example: "Rumah Makan Ayam Taliwang Asli Khas Lombok"
+          example: Rumah Makan Ayam Taliwang Asli Khas Lombok
         slug:
           type: string
-          example: "rumah-makan-ayam-taliwang-asli-khas-lombok"
+          example: rumah-makan-ayam-taliwang-asli-khas-lombok
         description:
           type: string
-          example: "Kuliner legendaris ayam taliwang dengan bumbu plecing pedas khas Sasak."
+          example: Kuliner legendaris ayam taliwang dengan bumbu plecing pedas khas Sasak.
         cuisineType:
           type: string
-          example: "Tradisional Lombok / Sasak"
+          example: Tradisional Lombok / Sasak
         specialtyDish:
           type: string
-          example: "Ayam Taliwang Bakar Madu & Plecing Kangkung"
+          example: Ayam Taliwang Bakar Madu & Plecing Kangkung
         priceRange:
           type: string
-          example: "Rp 35.000 - Rp 85.000"
+          example: Rp 35.000 - Rp 85.000
         minPrice:
           type: number
           example: 35000
@@ -3062,10 +3092,10 @@ components:
           example: 42
         address:
           type: string
-          example: "Jl. Ade Irma Suryani No. 10, Cakranegara, Kota Mataram"
+          example: Jl. Ade Irma Suryani No. 10, Cakranegara, Kota Mataram
         region:
           type: string
-          example: "LOMBOK_BARAT"
+          example: LOMBOK_BARAT
         latitude:
           type: number
           example: -8.5833
@@ -3074,10 +3104,10 @@ components:
           example: 116.1167
         openingHours:
           type: string
-          example: "10:00 - 22:00 WITA"
+          example: 10:00 - 22:00 WITA
         coverImageUrl:
           type: string
-          example: "https://images.unsplash.com/photo-1544025162-d76694265947"
+          example: https://images.unsplash.com/photo-1544025162-d76694265947
         images:
           type: array
           items:
@@ -3087,8 +3117,11 @@ components:
           example: true
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
-          example: "PUBLISHED"
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
+          example: PUBLISHED
         isFeatured:
           type: boolean
           example: true
@@ -3102,7 +3135,6 @@ components:
           type: string
           format: date-time
           nullable: true
-
     CreateRestaurantRequest:
       type: object
       required:
@@ -3120,22 +3152,22 @@ components:
       properties:
         name:
           type: string
-          example: "Warung Nasi Balap Puyung Inaq Esun"
+          example: Warung Nasi Balap Puyung Inaq Esun
         slug:
           type: string
-          example: "warung-nasi-balap-puyung-inaq-esun"
+          example: warung-nasi-balap-puyung-inaq-esun
         description:
           type: string
-          example: "Nasi balap puyung legendaris dengan suwiran ayam pedas dan kacang kedelai renyah."
+          example: Nasi balap puyung legendaris dengan suwiran ayam pedas dan kacang kedelai renyah.
         cuisineType:
           type: string
-          example: "Tradisional Sasak"
+          example: Tradisional Sasak
         specialtyDish:
           type: string
-          example: "Nasi Balap Puyung Komplit"
+          example: Nasi Balap Puyung Komplit
         priceRange:
           type: string
-          example: "Rp 20.000 - Rp 45.000"
+          example: Rp 20.000 - Rp 45.000
         minPrice:
           type: number
           example: 20000
@@ -3144,11 +3176,17 @@ components:
           example: 45000
         address:
           type: string
-          example: "Desa Puyung, Jonggat, Lombok Tengah"
+          example: Desa Puyung, Jonggat, Lombok Tengah
         region:
           type: string
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
-          example: "LOMBOK_TENGAH"
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
+          example: LOMBOK_TENGAH
         latitude:
           type: number
           example: -8.705
@@ -3157,10 +3195,10 @@ components:
           example: 116.248
         openingHours:
           type: string
-          example: "08:00 - 21:00 WITA"
+          example: 08:00 - 21:00 WITA
         coverImageUrl:
           type: string
-          example: "https://images.unsplash.com/photo-1544025162-d76694265947"
+          example: https://images.unsplash.com/photo-1544025162-d76694265947
         images:
           type: array
           items:
@@ -3170,12 +3208,14 @@ components:
           example: true
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
-          example: "PUBLISHED"
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
+          example: PUBLISHED
         isFeatured:
           type: boolean
           example: false
-
     UpdateRestaurantRequest:
       type: object
       properties:
@@ -3199,7 +3239,13 @@ components:
           type: string
         region:
           type: string
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
         latitude:
           type: number
         longitude:
@@ -3216,10 +3262,12 @@ components:
           type: boolean
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
         isFeatured:
           type: boolean
-
     AdminRestaurantListResponse:
       type: object
       properties:
@@ -3232,7 +3280,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AdminRestaurantDto'
+            $ref: "#/components/schemas/AdminRestaurantDto"
         meta:
           type: object
           properties:
@@ -3248,7 +3296,6 @@ components:
             totalPages:
               type: integer
               example: 1
-
     AdminRestaurantDetailResponse:
       type: object
       properties:
@@ -3259,29 +3306,25 @@ components:
           type: string
           example: Restaurant details retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminRestaurantDto'
-
-    # ==========================================
-    # ACCOMMODATIONS SCHEMAS
-    # ==========================================
+          $ref: "#/components/schemas/AdminRestaurantDto"
     AdminAccommodationDto:
       type: object
       properties:
         id:
           type: string
-          example: "acc_katamaran_resort"
+          example: acc_katamaran_resort
         name:
           type: string
-          example: "Katamaran Hotel & Resort Senggigi"
+          example: Katamaran Hotel & Resort Senggigi
         slug:
           type: string
-          example: "katamaran-hotel-resort-senggigi"
+          example: katamaran-hotel-resort-senggigi
         type:
           type: string
-          example: "resort"
+          example: resort
         description:
           type: string
-          example: "Resort tepi pantai bintang 5 dengan infinity pool kaca menghadap sunset Selat Lombok."
+          example: Resort tepi pantai bintang 5 dengan infinity pool kaca menghadap sunset Selat Lombok.
         rating:
           type: number
           example: 4.9
@@ -3293,13 +3336,13 @@ components:
           example: 1850000
         currency:
           type: string
-          example: "IDR"
+          example: IDR
         address:
           type: string
-          example: "Jl. Raya Senggigi, Mangsit, Batu Layar, Lombok Barat"
+          example: Jl. Raya Senggigi, Mangsit, Batu Layar, Lombok Barat
         region:
           type: string
-          example: "LOMBOK_BARAT"
+          example: LOMBOK_BARAT
         latitude:
           type: number
           example: -8.4912
@@ -3308,7 +3351,7 @@ components:
           example: 116.0398
         coverImageUrl:
           type: string
-          example: "https://images.unsplash.com/photo-1571896349842-33c89424de2d"
+          example: https://images.unsplash.com/photo-1571896349842-33c89424de2d
         images:
           type: array
           items:
@@ -3317,7 +3360,12 @@ components:
           type: array
           items:
             type: string
-          example: ["Private Pool", "Spa & Wellness", "Beachfront", "High Speed WiFi", "Restoran Fine Dining"]
+          example:
+            - Private Pool
+            - Spa & Wellness
+            - Beachfront
+            - High Speed WiFi
+            - Restoran Fine Dining
         amenities:
           type: array
           items:
@@ -3325,15 +3373,18 @@ components:
         contactPhone:
           type: string
           nullable: true
-          example: "+62 370 6197888"
+          example: +62 370 6197888
         websiteUrl:
           type: string
           nullable: true
-          example: "https://katamaranresort.com"
+          example: https://katamaranresort.com
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
-          example: "PUBLISHED"
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
+          example: PUBLISHED
         isFeatured:
           type: boolean
           example: true
@@ -3347,7 +3398,6 @@ components:
           type: string
           format: date-time
           nullable: true
-
     CreateAccommodationRequest:
       type: object
       required:
@@ -3363,29 +3413,35 @@ components:
       properties:
         name:
           type: string
-          example: "Jeeva Beloam Beach Camp"
+          example: Jeeva Beloam Beach Camp
         slug:
           type: string
-          example: "jeeva-beloam-beach-camp"
+          example: jeeva-beloam-beach-camp
         type:
           type: string
-          example: "glamping"
+          example: glamping
         description:
           type: string
-          example: "Pondok glamping mewah di teluk terpencil berpasir putih Lombok Timur."
+          example: Pondok glamping mewah di teluk terpencil berpasir putih Lombok Timur.
         pricePerNight:
           type: number
           example: 2200000
         currency:
           type: string
-          default: "IDR"
+          default: IDR
         address:
           type: string
-          example: "Tanjung Ringgit, Jerowaru, Lombok Timur"
+          example: Tanjung Ringgit, Jerowaru, Lombok Timur
         region:
           type: string
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
-          example: "LOMBOK_TIMUR"
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
+          example: LOMBOK_TIMUR
         latitude:
           type: number
           example: -8.865
@@ -3394,7 +3450,7 @@ components:
           example: 116.512
         coverImageUrl:
           type: string
-          example: "https://images.unsplash.com/photo-1582719508461-905c673771fd"
+          example: https://images.unsplash.com/photo-1582719508461-905c673771fd
         images:
           type: array
           items:
@@ -3403,21 +3459,27 @@ components:
           type: array
           items:
             type: string
-          example: ["Private Beach", "Eco Luxury", "Solar Powered", "Ocean View"]
+          example:
+            - Private Beach
+            - Eco Luxury
+            - Solar Powered
+            - Ocean View
         contactPhone:
           type: string
-          example: "+62 370 6197000"
+          example: +62 370 6197000
         websiteUrl:
           type: string
-          example: "https://jeevaresorts.com"
+          example: https://jeevaresorts.com
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
-          default: "PUBLISHED"
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
+          default: PUBLISHED
         isFeatured:
           type: boolean
           default: false
-
     UpdateAccommodationRequest:
       type: object
       properties:
@@ -3437,7 +3499,13 @@ components:
           type: string
         region:
           type: string
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
         latitude:
           type: number
         longitude:
@@ -3458,10 +3526,12 @@ components:
           type: string
         status:
           type: string
-          enum: [PUBLISHED, DRAFT, ARCHIVED]
+          enum:
+            - PUBLISHED
+            - DRAFT
+            - ARCHIVED
         isFeatured:
           type: boolean
-
     AdminAccommodationListResponse:
       type: object
       properties:
@@ -3474,7 +3544,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AdminAccommodationDto'
+            $ref: "#/components/schemas/AdminAccommodationDto"
         meta:
           type: object
           properties:
@@ -3490,7 +3560,6 @@ components:
             totalPages:
               type: integer
               example: 1
-
     AdminAccommodationDetailResponse:
       type: object
       properties:
@@ -3501,40 +3570,52 @@ components:
           type: string
           example: Accommodation details retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminAccommodationDto'
-
-    # ==========================================
-    # USERS SCHEMAS
-    # ==========================================
+          $ref: "#/components/schemas/AdminAccommodationDto"
     UpdateUserRequest:
       type: object
       properties:
         name:
           type: string
-          example: "Rizky Pratama Explorer"
+          example: Rizky Pratama Explorer
         role:
           type: string
-          enum: [USER, ADMIN]
-          example: "USER"
+          enum:
+            - USER
+            - ADMIN
+          example: USER
         status:
           type: string
-          enum: [ACTIVE, SUSPENDED, INACTIVE]
-          example: "ACTIVE"
+          enum:
+            - ACTIVE
+            - SUSPENDED
+            - INACTIVE
+          example: ACTIVE
         phone:
           type: string
           example: "+6281299998888"
         avatarUrl:
           type: string
-          example: "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
+          example: https://images.unsplash.com/photo-1534528741775-53994a69daeb
         travelStyle:
           type: string
-          enum: [NATURE_ADVENTURE, BEACH_RELAXATION, CULTURE_HERITAGE, CULINARY_EXPLORER, PHOTOGRAPHY_SPOTS, FAMILY_FRIENDLY]
+          enum:
+            - NATURE_ADVENTURE
+            - BEACH_RELAXATION
+            - CULTURE_HERITAGE
+            - CULINARY_EXPLORER
+            - PHOTOGRAPHY_SPOTS
+            - FAMILY_FRIENDLY
         preferredRegion:
           type: string
-          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          enum:
+            - LOMBOK_SELATAN
+            - LOMBOK_UTARA
+            - LOMBOK_BARAT
+            - LOMBOK_TIMUR
+            - LOMBOK_TENGAH
+            - GILI_ISLANDS
         isEmailVerified:
           type: boolean
-
     UpdateUserStatusRequest:
       type: object
       required:
@@ -3542,9 +3623,11 @@ components:
       properties:
         status:
           type: string
-          enum: [ACTIVE, SUSPENDED, INACTIVE]
-          example: "SUSPENDED"
-
+          enum:
+            - ACTIVE
+            - SUSPENDED
+            - INACTIVE
+          example: SUSPENDED
     AdminUserListResponse:
       type: object
       properties:
@@ -3557,7 +3640,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AdminUserDto'
+            $ref: "#/components/schemas/AdminUserDto"
         meta:
           type: object
           properties:
@@ -3573,7 +3656,6 @@ components:
             totalPages:
               type: integer
               example: 1
-
     AdminUserDetailResponse:
       type: object
       properties:
@@ -3584,11 +3666,7 @@ components:
           type: string
           example: User details retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminUserDto'
-
-    # ==========================================
-    # REVIEWS & MODERATION SCHEMAS
-    # ==========================================
+          $ref: "#/components/schemas/AdminUserDto"
     ReviewModerationRequest:
       type: object
       required:
@@ -3596,15 +3674,17 @@ components:
       properties:
         status:
           type: string
-          enum: [APPROVED, PENDING, REJECTED]
-          example: "APPROVED"
+          enum:
+            - APPROVED
+            - PENDING
+            - REJECTED
+          example: APPROVED
         moderationNotes:
           type: string
-          example: "Approved after verifying content authenticity."
+          example: Approved after verifying content authenticity.
         reason:
           type: string
-          example: "Meets community guidelines."
-
+          example: Meets community guidelines.
     AdminReviewDto:
       type: object
       properties:
@@ -3640,25 +3720,27 @@ components:
               type: string
         rating:
           type: number
-          example: 5.0
+          example: 5
         content:
           type: string
-          example: "Incredible sunset views from Bukit Merese!"
+          example: Incredible sunset views from Bukit Merese!
         photos:
           type: array
           items:
             type: string
         status:
           type: string
-          enum: [APPROVED, PENDING, REJECTED]
-          example: "APPROVED"
+          enum:
+            - APPROVED
+            - PENDING
+            - REJECTED
+          example: APPROVED
         createdAt:
           type: string
           format: date-time
         updatedAt:
           type: string
           format: date-time
-
     AdminReviewListResponse:
       type: object
       properties:
@@ -3671,7 +3753,7 @@ components:
         data:
           type: array
           items:
-            $ref: '#/components/schemas/AdminReviewDto'
+            $ref: "#/components/schemas/AdminReviewDto"
         meta:
           type: object
           properties:
@@ -3687,7 +3769,6 @@ components:
             totalPages:
               type: integer
               example: 2
-
     AdminReviewDetailResponse:
       type: object
       properties:
@@ -3698,12 +3779,4 @@ components:
           type: string
           example: Review details retrieved successfully
         data:
-          $ref: '#/components/schemas/AdminReviewDto'
-
-
-
-
-
-
-
-
+          $ref: "#/components/schemas/AdminReviewDto"
