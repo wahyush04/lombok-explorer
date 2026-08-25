@@ -13,9 +13,11 @@ describe('Admin Authentication & Authorization Suite (Phase 1 & 2)', () => {
   beforeAll(async () => {
     app = createApp();
 
-    // Login with regular user to obtain user tokens
-    const userRes = await request(app).post('/api/v1/auth/login').send({
-      email: 'traveler@lombokexplorer.com',
+    // Register a fresh regular user to obtain user tokens
+    const userSuffix = Date.now();
+    const userRes = await request(app).post('/api/v1/auth/register').send({
+      name: `Regular Test User ${userSuffix}`,
+      email: `test.regular.${userSuffix}@lombokexplorer.com`,
       password: 'Password123!',
     });
     userAccessToken = userRes.body.data.accessToken;

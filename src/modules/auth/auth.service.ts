@@ -128,7 +128,19 @@ export class AuthService {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
-    // 3. Generate tokens
+    // 3. Check account active status
+    if (user.deletedAt) {
+      throw new UnauthorizedError('Account has been deleted', 'ACCOUNT_DELETED');
+    }
+
+    if (user.status === 'SUSPENDED') {
+      throw new ForbiddenError(
+        'Your account has been suspended. Please contact administrator.',
+        'ACCOUNT_SUSPENDED',
+      );
+    }
+
+    // 4. Generate tokens
     const tokens = this.generateTokens(user);
 
     // 4. Save refresh token

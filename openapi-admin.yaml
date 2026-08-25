@@ -1279,6 +1279,239 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # ==========================================
+  # ADMIN USER MANAGEMENT
+  # ==========================================
+  /users:
+    get:
+      summary: List Users (Admin)
+      description: Returns a paginated list of users with search, email, role, status, and registration date range filters.
+      operationId: getAdminUsers
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: email
+          in: query
+          schema:
+            type: string
+        - name: role
+          in: query
+          schema:
+            type: string
+            enum: [USER, ADMIN]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [ACTIVE, SUSPENDED, INACTIVE]
+        - name: startDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: endDate
+          in: query
+          schema:
+            type: string
+            format: date-time
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, email, role, status, createdAt, updatedAt]
+            default: createdAt
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Users retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}:
+    get:
+      summary: Get User Details (Admin)
+      description: Retrieves comprehensive details and activity statistics for a specific user.
+      operationId: getAdminUserById
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetailResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update User (Admin)
+      description: Updates user attributes, profile information, role, or active status.
+      operationId: updateAdminUser
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserRequest'
+      responses:
+        '200':
+          description: User updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetailResponse'
+        '403':
+          description: Forbidden (e.g. attempting to demote or suspend own admin account)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete User (Admin)
+      description: Deletes a user (soft-delete by default, permanent with ?hard=true).
+      operationId: deleteAdminUser
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: hard
+          in: query
+          description: If true, permanently deletes user record from database
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: User deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '403':
+          description: Forbidden (cannot delete own account)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /users/{id}/status:
+    patch:
+      summary: Update User Status (Admin)
+      description: Quick status transition endpoint (ACTIVE / SUSPENDED / INACTIVE).
+      operationId: updateAdminUserStatus
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateUserStatusRequest'
+      responses:
+        '200':
+          description: User status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserDetailResponse'
+        '403':
+          description: Forbidden (cannot suspend own account)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '404':
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1317,38 +1550,68 @@ components:
       properties:
         id:
           type: string
-          format: uuid
-          example: usr_admin_001
-        name:
-          type: string
-          example: Lombok Explorer Administrator
+          example: "usr_traveler_demo_01"
         email:
           type: string
           format: email
-          example: admin@lombokexplorer.com
-        role:
+          example: "traveler@lombokexplorer.com"
+        name:
           type: string
-          enum: [ADMIN]
-          example: ADMIN
+          example: "Rizky Pratama"
         avatarUrl:
           type: string
           nullable: true
-          example: https://images.unsplash.com/photo-1534528741775-53994a69daeb
+          example: "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
         phone:
           type: string
           nullable: true
           example: "+6281234567890"
+        role:
+          type: string
+          enum: [USER, ADMIN]
+          example: "ADMIN"
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, INACTIVE]
+          example: "ACTIVE"
+        travelStyle:
+          type: string
+          nullable: true
+          enum: [NATURE_ADVENTURE, BEACH_RELAXATION, CULTURE_HERITAGE, CULINARY_EXPLORER, PHOTOGRAPHY_SPOTS, FAMILY_FRIENDLY]
+          example: "BEACH_RELAXATION"
+        preferredRegion:
+          type: string
+          nullable: true
+          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+          example: "LOMBOK_SELATAN"
         isEmailVerified:
           type: boolean
           example: true
         createdAt:
           type: string
           format: date-time
-          example: "2026-08-23T00:00:00.000Z"
         updatedAt:
           type: string
           format: date-time
-          example: "2026-08-23T00:00:00.000Z"
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+        stats:
+          type: object
+          properties:
+            favoritesCount:
+              type: integer
+              example: 5
+            reviewsCount:
+              type: integer
+              example: 3
+            itinerariesCount:
+              type: integer
+              example: 2
+            journalsCount:
+              type: integer
+              example: 1
 
     AdminAuthData:
       type: object
@@ -2564,6 +2827,90 @@ components:
           example: Accommodation details retrieved successfully
         data:
           $ref: '#/components/schemas/AdminAccommodationDto'
+
+    # ==========================================
+    # USERS SCHEMAS
+    # ==========================================
+    UpdateUserRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: "Rizky Pratama Explorer"
+        role:
+          type: string
+          enum: [USER, ADMIN]
+          example: "USER"
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, INACTIVE]
+          example: "ACTIVE"
+        phone:
+          type: string
+          example: "+6281299998888"
+        avatarUrl:
+          type: string
+          example: "https://images.unsplash.com/photo-1534528741775-53994a69daeb"
+        travelStyle:
+          type: string
+          enum: [NATURE_ADVENTURE, BEACH_RELAXATION, CULTURE_HERITAGE, CULINARY_EXPLORER, PHOTOGRAPHY_SPOTS, FAMILY_FRIENDLY]
+        preferredRegion:
+          type: string
+          enum: [LOMBOK_SELATAN, LOMBOK_UTARA, LOMBOK_BARAT, LOMBOK_TIMUR, LOMBOK_TENGAH, GILI_ISLANDS]
+        isEmailVerified:
+          type: boolean
+
+    UpdateUserStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum: [ACTIVE, SUSPENDED, INACTIVE]
+          example: "SUSPENDED"
+
+    AdminUserListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Users retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUserDto'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 10
+            total:
+              type: integer
+              example: 4
+            totalPages:
+              type: integer
+              example: 1
+
+    AdminUserDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: User details retrieved successfully
+        data:
+          $ref: '#/components/schemas/AdminUserDto'
+
 
 
 

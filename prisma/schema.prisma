@@ -19,6 +19,12 @@ enum UserRole {
   ADMIN
 }
 
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+  INACTIVE
+}
+
 enum LombokRegion {
   LOMBOK_SELATAN   // Kuta, Mandalika, Tanjung Aan, Merese, Mawun, Selong Belanak
   LOMBOK_UTARA     // Senaru, Rinjani, Tiu Kelep, Bayan, Gili Islands
@@ -94,6 +100,7 @@ model User {
   avatarUrl       String?       @db.Text
   phone           String?
   role            UserRole      @default(USER)
+  status          UserStatus    @default(ACTIVE)
   travelStyle     TravelStyle?
   preferredRegion LombokRegion?
   isEmailVerified Boolean       @default(false)
@@ -112,6 +119,8 @@ model User {
 
   @@index([email])
   @@index([role])
+  @@index([status])
+  @@index([createdAt])
   @@map("users")
 }
 
