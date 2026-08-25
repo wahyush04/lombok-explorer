@@ -4,6 +4,7 @@ import { prisma } from '../src/database/prisma';
 describe('Prisma Database Schema & Relations (Phase 4)', () => {
   it('should query at least 30 seeded destinations with categories and images', async () => {
     const destinations = await prisma.destination.findMany({
+      where: { id: { startsWith: 'dest_' } },
       include: {
         category: true,
         images: true,
