@@ -16,7 +16,7 @@ RUN npm ci
 # Copy source code and build
 COPY tsconfig.json ./
 COPY src ./src
-COPY openapi.yaml ./
+COPY openapi.yaml openapi-admin.yaml ./
 RUN npm run build
 RUN npx prisma generate
 
@@ -48,7 +48,7 @@ RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
-COPY openapi.yaml ./
+COPY openapi.yaml openapi-admin.yaml ./
 
 # Switch to non-root user
 USER appuser
