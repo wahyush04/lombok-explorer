@@ -48,7 +48,7 @@ describe('Admin Dashboard Statistics API Suite (Phase 3)', () => {
       expect(overview).toHaveProperty('totalItineraries');
 
       expect(overview.totalDestinations).toBeGreaterThanOrEqual(35);
-      expect(overview.totalCategories).toBe(13);
+      expect(overview.totalCategories).toBeGreaterThanOrEqual(13);
       expect(overview.totalRestaurants).toBeGreaterThanOrEqual(8);
       expect(overview.totalAccommodations).toBeGreaterThanOrEqual(7);
 

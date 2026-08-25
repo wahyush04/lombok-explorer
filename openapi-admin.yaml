@@ -441,6 +441,207 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  # ==========================================
+  # ADMIN CATEGORIES MANAGEMENT
+  # ==========================================
+  /categories:
+    get:
+      summary: List Categories (Admin)
+      description: Returns a paginated list of categories with destinations count and search capabilities.
+      operationId: getAdminCategories
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum: [name, slug, createdAt, updatedAt, destinationsCount]
+            default: name
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+      responses:
+        '200':
+          description: Categories retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryListResponse'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    post:
+      summary: Create Category
+      description: Creates a new tourism category with unique name and unique slug validation.
+      operationId: createAdminCategory
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCategoryRequest'
+      responses:
+        '201':
+          description: Category created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryDetailResponse'
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Category name or slug conflict
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /categories/{id}:
+    get:
+      summary: Get Category Details by ID or Slug
+      description: Returns category details including the total number of assigned destinations.
+      operationId: getAdminCategoryById
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category details retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryDetailResponse'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    put:
+      summary: Update Category
+      description: Updates category details with unique name/slug enforcement.
+      operationId: updateAdminCategory
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateCategoryRequest'
+      responses:
+        '200':
+          description: Category updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminCategoryDetailResponse'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Name or slug collision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      summary: Delete Category
+      description: Deletes a category. Rejects deletion with 409 Conflict if destinations are still using this category unless `?reassignTo=<categoryId>` is specified.
+      operationId: deleteAdminCategory
+      tags:
+        - Categories
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: reassignTo
+          in: query
+          description: Optional category ID to reassign associated destinations to before deletion
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Category deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '404':
+          description: Category not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '409':
+          description: Category in use by destinations without reassignment target
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -1035,5 +1236,115 @@ components:
           example: Destination details retrieved successfully
         data:
           $ref: '#/components/schemas/AdminDestinationDto'
+
+    CreateCategoryRequest:
+      type: object
+      required:
+        - name
+        - description
+        - iconName
+      properties:
+        name:
+          type: string
+          example: Wisata Agro & Kebun
+        slug:
+          type: string
+          example: agro-kebun
+        description:
+          type: string
+          example: Destinasi agrowisata perkebunan kopi, stroberi, dan apel di lereng Gunung Rinjani
+        iconName:
+          type: string
+          example: agriculture
+        coverImageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1500937386664-56d1dfef3854
+
+    UpdateCategoryRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        slug:
+          type: string
+        description:
+          type: string
+        iconName:
+          type: string
+        coverImageUrl:
+          type: string
+
+    AdminCategoryDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: cat_beach
+        name:
+          type: string
+          example: Wisata Bahari & Pantai
+        slug:
+          type: string
+          example: bahari-pantai
+        description:
+          type: string
+          example: Pantai-pantai eksotis pasir putih dan pulau-pulau gili di Lombok
+        iconName:
+          type: string
+          example: beach_access
+        coverImageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        destinationsCount:
+          type: integer
+          example: 12
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AdminCategoryListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Categories retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminCategoryDto'
+        meta:
+          type: object
+          properties:
+            page:
+              type: integer
+              example: 1
+            limit:
+              type: integer
+              example: 20
+            total:
+              type: integer
+              example: 13
+            totalPages:
+              type: integer
+              example: 1
+
+    AdminCategoryDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Category details retrieved successfully
+        data:
+          $ref: '#/components/schemas/AdminCategoryDto'
+
 
 
