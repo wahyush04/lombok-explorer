@@ -630,13 +630,173 @@ paths:
             default: desc
       responses:
         '200':
-          description: Successful response
+          description: Successful response with caching and pagination metadata
+          headers:
+            Cache-Control:
+              schema:
+                type: string
+                example: "public, max-age=60, stale-while-revalidate=30"
+              description: HTTP caching policy (public for guest users, private for authenticated users)
+            Vary:
+              schema:
+                type: string
+                example: "Authorization, Accept-Encoding"
+              description: Informs HTTP caches that response content varies by Authorization header
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/DestinationListResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /destinations/{id}/favorite:
+    post:
+      summary: Toggle destination favorite status for current user
+      description: |
+        Toggles favorite state on the destination.
+        - If the destination is not yet favorited: Adds to favorites and returns isFavorite: true.
+        - If the destination is already favorited: Removes from favorites and returns isFavorite: false.
+      operationId: toggleDestinationFavorite
+      tags:
+        - Destinations
+        - Favorites
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier or slug of the destination
+          schema:
+            type: string
+            example: "dest_tanjung_aan"
+      responses:
+        '200':
+          description: Favorite status toggled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Destination added to favorites successfully"
+                  data:
+                    type: object
+                    required:
+                      - destinationId
+                      - destinationName
+                      - isFavorite
+                    properties:
+                      destinationId:
+                        type: string
+                        example: "dest_tanjung_aan"
+                      destinationName:
+                        type: string
+                        example: "Pantai Tanjung Aan"
+                      isFavorite:
+                        type: boolean
+                        example: true
+                      destination:
+                        $ref: '#/components/schemas/DestinationDto'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: Get favorite status of destination for current user
+      operationId: getDestinationFavoriteStatus
+      tags:
+        - Destinations
+        - Favorites
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier or slug of the destination
+          schema:
+            type: string
+            example: "dest_tanjung_aan"
+      responses:
+        '200':
+          description: Favorite status retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                  - message
+                  - data
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Success fetching favorite status"
+                  data:
+                    type: object
+                    required:
+                      - destinationId
+                      - destinationName
+                      - isFavorite
+                    properties:
+                      destinationId:
+                        type: string
+                        example: "dest_tanjung_aan"
+                      destinationName:
+                        type: string
+                        example: "Pantai Tanjung Aan"
+                      isFavorite:
+                        type: boolean
+                        example: true
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Explicitly remove destination from user favorites
+      operationId: removeDestinationFavoriteById
+      tags:
+        - Destinations
+        - Favorites
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique identifier or slug of the destination
+          schema:
+            type: string
+            example: "dest_tanjung_aan"
+      responses:
+        '200':
+          description: Destination removed from favorites successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1735,6 +1895,10 @@ components:
         - limit
         - total
         - totalPages
+        - currentPage
+        - totalCount
+        - hasNextPage
+        - hasPrevPage
       properties:
         page:
           type: integer
@@ -1748,6 +1912,22 @@ components:
         totalPages:
           type: integer
           example: 3
+        currentPage:
+          type: integer
+          description: Current page number (alias of page for Android pagination)
+          example: 1
+        totalCount:
+          type: integer
+          description: Total number of items (alias of total for Android pagination)
+          example: 28
+        hasNextPage:
+          type: boolean
+          description: Indicates whether there is another page available (useful for infinite scroll)
+          example: true
+        hasPrevPage:
+          type: boolean
+          description: Indicates whether there is a preceding page
+          example: false
 
     ErrorResponse:
       type: object

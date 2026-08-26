@@ -11,17 +11,28 @@ describe('Destinations API Module (Phase 8)', () => {
   });
 
   describe('GET /v1/destinations (List with Pagination & Filters)', () => {
-    it('should return paginated destinations with default limits and metadata', async () => {
+    it('should return paginated destinations with default limits, caching headers, and enhanced metadata', async () => {
       const response = await request(app).get('/v1/destinations?page=1&limit=5');
 
       expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
       expect(response.body.data.length).toBe(5);
-      expect(response.body.meta).toEqual({
+
+      // Verify Caching Headers
+      expect(response.headers['cache-control']).toBeDefined();
+      expect(response.headers['cache-control']).toContain('public');
+      expect(response.headers['vary']).toBeDefined();
+
+      // Verify Enhanced Pagination Metadata for Android & Web
+      expect(response.body.meta).toMatchObject({
         page: 1,
         limit: 5,
         total: expect.any(Number),
         totalPages: expect.any(Number),
+        currentPage: 1,
+        totalCount: expect.any(Number),
+        hasNextPage: true,
+        hasPrevPage: false,
       });
       expect(response.body.meta.total).toBeGreaterThanOrEqual(30);
 
@@ -34,6 +45,7 @@ describe('Destinations API Module (Phase 8)', () => {
       expect(first).toHaveProperty('categoryName');
       expect(first).toHaveProperty('latitude');
       expect(first).toHaveProperty('longitude');
+      expect(first).toHaveProperty('isFavorite');
       expect(Array.isArray(first.tags)).toBe(true);
       expect(Array.isArray(first.facilities)).toBe(true);
       expect(Array.isArray(first.images)).toBe(true);
@@ -194,6 +206,104 @@ describe('Destinations API Module (Phase 8)', () => {
       expect(response.status).toBe(404);
       expect(response.body.success).toBe(false);
       expect(response.body.errorCode).toBe('DESTINATION_NOT_FOUND');
+    });
+  });
+
+  describe('Destination Favorite Toggle Endpoints (/v1/destinations/:id/favorite)', () => {
+    let authToken = '';
+
+    beforeAll(async () => {
+      const registerRes = await request(app).post('/v1/auth/register').send({
+        name: 'Favorite Tester',
+        email: `dest.fav.${Date.now()}@lombokexplorer.com`,
+        password: 'Password123!',
+      });
+      authToken = registerRes.body.data.accessToken;
+    });
+
+    it('should reject unauthenticated POST /v1/destinations/:id/favorite (401)', async () => {
+      const res = await request(app).post('/v1/destinations/dest_tanjung_aan/favorite');
+      expect(res.status).toBe(401);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should toggle favorite ON when destination is not favorited yet', async () => {
+      const res = await request(app)
+        .post('/v1/destinations/dest_tanjung_aan/favorite')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isFavorite).toBe(true);
+      expect(res.body.data.destinationId).toBe('dest_tanjung_aan');
+      expect(res.body.message).toContain('added to favorites');
+    });
+
+    it('should get current favorite status as true', async () => {
+      const res = await request(app)
+        .get('/v1/destinations/dest_tanjung_aan/favorite')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isFavorite).toBe(true);
+    });
+
+    it('should reflect isFavorite = true in destination detail when authenticated', async () => {
+      const res = await request(app)
+        .get('/v1/destinations/dest_tanjung_aan')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.isFavorite).toBe(true);
+    });
+
+    it('should toggle favorite OFF when called again on the same destination', async () => {
+      const res = await request(app)
+        .post('/v1/destinations/dest_tanjung_aan/favorite')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isFavorite).toBe(false);
+      expect(res.body.message).toContain('removed from favorites');
+    });
+
+    it('should get current favorite status as false after toggle OFF', async () => {
+      const res = await request(app)
+        .get('/v1/destinations/dest_tanjung_aan/favorite')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.isFavorite).toBe(false);
+    });
+
+    it('should support toggle by destination slug (e.g. bukit-merese)', async () => {
+      const res = await request(app)
+        .post('/v1/destinations/bukit-merese/favorite')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.data.isFavorite).toBe(true);
+    });
+
+    it('should explicitly remove favorite using DELETE /v1/destinations/:id/favorite', async () => {
+      const res = await request(app)
+        .delete('/v1/destinations/bukit-merese/favorite')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toContain('removed from favorites');
+    });
+
+    it('should return 404 when toggling non-existent destination', async () => {
+      const res = await request(app)
+        .post('/v1/destinations/non-existent-destination-xyz/favorite')
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(res.status).toBe(404);
+      expect(res.body.errorCode).toBe('DESTINATION_NOT_FOUND');
     });
   });
 });

@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { destinationsController } from './destinations.controller';
 import { reviewsController } from '../reviews/reviews.controller';
+import { favoritesController } from '../favorites/favorites.controller';
 import { authenticate, optionalAuthenticate } from '../../common/middleware/auth.middleware';
 import { validate } from '../../common/middleware/validate.middleware';
 import {
@@ -48,7 +49,12 @@ router.post(
   reviewsController.createDestinationReview,
 );
 
-// 4. Detail by ID or Slug (Guest can view; if authenticated, isFavorite is populated)
+// 4. Destination Favorite Operations (/destinations/:id/favorite)
+router.post('/:id/favorite', authenticate, favoritesController.toggleFavorite);
+router.delete('/:id/favorite', authenticate, favoritesController.removeFavorite);
+router.get('/:id/favorite', authenticate, favoritesController.getFavoriteStatus);
+
+// 5. Detail by ID or Slug (Guest can view; if authenticated, isFavorite is populated)
 router.get('/:id', optionalAuthenticate, destinationsController.getByIdOrSlug);
 
 export const destinationRoutes: Router = router;

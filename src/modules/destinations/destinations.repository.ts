@@ -100,7 +100,7 @@ export class DestinationsRepository {
     }
   }
 
-  public async findMany(filters: DestinationQueryFilters) {
+  public async findMany(filters: DestinationQueryFilters, userId?: string) {
     const where = this.buildWhereClause(filters);
     const orderBy = this.buildOrderBy(filters.sortBy, filters.order);
     const skip = (filters.page - 1) * filters.limit;
@@ -116,6 +116,11 @@ export class DestinationsRepository {
           images: {
             orderBy: { orderIndex: 'asc' },
           },
+          ...(userId && {
+            favorites: {
+              where: { userId },
+            },
+          }),
         },
       }),
       prisma.destination.count({ where }),
@@ -144,7 +149,7 @@ export class DestinationsRepository {
     });
   }
 
-  public async findFeatured(limit = 6) {
+  public async findFeatured(limit = 6, userId?: string) {
     return prisma.destination.findMany({
       where: {
         isFeatured: true,
@@ -157,11 +162,16 @@ export class DestinationsRepository {
         images: {
           orderBy: { orderIndex: 'asc' },
         },
+        ...(userId && {
+          favorites: {
+            where: { userId },
+          },
+        }),
       },
     });
   }
 
-  public async findAllForGeospatial(categoryFilter?: string, limit = 200) {
+  public async findAllForGeospatial(categoryFilter?: string, limit = 200, userId?: string) {
     return prisma.destination.findMany({
       where: {
         deletedAt: null,
@@ -178,6 +188,11 @@ export class DestinationsRepository {
         images: {
           orderBy: { orderIndex: 'asc' },
         },
+        ...(userId && {
+          favorites: {
+            where: { userId },
+          },
+        }),
       },
     });
   }

@@ -75,6 +75,13 @@ export class DestinationsService {
       });
     }
 
+    const computedIsFavorite =
+      isFavorite !== undefined
+        ? isFavorite
+        : destination.favorites !== undefined
+          ? destination.favorites.length > 0
+          : false;
+
     return {
       id: destination.id,
       slug: destination.slug,
@@ -103,13 +110,16 @@ export class DestinationsService {
       facilities: this.parseJsonArray(destination.facilities),
       tips: this.parseJsonArray(destination.tips),
       isFeatured: destination.isFeatured,
-      ...(isFavorite !== undefined && { isFavorite }),
+      isFavorite: computedIsFavorite,
       createdAt: destination.createdAt,
       updatedAt: destination.updatedAt,
     };
   }
 
-  public async getDestinations(query: DestinationFilterQuery): Promise<{
+  public async getDestinations(
+    query: DestinationFilterQuery,
+    userId?: string,
+  ): Promise<{
     data: DestinationDto[];
     meta: PaginationMeta;
   }> {
@@ -121,21 +131,24 @@ export class DestinationsService {
     const minPrice = query.min_price ?? query.minPrice;
     const maxPrice = query.max_price ?? query.maxPrice;
 
-    const { items, total } = await this.repository.findMany({
-      page,
-      limit,
-      search: query.search,
-      category: query.category,
-      region: query.region,
-      difficulty: query.difficulty,
-      minRating,
-      minPrice,
-      maxPrice,
-      isFeatured: query.is_featured,
-      tag: query.tag,
-      sortBy,
-      order,
-    });
+    const { items, total } = await this.repository.findMany(
+      {
+        page,
+        limit,
+        search: query.search,
+        category: query.category,
+        region: query.region,
+        difficulty: query.difficulty,
+        minRating,
+        minPrice,
+        maxPrice,
+        isFeatured: query.is_featured,
+        tag: query.tag,
+        sortBy,
+        order,
+      },
+      userId,
+    );
 
     const totalPages = Math.ceil(total / limit) || 1;
 
@@ -146,6 +159,10 @@ export class DestinationsService {
         limit,
         total,
         totalPages,
+        currentPage: page,
+        totalCount: total,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
       },
     };
   }
@@ -163,33 +180,43 @@ export class DestinationsService {
     return this.mapToDto(destination as DestinationWithRelations, isFavorite);
   }
 
-  public async getFeaturedDestinations(limit = 6): Promise<DestinationDto[]> {
-    const now = Date.now();
-    const cached = this.featuredCache.get(limit);
-    if (cached && cached.expiresAt > now) {
-      return cached.data;
+  public async getFeaturedDestinations(limit = 6, userId?: string): Promise<DestinationDto[]> {
+    if (!userId) {
+      const now = Date.now();
+      const cached = this.featuredCache.get(limit);
+      if (cached && cached.expiresAt > now) {
+        return cached.data;
+      }
+
+      const items = await this.repository.findFeatured(limit);
+      const mapped = items.map((item: DestinationWithRelations) => this.mapToDto(item));
+
+      this.featuredCache.set(limit, {
+        data: mapped,
+        expiresAt: now + this.FEATURED_TTL_MS,
+      });
+
+      return mapped;
     }
 
-    const items = await this.repository.findFeatured(limit);
-    const mapped = items.map((item: DestinationWithRelations) => this.mapToDto(item));
-
-    this.featuredCache.set(limit, {
-      data: mapped,
-      expiresAt: now + this.FEATURED_TTL_MS,
-    });
-
-    return mapped;
+    const items = await this.repository.findFeatured(limit, userId);
+    return items.map((item: DestinationWithRelations) => this.mapToDto(item));
   }
 
   public async getNearbyDestinations(
     query: NearbyDestinationQuery,
+    userId?: string,
   ): Promise<NearbyDestinationDto[]> {
     const targetLat = query.lat ?? query.latitude!;
     const targetLng = query.lng ?? query.longitude!;
     const radiusKm = query.radius_km ?? query.radius ?? 25;
     const limit = query.limit || 10;
 
-    const allDestinations = await this.repository.findAllForGeospatial(query.category);
+    const allDestinations = await this.repository.findAllForGeospatial(
+      query.category,
+      200,
+      userId,
+    );
 
     const destinationsWithDistance: NearbyDestinationDto[] = allDestinations
       .map((dest: DestinationWithRelations) => {
@@ -212,7 +239,10 @@ export class DestinationsService {
     return destinationsWithDistance;
   }
 
-  public async searchDestinations(query: SearchDestinationQuery): Promise<{
+  public async searchDestinations(
+    query: SearchDestinationQuery,
+    userId?: string,
+  ): Promise<{
     data: DestinationDto[];
     meta: PaginationMeta;
   }> {
@@ -220,11 +250,14 @@ export class DestinationsService {
     const page = query.page || 1;
     const limit = query.limit || 10;
 
-    const { items, total } = await this.repository.findMany({
-      page,
-      limit,
-      search: searchTerm,
-    });
+    const { items, total } = await this.repository.findMany(
+      {
+        page,
+        limit,
+        search: searchTerm,
+      },
+      userId,
+    );
 
     const totalPages = Math.ceil(total / limit) || 1;
 
@@ -235,6 +268,10 @@ export class DestinationsService {
         limit,
         total,
         totalPages,
+        currentPage: page,
+        totalCount: total,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
       },
     };
   }

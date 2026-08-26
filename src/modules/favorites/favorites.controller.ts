@@ -23,9 +23,32 @@ export class FavoritesController {
 
   public removeFavorite = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.userId;
-    const destinationId = req.params.destinationId as string;
+    const destinationId = (req.params.destinationId || req.params.id) as string;
     await this.service.removeFavorite(userId, destinationId);
     return ResponseUtil.sendActionSuccess(res, 'Destination removed from favorites successfully');
+  });
+
+  public toggleFavorite = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const destinationId = (req.params.id || req.params.destinationId) as string;
+    const result = await this.service.toggleFavorite(userId, destinationId);
+    return ResponseUtil.sendSuccess(
+      res,
+      {
+        destinationId: result.destinationId,
+        destinationName: result.destinationName,
+        isFavorite: result.isFavorite,
+        destination: result.destination,
+      },
+      result.message,
+    );
+  });
+
+  public getFavoriteStatus = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const destinationId = (req.params.id || req.params.destinationId) as string;
+    const result = await this.service.getFavoriteStatus(userId, destinationId);
+    return ResponseUtil.sendSuccess(res, result, 'Success fetching favorite status');
   });
 }
 

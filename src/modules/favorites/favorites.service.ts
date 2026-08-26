@@ -81,6 +81,73 @@ export class FavoritesService {
     // 3. Remove favorite
     await this.repository.removeFavorite(userId, destination.id);
   }
+
+  public async toggleFavorite(
+    userId: string,
+    destinationIdOrSlug: string,
+  ): Promise<{
+    isFavorite: boolean;
+    destinationId: string;
+    destinationName: string;
+    destination: DestinationDto;
+    message: string;
+  }> {
+    // 1. Resolve destination
+    const destination = await this.destRepository.findByIdOrSlug(destinationIdOrSlug);
+    if (!destination) {
+      throw new NotFoundError(
+        `Destination '${destinationIdOrSlug}' not found`,
+        'DESTINATION_NOT_FOUND',
+      );
+    }
+
+    // 2. Check if already favorited
+    const existing = await this.repository.findFavorite(userId, destination.id);
+
+    if (existing) {
+      // Remove favorite
+      await this.repository.removeFavorite(userId, destination.id);
+      const dto = this.destService.mapToDto(destination, false);
+      return {
+        isFavorite: false,
+        destinationId: destination.id,
+        destinationName: destination.name,
+        destination: dto,
+        message: 'Destination removed from favorites successfully',
+      };
+    } else {
+      // Add favorite
+      const created = await this.repository.addFavorite(userId, destination.id);
+      const dto = this.destService.mapToDto(created.destination, true);
+      return {
+        isFavorite: true,
+        destinationId: destination.id,
+        destinationName: destination.name,
+        destination: dto,
+        message: 'Destination added to favorites successfully',
+      };
+    }
+  }
+
+  public async getFavoriteStatus(
+    userId: string,
+    destinationIdOrSlug: string,
+  ): Promise<{ isFavorite: boolean; destinationId: string; destinationName: string }> {
+    const destination = await this.destRepository.findByIdOrSlug(destinationIdOrSlug);
+    if (!destination) {
+      throw new NotFoundError(
+        `Destination '${destinationIdOrSlug}' not found`,
+        'DESTINATION_NOT_FOUND',
+      );
+    }
+
+    const existing = await this.repository.findFavorite(userId, destination.id);
+    return {
+      isFavorite: Boolean(existing),
+      destinationId: destination.id,
+      destinationName: destination.name,
+    };
+  }
 }
 
 export const favoritesService = new FavoritesService();

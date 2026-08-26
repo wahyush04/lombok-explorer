@@ -2089,6 +2089,10 @@ components:
         - limit
         - total
         - totalPages
+        - currentPage
+        - totalCount
+        - hasNextPage
+        - hasPrevPage
       properties:
         page:
           type: integer
@@ -2102,6 +2106,22 @@ components:
         totalPages:
           type: integer
           example: 5
+        currentPage:
+          type: integer
+          description: Current page number (alias of page for Android client pagination)
+          example: 1
+        totalCount:
+          type: integer
+          description: Total number of items (alias of total for Android client pagination)
+          example: 42
+        hasNextPage:
+          type: boolean
+          description: Indicates whether there is another page available
+          example: true
+        hasPrevPage:
+          type: boolean
+          description: Indicates whether there is a preceding page
+          example: false
     AdminAuditLogDto:
       $ref: "#/components/schemas/AdminAuditLogItem"
     AdminAuditLogItem:
