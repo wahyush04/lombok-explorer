@@ -48,23 +48,23 @@ export class WeatherService {
     if (query.region) {
       switch (query.region) {
         case LombokRegion.LOMBOK_SELATAN:
-          return 'Kuta, Lombok';
+          return '-8.892,116.295'; // Kuta Mandalika, Lombok Selatan
         case LombokRegion.LOMBOK_UTARA:
-          return 'Senaru, Lombok';
+          return '-8.358,116.406'; // Senaru / Rinjani, Lombok Utara
         case LombokRegion.LOMBOK_BARAT:
-          return 'Senggigi, Lombok';
+          return '-8.508,116.074'; // Senggigi, Lombok Barat
         case LombokRegion.LOMBOK_TIMUR:
-          return 'Sembalun, Lombok';
+          return '-8.358,116.533'; // Sembalun, Lombok Timur
         case LombokRegion.LOMBOK_TENGAH:
-          return 'Praya, Lombok';
+          return '-8.700,116.280'; // Praya, Lombok Tengah
         case LombokRegion.GILI_ISLANDS:
-          return 'Gili Trawangan';
+          return '-8.350,116.038'; // Gili Trawangan
         default:
-          return 'Mataram, Lombok';
+          return '-8.583,116.116'; // Kota Mataram, Nusa Tenggara Barat
       }
     }
 
-    return 'Mataram, Lombok';
+    return '-8.583,116.116'; // Default: Kota Mataram, Nusa Tenggara Barat
   }
 
   public async getWeather(query: WeatherQuery): Promise<WeatherResponseDto> {
