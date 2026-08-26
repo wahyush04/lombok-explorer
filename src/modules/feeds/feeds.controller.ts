@@ -1,0 +1,60 @@
+import { Request, Response } from 'express';
+import { asyncHandler } from '../../common/utils/async-handler.util';
+import { ResponseUtil } from '../../common/utils/api-response.util';
+import { HttpStatus } from '../../common/constants';
+import { feedsService, FeedsService } from './feeds.service';
+import { CreatePostDto, FeedQueryDto, SearchDestinationQueryDto, UpdatePostDto } from './dto/feed-post.dto';
+
+export class FeedsController {
+  private readonly service: FeedsService;
+
+  constructor(service: FeedsService = feedsService) {
+    this.service = service;
+  }
+
+  public getFeeds = asyncHandler(async (req: Request, res: Response) => {
+    res.setHeader('Vary', 'Authorization');
+    const query = req.query as unknown as FeedQueryDto;
+    const result = await this.service.getFeeds(query, req.user?.userId);
+    return ResponseUtil.sendSuccess(res, result, 'Feed posts retrieved successfully', HttpStatus.OK);
+  });
+
+  public getPostById = asyncHandler(async (req: Request, res: Response) => {
+    res.setHeader('Vary', 'Authorization');
+    const postId = String(req.params.id);
+    const result = await this.service.getPostById(postId, req.user?.userId);
+    return ResponseUtil.sendSuccess(res, result, 'Feed post detail retrieved successfully', HttpStatus.OK);
+  });
+
+  public createPost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const body = req.body as CreatePostDto;
+    const result = await this.service.createPost(userId, body);
+    return ResponseUtil.sendCreated(res, result, 'Feed post created successfully');
+  });
+
+  public updatePost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
+    const postId = String(req.params.id);
+    const body = req.body as UpdatePostDto;
+    const result = await this.service.updatePost(postId, userId, userRole, body);
+    return ResponseUtil.sendSuccess(res, result, 'Feed post updated successfully', HttpStatus.OK);
+  });
+
+  public deletePost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
+    const postId = String(req.params.id);
+    await this.service.deletePost(postId, userId, userRole);
+    return ResponseUtil.sendActionSuccess(res, 'Feed post deleted successfully');
+  });
+
+  public searchDestinations = asyncHandler(async (req: Request, res: Response) => {
+    const query = req.query as unknown as SearchDestinationQueryDto;
+    const result = await this.service.searchDestinations(query);
+    return ResponseUtil.sendSuccess(res, result, 'Destinations search completed successfully', HttpStatus.OK);
+  });
+}
+
+export const feedsController = new FeedsController();

@@ -66,3 +66,20 @@ export const expensiveAiLimiter: RateLimitRequestHandler = rateLimit({
     errorCode: 'COMPUTE_RATE_LIMIT_EXCEEDED',
   },
 });
+
+/**
+ * Feed Action Rate Limiter (Spam Protection)
+ * Applied to post creations, comments, and reports
+ */
+export const feedActionLimiter: RateLimitRequestHandler = rateLimit({
+  windowMs: 60 * 1000, // 1 minute window
+  max: config.app.isTest ? 1000 : 30, // Max 30 interactions per minute in production
+  standardHeaders: 'draft-7',
+  legacyHeaders: false,
+  message: {
+    success: false,
+    message: 'Too many post interactions. Please slow down and try again later.',
+    errorCode: 'TOO_MANY_REQUESTS',
+  },
+});
+
