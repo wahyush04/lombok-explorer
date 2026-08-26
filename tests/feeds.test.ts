@@ -711,6 +711,31 @@ describe('Feeds Module - Post CRUD & Cursor Pagination (Phase 3 & 4)', () => {
     });
   });
 
+  describe('User Profile Feeds API (Phase 10)', () => {
+    it('should retrieve user posts via /api/v1/users/:userId/posts', async () => {
+      const res = await request(app)
+        .get(`/api/v1/users/${userId}/posts`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.items.length).toBeGreaterThanOrEqual(1);
+      for (const item of res.body.data.items) {
+        expect(item.author.id).toBe(userId);
+      }
+    });
+
+    it('should retrieve user posts via /api/v1/feeds/users/:userId', async () => {
+      const res = await request(app)
+        .get(`/api/v1/feeds/users/${userId}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.items.length).toBeGreaterThanOrEqual(1);
+    });
+  });
+
   describe('DELETE /api/v1/feeds/posts/:id (Delete Post)', () => {
     it('should forbid non-owner from deleting the post (403 Forbidden)', async () => {
       const res = await request(app)

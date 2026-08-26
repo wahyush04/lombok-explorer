@@ -8,6 +8,7 @@ import { adminAccommodationRoutes } from '../../modules/admin/accommodations/adm
 import { adminUserRoutes } from '../../modules/admin/users/admin-users.routes';
 import { adminReviewRoutes } from '../../modules/admin/reviews/admin-reviews.routes';
 import { adminAuditLogRoutes } from '../../modules/admin/audit-logs/admin-audit-logs.routes';
+import { adminFeedsRoutes } from '../../modules/admin/feeds/admin-feeds.routes';
 
 const router = Router();
 
@@ -41,5 +42,8 @@ router.use('/reviews', adminReviewRoutes);
 
 // 9. Admin Audit Logs (/api/v1/admin/audit-logs)
 router.use('/audit-logs', adminAuditLogRoutes);
+
+// 10. Admin Feeds & Social Moderation (/api/v1/admin/feeds)
+router.use('/feeds', adminFeedsRoutes);
 
 export const adminRoutes = router;

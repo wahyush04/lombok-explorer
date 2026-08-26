@@ -19,10 +19,18 @@ export class FeedsController {
     return ResponseUtil.sendSuccess(res, result, 'Feed posts retrieved successfully', HttpStatus.OK);
   });
 
+  public getUserPosts = asyncHandler(async (req: Request, res: Response) => {
+    res.setHeader('Vary', 'Authorization');
+    const targetUserId = String(req.params.userId || req.params.id);
+    const query = req.query as unknown as FeedQueryDto;
+    const result = await this.service.getFeeds({ ...query, userId: targetUserId }, req.user?.userId);
+    return ResponseUtil.sendSuccess(res, result, 'User feed posts retrieved successfully', HttpStatus.OK);
+  });
+
   public getPostById = asyncHandler(async (req: Request, res: Response) => {
     res.setHeader('Vary', 'Authorization');
     const postId = String(req.params.id);
-    const result = await this.service.getPostById(postId, req.user?.userId);
+    const result = await this.service.getPostById(postId, req.user?.userId, req.user?.role);
     return ResponseUtil.sendSuccess(res, result, 'Feed post detail retrieved successfully', HttpStatus.OK);
   });
 

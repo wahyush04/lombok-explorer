@@ -36,6 +36,8 @@ tags:
     description: Travel itinerary planning and generation
   - name: Reviews
     description: Destination reviews and ratings
+  - name: Feeds & Community
+    description: Social feeds timeline, travel posts, media attachments, likes, comments, bookmarks, and sharing
   - name: Admin
     description: Administrative APIs and content management
 
@@ -1804,6 +1806,560 @@ paths:
                   data:
                     $ref: '#/components/schemas/ChecklistDto'
 
+  # ==========================================
+  # FEEDS & COMMUNITY SOCIAL MODULE
+  # ==========================================
+  /feeds/destinations/search:
+    get:
+      summary: Search destinations for post location attachment
+      operationId: searchFeedDestinations
+      tags:
+        - Feeds & Community
+      parameters:
+        - name: q
+          in: query
+          description: Destination name search keyword (min 2 characters)
+          required: true
+          schema:
+            type: string
+            minLength: 2
+            example: merese
+      responses:
+        '200':
+          description: List of matching destinations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          example: dest_bukit_merese
+                        name:
+                          type: string
+                          example: Bukit Merese
+                        slug:
+                          type: string
+                          example: bukit-merese
+                        location:
+                          type: string
+                          example: Lombok Selatan
+                        latitude:
+                          type: number
+                          example: -8.9138
+                        longitude:
+                          type: number
+                          example: 116.3155
+                        coverImage:
+                          type: string
+                          nullable: true
+                          example: https://images.unsplash.com/photo-1507525428034-b723cf961d3e
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+
+  /feeds/bookmarks:
+    get:
+      summary: Get user saved/bookmarked feed posts (Cursor pagination)
+      operationId: getUserFeedBookmarks
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          description: Number of items per page (1-50, default 20)
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          description: Base64 cursor for infinite scroll
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Bookmarked posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /feeds/users/{userId}:
+    get:
+      summary: Get feed posts by user ID
+      operationId: getUserFeeds
+      tags:
+        - Feeds & Community
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+
+  /users/{userId}/posts:
+    get:
+      summary: Get user profile posts (Public resource alias)
+      operationId: getUserProfilePosts
+      tags:
+        - Feeds & Community
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+
+  /feeds:
+    get:
+      summary: Get social timeline feed posts (Infinite scroll with cursor pagination)
+      operationId: getFeedTimeline
+      tags:
+        - Feeds & Community
+      parameters:
+        - name: limit
+          in: query
+          description: Number of posts per request (1-50, default 20)
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          description: Cursor for next page
+          schema:
+            type: string
+        - name: tag
+          in: query
+          description: Filter by hashtag
+          schema:
+            type: string
+        - name: destinationId
+          in: query
+          description: Filter by destination ID
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Feed posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+
+  /feeds/posts:
+    post:
+      summary: Create a new travel feed post
+      operationId: createFeedPost
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostRequest'
+      responses:
+        '201':
+          description: Feed post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /feeds/posts/{id}:
+    get:
+      summary: Get single feed post details
+      operationId: getFeedPostById
+      tags:
+        - Feeds & Community
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Feed post detail retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    put:
+      summary: Update feed post (Owner only)
+      operationId: updateFeedPostPut
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostRequest'
+      responses:
+        '200':
+          description: Feed post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    patch:
+      summary: Update feed post (Partial update, Owner only)
+      operationId: updateFeedPostPatch
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostRequest'
+      responses:
+        '200':
+          description: Feed post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Delete feed post (Owner or Admin only)
+      operationId: deleteFeedPost
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/like:
+    post:
+      summary: Like a post
+      operationId: likeFeedPost
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post liked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedLikeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Unlike a post
+      operationId: unlikeFeedPost
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post unliked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedLikeResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/comments:
+    get:
+      summary: Get comments for a post (Cursor pagination)
+      operationId: getFeedPostComments
+      tags:
+        - Feeds & Community
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: cursor
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedCommentListResponse'
+    post:
+      summary: Add a comment to a post
+      operationId: addFeedPostComment
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Comment added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedCommentDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/comments/{commentId}:
+    delete:
+      summary: Delete a comment (Author, Post Owner, or Admin)
+      operationId: deleteFeedComment
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comment deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/bookmark:
+    post:
+      summary: Bookmark/save a post
+      operationId: bookmarkFeedPost
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post bookmarked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedBookmarkResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Remove post from bookmarks
+      operationId: unbookmarkFeedPost
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post removed from bookmarks successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedBookmarkResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/share:
+    post:
+      summary: Share post / increment share counter
+      operationId: shareFeedPost
+      tags:
+        - Feeds & Community
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post shared successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedShareResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/report:
+    post:
+      summary: Report inappropriate feed post to Admin moderation
+      operationId: reportFeedPost
+      tags:
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Report submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedReportResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
 # ==========================================
 # COMPONENTS & SCHEMAS
 # ==========================================
@@ -3526,6 +4082,555 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/ChecklistItemDto'
+
+    # --- FEEDS & COMMUNITY SCHEMAS ---
+    FeedAuthorDto:
+      type: object
+      required:
+        - id
+        - name
+        - username
+      properties:
+        id:
+          type: string
+          example: usr_traveler_demo_01
+        name:
+          type: string
+          example: Rizky Pratama
+        username:
+          type: string
+          example: rizky_travels
+        avatarUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1534528741775-53994a69daeb
+
+    FeedMediaDto:
+      type: object
+      required:
+        - id
+        - url
+        - type
+        - sortOrder
+      properties:
+        id:
+          type: string
+          example: med_123456
+        url:
+          type: string
+          example: https://images.unsplash.com/photo-1507525428034-b723cf961d3e
+        type:
+          type: string
+          enum:
+            - IMAGE
+            - VIDEO
+          example: IMAGE
+        width:
+          type: integer
+          nullable: true
+          example: 1080
+        height:
+          type: integer
+          nullable: true
+          example: 1080
+        sortOrder:
+          type: integer
+          example: 0
+
+    FeedLocationDto:
+      type: object
+      required:
+        - name
+        - latitude
+        - longitude
+      properties:
+        destinationId:
+          type: string
+          nullable: true
+          example: dest_bukit_merese
+        name:
+          type: string
+          example: Bukit Merese
+        latitude:
+          type: number
+          example: -8.9138
+        longitude:
+          type: number
+          example: 116.3155
+        address:
+          type: string
+          nullable: true
+          example: Jl. Pariwisata Pantai Kuta, Lombok Selatan
+
+    FeedViewerDto:
+      type: object
+      required:
+        - isLiked
+        - isBookmarked
+      properties:
+        isLiked:
+          type: boolean
+          example: false
+        isBookmarked:
+          type: boolean
+          example: false
+
+    FeedPostDto:
+      type: object
+      required:
+        - id
+        - title
+        - description
+        - tags
+        - likeCount
+        - commentCount
+        - shareCount
+        - status
+        - author
+        - media
+        - location
+        - viewer
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: 773efbdc-6bf1-4dd7-9c0f-d9c92a303988
+        title:
+          type: string
+          example: Sunset Menakjubkan di Bukit Merese!
+        description:
+          type: string
+          example: Pengalaman sore hari yang luar biasa di Bukit Merese, Lombok Selatan.
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - bukitmerese
+            - sunset
+            - lombok
+        likeCount:
+          type: integer
+          example: 12
+        commentCount:
+          type: integer
+          example: 4
+        shareCount:
+          type: integer
+          example: 2
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - HIDDEN
+            - DELETED
+          example: PUBLISHED
+        author:
+          $ref: '#/components/schemas/FeedAuthorDto'
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedMediaDto'
+        location:
+          $ref: '#/components/schemas/FeedLocationDto'
+        viewer:
+          $ref: '#/components/schemas/FeedViewerDto'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CursorPaginationMeta:
+      type: object
+      required:
+        - nextCursor
+        - hasNextPage
+      properties:
+        nextCursor:
+          type: string
+          nullable: true
+          example: eyJjcmVhdGVkQXQiOiIyMDI2LTA4LTI3VDAwOjAwOjAwLjAwMFoiLCJpZCI6IjEyMyJ9
+        hasNextPage:
+          type: boolean
+          example: true
+
+    FeedPostListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Feed posts retrieved successfully
+        data:
+          type: object
+          required:
+            - items
+            - pagination
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeedPostDto'
+            pagination:
+              $ref: '#/components/schemas/CursorPaginationMeta'
+
+    FeedPostDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Feed post detail retrieved successfully
+        data:
+          $ref: '#/components/schemas/FeedPostDto'
+
+    CreatePostRequest:
+      type: object
+      required:
+        - title
+        - description
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+          example: Sunset Menakjubkan di Bukit Merese!
+        description:
+          type: string
+          minLength: 5
+          maxLength: 2000
+          example: Pengalaman sore hari yang luar biasa di Bukit Merese, Lombok Selatan.
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - bukitmerese
+            - sunset
+            - lombok
+        destinationId:
+          type: string
+          example: dest_bukit_merese
+        locationName:
+          type: string
+          example: Bukit Merese
+        latitude:
+          type: number
+          example: -8.9138
+        longitude:
+          type: number
+          example: 116.3155
+        address:
+          type: string
+          example: Lombok Selatan
+        media:
+          type: array
+          items:
+            type: object
+            required:
+              - url
+            properties:
+              url:
+                type: string
+                format: uri
+                example: https://images.unsplash.com/photo-1507525428034-b723cf961d3e
+              type:
+                type: string
+                enum:
+                  - IMAGE
+                  - VIDEO
+                default: IMAGE
+              width:
+                type: integer
+              height:
+                type: integer
+              sortOrder:
+                type: integer
+                default: 0
+
+    UpdatePostRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+          maxLength: 150
+          example: Sunset Menakjubkan di Bukit Merese (Updated)!
+        description:
+          type: string
+          minLength: 5
+          maxLength: 2000
+          example: Deskripsi update pengalaman di Bukit Merese.
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+            - bukitmerese
+            - sunset
+        destinationId:
+          type: string
+          nullable: true
+        locationName:
+          type: string
+          nullable: true
+        latitude:
+          type: number
+          nullable: true
+        longitude:
+          type: number
+          nullable: true
+        address:
+          type: string
+          nullable: true
+        media:
+          type: array
+          items:
+            type: object
+            required:
+              - url
+            properties:
+              url:
+                type: string
+                format: uri
+              type:
+                type: string
+                enum:
+                  - IMAGE
+                  - VIDEO
+                default: IMAGE
+              width:
+                type: integer
+              height:
+                type: integer
+              sortOrder:
+                type: integer
+                default: 0
+
+    FeedLikeResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Post liked successfully
+        data:
+          type: object
+          required:
+            - isLiked
+            - likeCount
+          properties:
+            isLiked:
+              type: boolean
+              example: true
+            likeCount:
+              type: integer
+              example: 13
+
+    FeedBookmarkResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Post bookmarked successfully
+        data:
+          type: object
+          required:
+            - isBookmarked
+          properties:
+            isBookmarked:
+              type: boolean
+              example: true
+
+    FeedShareResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Post shared successfully
+        data:
+          type: object
+          required:
+            - shareCount
+          properties:
+            shareCount:
+              type: integer
+              example: 3
+
+    FeedCommentDto:
+      type: object
+      required:
+        - id
+        - postId
+        - content
+        - user
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: com_123e4567-e89b-12d3-a456-426614174000
+        postId:
+          type: string
+          example: 773efbdc-6bf1-4dd7-9c0f-d9c92a303988
+        content:
+          type: string
+          example: Pemandangannya bagus sekali, wajib dikunjungi!
+        user:
+          $ref: '#/components/schemas/FeedAuthorDto'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    FeedCommentListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Comments retrieved successfully
+        data:
+          type: object
+          required:
+            - items
+            - pagination
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeedCommentDto'
+            pagination:
+              $ref: '#/components/schemas/CursorPaginationMeta'
+
+    FeedCommentDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Comment added successfully
+        data:
+          $ref: '#/components/schemas/FeedCommentDto'
+
+    CreateCommentRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 500
+          example: Keren banget pantainya, sunset jam berapa yang paling bagus?
+
+    CreateReportRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          enum:
+            - SPAM
+            - INAPPROPRIATE
+            - HARASSMENT
+            - FRAUD
+            - MISLEADING
+            - OTHER
+          example: SPAM
+        description:
+          type: string
+          maxLength: 500
+          example: Post contains affiliate promo links spam.
+
+    FeedReportResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Report submitted successfully
+        data:
+          type: object
+          required:
+            - id
+            - postId
+            - reason
+            - status
+          properties:
+            id:
+              type: string
+              example: rep_123e4567-e89b-12d3-a456-426614174000
+            postId:
+              type: string
+              example: 773efbdc-6bf1-4dd7-9c0f-d9c92a303988
+            reason:
+              type: string
+              example: SPAM
+            status:
+              type: string
+              example: PENDING
+            description:
+              type: string
+              nullable: true
+              example: Post contains affiliate promo links spam.
 
 
 

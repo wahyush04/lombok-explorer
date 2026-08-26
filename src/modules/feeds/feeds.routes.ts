@@ -37,7 +37,22 @@ router.get(
   feedsController.getUserBookmarks,
 );
 
-// 3. Feed Timeline (Cursor-based infinite scroll)
+// 3. User Profile Feed Posts
+router.get(
+  '/users/:userId',
+  optionalAuthenticate,
+  validate({ query: FeedQueryDtoSchema }),
+  feedsController.getUserPosts,
+);
+
+router.get(
+  '/users/:userId/posts',
+  optionalAuthenticate,
+  validate({ query: FeedQueryDtoSchema }),
+  feedsController.getUserPosts,
+);
+
+// 4. Feed Timeline (Cursor-based infinite scroll)
 router.get('/', optionalAuthenticate, validate({ query: FeedQueryDtoSchema }), feedsController.getFeeds);
 
 // 4. Post CRUD

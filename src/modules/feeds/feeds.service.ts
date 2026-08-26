@@ -57,10 +57,18 @@ export class FeedsService {
   /**
    * Retrieves single post detail by ID.
    */
-  public async getPostById(postId: string, viewerUserId?: string): Promise<FeedPostResponse> {
+  public async getPostById(postId: string, viewerUserId?: string, userRole?: string): Promise<FeedPostResponse> {
     const post = await this.repository.findById(postId);
     if (!post) {
       throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+    }
+
+    if (post.status !== 'PUBLISHED') {
+      const isOwner = viewerUserId && post.userId === viewerUserId;
+      const isAdmin = userRole === 'ADMIN';
+      if (!isOwner && !isAdmin) {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
     }
 
     const interactionsMap = viewerUserId

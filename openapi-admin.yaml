@@ -35,6 +35,8 @@ tags:
     description: Review moderation, approval/rejection, rating recalculation, and oversight
   - name: Admin Audit Logs
     description: Sensitive administrative operation trail logs and audit tracking
+  - name: Admin Feeds & Moderation
+    description: Feeds moderation, reported posts review and resolution, and post status controls
 security:
   - BearerAuth: []
 paths:
@@ -2021,6 +2023,178 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+
+  # ==========================================
+  # ADMIN FEEDS & MODERATION
+  # ==========================================
+  /feeds/reports:
+    get:
+      summary: List Feed Post Reports
+      description: Returns a paginated list of feed post reports with filtering by status, reason, and search keyword.
+      operationId: getAdminFeedReports
+      tags:
+        - Admin Feeds & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          description: Filter by report resolution status
+          schema:
+            type: string
+            enum:
+              - PENDING
+              - REVIEWED
+              - RESOLVED
+              - DISMISSED
+        - name: reason
+          in: query
+          description: Filter by report reason
+          schema:
+            type: string
+            enum:
+              - SPAM
+              - INAPPROPRIATE
+              - HARASSMENT
+              - FRAUD
+              - MISLEADING
+              - OTHER
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          description: Search by post title, reporter name, or description
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Feed reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPostReportListResponse"
+        "401":
+          $ref: "#/components/responses/ForbiddenError"
+        "403":
+          $ref: "#/components/responses/ForbiddenError"
+
+  /feeds/reports/{id}:
+    get:
+      summary: Get Feed Report Details
+      description: Returns detailed report information, the reported post, media, and reporter profile.
+      operationId: getAdminFeedReportById
+      tags:
+        - Admin Feeds & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Feed report detail retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPostReportDetailResponse"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    patch:
+      summary: Update Feed Report Status
+      description: Resolve, review, or dismiss a feed report, optionally recording adminNotes.
+      operationId: updateAdminFeedReportStatus
+      tags:
+        - Admin Feeds & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdateReportStatusRequest"
+      responses:
+        "200":
+          description: Report status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUpdateReportStatusResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Report not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /feeds/posts/{id}/status:
+    patch:
+      summary: Moderate Feed Post Status
+      description: Change the status of a feed post (PUBLISHED, HIDDEN, DELETED, DRAFT) with optional admin notes.
+      operationId: updateAdminFeedPostStatus
+      tags:
+        - Admin Feeds & Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUpdatePostStatusRequest"
+      responses:
+        "200":
+          description: Post status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminPostStatusUpdateResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
 components:
   securitySchemes:
     BearerAuth:
@@ -3873,3 +4047,254 @@ components:
           example: Review details retrieved successfully
         data:
           $ref: "#/components/schemas/AdminReviewDto"
+
+    # --- ADMIN FEEDS & MODERATION SCHEMAS ---
+    AdminPostReportListItem:
+      type: object
+      required:
+        - id
+        - postId
+        - reason
+        - status
+        - reporter
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: rep_123e4567-e89b-12d3-a456-426614174000
+        postId:
+          type: string
+          example: 773efbdc-6bf1-4dd7-9c0f-d9c92a303988
+        post:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              example: 773efbdc-6bf1-4dd7-9c0f-d9c92a303988
+            title:
+              type: string
+              example: Post for moderation
+            description:
+              type: string
+              example: Post description content
+            status:
+              type: string
+              example: PUBLISHED
+            author:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: usr_author_01
+                name:
+                  type: string
+                  example: Budi Santoso
+                username:
+                  type: string
+                  example: budi_santoso
+        reporter:
+          type: object
+          required:
+            - id
+            - name
+            - username
+          properties:
+            id:
+              type: string
+              example: usr_reporter_01
+            name:
+              type: string
+              example: Agus Setiawan
+            username:
+              type: string
+              example: agus_traveler
+        reason:
+          type: string
+          enum:
+            - SPAM
+            - INAPPROPRIATE
+            - HARASSMENT
+            - FRAUD
+            - MISLEADING
+            - OTHER
+          example: SPAM
+        description:
+          type: string
+          nullable: true
+          example: Affiliate link spam detected
+        status:
+          type: string
+          enum:
+            - PENDING
+            - REVIEWED
+            - RESOLVED
+            - DISMISSED
+          example: PENDING
+        adminNotes:
+          type: string
+          nullable: true
+          example: Investigated and action taken
+        resolvedBy:
+          type: string
+          nullable: true
+          example: usr_admin_01
+        resolvedAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AdminPostReportListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Feed post reports retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminPostReportListItem"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    AdminPostReportDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Feed post report detail retrieved successfully
+        data:
+          $ref: "#/components/schemas/AdminPostReportListItem"
+
+    AdminUpdateReportStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - PENDING
+            - REVIEWED
+            - RESOLVED
+            - DISMISSED
+          example: RESOLVED
+        adminNotes:
+          type: string
+          maxLength: 1000
+          example: Content reviewed and marked resolved by admin.
+
+    AdminUpdateReportStatusResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Report status updated successfully
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              example: rep_123e4567-e89b-12d3-a456-426614174000
+            postId:
+              type: string
+              example: 773efbdc-6bf1-4dd7-9c0f-d9c92a303988
+            status:
+              type: string
+              example: RESOLVED
+            adminNotes:
+              type: string
+              nullable: true
+              example: Content reviewed and marked resolved by admin.
+            resolvedBy:
+              type: string
+              nullable: true
+              example: usr_admin_01
+            resolvedAt:
+              type: string
+              format: date-time
+              nullable: true
+            updatedAt:
+              type: string
+              format: date-time
+
+    AdminUpdatePostStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          type: string
+          enum:
+            - DRAFT
+            - PUBLISHED
+            - HIDDEN
+            - DELETED
+          example: HIDDEN
+        adminNotes:
+          type: string
+          maxLength: 1000
+          example: Hidden temporarily due to spam reports.
+
+    AdminPostStatusUpdateResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Feed post status updated successfully
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+              example: 773efbdc-6bf1-4dd7-9c0f-d9c92a303988
+            status:
+              type: string
+              example: HIDDEN
+            title:
+              type: string
+              example: Post for moderation
+            deletedAt:
+              type: string
+              format: date-time
+              nullable: true
+            updatedAt:
+              type: string
+              format: date-time
+

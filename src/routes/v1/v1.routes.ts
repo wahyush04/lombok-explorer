@@ -12,7 +12,9 @@ import { expenseRoutes } from '../../modules/expenses/expenses.routes';
 import { journalRoutes } from '../../modules/journals/journals.routes';
 import { checklistRoutes } from '../../modules/checklists/checklists.routes';
 import { storageRoutes } from '../../modules/storage/storage.routes';
-import { feedRoutes } from '../../modules/feeds/feeds.routes';
+import { feedRoutes, feedsController, FeedQueryDtoSchema } from '../../modules/feeds';
+import { optionalAuthenticate } from '../../common/middleware/auth.middleware';
+import { validate } from '../../common/middleware/validate.middleware';
 import { adminRoutes } from '../admin/admin.routes';
 
 const router = Router();
@@ -59,7 +61,15 @@ router.use('/storage', storageRoutes);
 // 14. Feeds & Community Social Module
 router.use('/feeds', feedRoutes);
 
-// 15. Dedicated Admin API Layer (Phase 28 / Admin Operations)
+// 15. User Public Profile Resources
+router.get(
+  '/users/:userId/posts',
+  optionalAuthenticate,
+  validate({ query: FeedQueryDtoSchema }),
+  feedsController.getUserPosts,
+);
+
+// 16. Dedicated Admin API Layer (Phase 28 / Admin Operations)
 router.use('/admin', adminRoutes);
 
 export const v1Routes: Router = router;
