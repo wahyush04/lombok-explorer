@@ -33,6 +33,26 @@ export class GoogleAuthService implements IGoogleAuthService {
       throw new UnauthorizedError('Google idToken is required', 'INVALID_GOOGLE_TOKEN');
     }
 
+    // Development & QA Mock Token Handler (Active when mock Client ID is configured or in non-production)
+    if (
+      (!config.app.isProduction || config.google.clientId.startsWith('mock-')) &&
+      (idToken.startsWith('mock_') || idToken.startsWith('google_token_'))
+    ) {
+      const parts = idToken.split(':');
+      const rawSub = parts[1] || idToken.replace(/[^a-zA-Z0-9_-]/g, '_');
+      const mockSub = rawSub.startsWith('google_sub_') ? rawSub : `google_sub_${rawSub}`;
+      const mockEmail = parts[2] || `user.${rawSub.slice(-8)}@gmail.com`;
+      const mockName = parts[3] || 'Google User';
+
+      return {
+        sub: mockSub,
+        email: mockEmail.toLowerCase().trim(),
+        name: mockName,
+        avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+        isEmailVerified: true,
+      };
+    }
+
     try {
       const ticket = await this.client.verifyIdToken({
         idToken,
