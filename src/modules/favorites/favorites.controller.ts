@@ -11,6 +11,10 @@ export class FavoritesController {
     const userId = req.user!.userId;
     const query = req.query as unknown as FavoriteQuery;
     const { data, meta } = await this.service.getUserFavorites(userId, query);
+
+    res.setHeader('Cache-Control', 'private, no-cache');
+    res.setHeader('Vary', 'Authorization');
+
     return ResponseUtil.sendPaginated(res, data, meta, 'Success fetching favorite destinations');
   });
 

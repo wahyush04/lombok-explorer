@@ -2,14 +2,16 @@ import { prisma } from '../../database/prisma';
 
 export class FavoritesRepository {
   public async getUserFavorites(userId: string, page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
+    const pageNum = Number(page) || 1;
+    const limitNum = Number(limit) || 10;
+    const skip = (pageNum - 1) * limitNum;
 
     const [items, total] = await Promise.all([
       prisma.favorite.findMany({
         where: { userId },
         orderBy: { createdAt: 'desc' },
         skip,
-        take: limit,
+        take: limitNum,
         include: {
           destination: {
             include: {

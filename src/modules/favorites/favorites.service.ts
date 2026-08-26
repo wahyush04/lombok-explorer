@@ -20,8 +20,8 @@ export class FavoritesService {
     userId: string,
     query: FavoriteQuery,
   ): Promise<{ data: DestinationDto[]; meta: PaginationMeta }> {
-    const page = query.page || 1;
-    const limit = query.limit || 10;
+    const page = Number(query.page) || 1;
+    const limit = Number(query.limit) || 10;
 
     const { items, total } = await this.repository.getUserFavorites(userId, page, limit);
     const totalPages = Math.ceil(total / limit) || 1;
@@ -37,6 +37,10 @@ export class FavoritesService {
         limit,
         total,
         totalPages,
+        currentPage: page,
+        totalCount: total,
+        hasNextPage: page < totalPages,
+        hasPrevPage: page > 1,
       },
     };
   }
