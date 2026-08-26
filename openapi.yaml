@@ -24,6 +24,8 @@ tags:
     description: Google Sign-In with ID Token verification and complete registration flow
   - name: Account Linking
     description: Managing and linking multiple authentication methods to a single user account
+  - name: Weather
+    description: Live weather data and forecasts for Lombok regions and tourism spots
   - name: Health
     description: System health and readiness probes
   - name: Destinations
@@ -104,6 +106,122 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/StandardActionResponse'
+
+
+  # ==========================================
+  # WEATHER (PUBLIC / GUEST FRIENDLY)
+  # ==========================================
+  /weather:
+    get:
+      summary: Get live weather data for Lombok or specific location/region
+      description: |
+        Returns live temperature, condition, humidity, wind, UV index, and weather icon.
+        Supports filtering by LombokRegion enum, GPS coordinates (lat/lng), or location name query.
+      operationId: getWeather
+      tags:
+        - Weather
+      parameters:
+        - name: region
+          in: query
+          description: Lombok region
+          required: false
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+        - name: lat
+          in: query
+          description: Latitude coordinate
+          required: false
+          schema:
+            type: number
+            example: -8.892
+        - name: lng
+          in: query
+          description: Longitude coordinate
+          required: false
+          schema:
+            type: number
+            example: 116.295
+        - name: location
+          in: query
+          description: Specific location name (e.g. Senggigi, Kuta, Sembalun)
+          required: false
+          schema:
+            type: string
+            example: Senggigi
+        - name: q
+          in: query
+          description: Free-text search query for location
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current weather retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /weather/current:
+    get:
+      summary: Alias for GET /weather (Get current weather data)
+      description: Explicit current weather endpoint alias.
+      operationId: getCurrentWeather
+      tags:
+        - Weather
+      parameters:
+        - name: region
+          in: query
+          description: Lombok region
+          required: false
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+        - name: lat
+          in: query
+          description: Latitude coordinate
+          required: false
+          schema:
+            type: number
+            example: -8.892
+        - name: lng
+          in: query
+          description: Longitude coordinate
+          required: false
+          schema:
+            type: number
+            example: 116.295
+        - name: location
+          in: query
+          description: Specific location name
+          required: false
+          schema:
+            type: string
+            example: Senggigi
+        - name: q
+          in: query
+          description: Free-text search query
+          required: false
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Current weather retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeatherResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
 
 
   # ==========================================
@@ -1100,43 +1218,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  # ==========================================
-  # WEATHER
-  # ==========================================
-  /weather:
-    get:
-      summary: Get current weather and 5-day forecast for Lombok regions
-      operationId: getWeather
-      tags:
-        - Weather
-      parameters:
-        - name: region
-          in: query
-          required: false
-          description: Lombok region or city
-          schema:
-            $ref: '#/components/schemas/LombokRegion'
-        - name: lat
-          in: query
-          required: false
-          schema:
-            type: number
-            format: double
-        - name: lng
-          in: query
-          required: false
-          schema:
-            type: number
-            format: double
-      responses:
-        '200':
-          description: Weather information and forecast
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/WeatherResponse'
-        '500':
-          $ref: '#/components/responses/InternalServerError'
+
 
   # ==========================================
   # RESTAURANTS
@@ -2721,91 +2803,6 @@ components:
           $ref: '#/components/schemas/ItineraryDto'
 
     # --- WEATHER SCHEMAS ---
-    WeatherForecastDto:
-      type: object
-      required:
-        - date
-        - dayOfWeek
-        - condition
-        - tempMinCelsius
-        - tempMaxCelsius
-        - humidityPercent
-        - iconName
-      properties:
-        date:
-          type: string
-          example: "2026-09-10"
-        dayOfWeek:
-          type: string
-          example: "Kamis"
-        condition:
-          type: string
-          example: "Cerah Berawan"
-        tempMinCelsius:
-          type: integer
-          example: 24
-        tempMaxCelsius:
-          type: integer
-          example: 31
-        humidityPercent:
-          type: integer
-          example: 72
-        iconName:
-          type: string
-          example: "partly_cloudy_day"
-
-    WeatherDto:
-      type: object
-      required:
-        - locationName
-        - region
-        - condition
-        - tempCelsius
-        - feelsLikeCelsius
-        - humidityPercent
-        - windSpeedKmh
-        - uvIndex
-        - iconName
-        - forecast
-        - lastUpdated
-      properties:
-        locationName:
-          type: string
-          example: "Kuta Mandalika, Lombok Selatan"
-        region:
-          $ref: '#/components/schemas/LombokRegion'
-        condition:
-          type: string
-          example: "Cerah & Tropis"
-        tempCelsius:
-          type: integer
-          example: 29
-        feelsLikeCelsius:
-          type: integer
-          example: 32
-        humidityPercent:
-          type: integer
-          example: 70
-        windSpeedKmh:
-          type: number
-          example: 14.5
-        uvIndex:
-          type: integer
-          example: 7
-        iconName:
-          type: string
-          example: "sunny"
-        recommendationTip:
-          type: string
-          example: "Kondisi sangat ideal untuk aktivitas pantai & snorkeling. Gunakan tabir surya."
-        forecast:
-          type: array
-          items:
-            $ref: '#/components/schemas/WeatherForecastDto'
-        lastUpdated:
-          type: string
-          example: "Hari ini, 10:00 WITA"
-
     WeatherResponse:
       type: object
       required:
@@ -2818,9 +2815,95 @@ components:
           example: true
         message:
           type: string
-          example: "Success fetching weather data"
+          example: "Current weather data retrieved successfully"
         data:
-          $ref: '#/components/schemas/WeatherDto'
+          $ref: '#/components/schemas/WeatherData'
+
+    WeatherData:
+      type: object
+      required:
+        - location
+        - current
+        - meta
+      properties:
+        location:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Mataram"
+            region:
+              type: string
+              example: "West Nusa Tenggara"
+            country:
+              type: string
+              example: "Indonesia"
+            latitude:
+              type: number
+              example: -8.58
+            longitude:
+              type: number
+              example: 116.12
+            localTime:
+              type: string
+              example: "2026-08-26 15:30"
+            timezone:
+              type: string
+              example: "Asia/Makassar"
+        current:
+          type: object
+          properties:
+            temperatureC:
+              type: number
+              example: 28.5
+            temperatureF:
+              type: number
+              example: 83.3
+            feelsLikeC:
+              type: number
+              example: 30.2
+            feelsLikeF:
+              type: number
+              example: 86.4
+            isDay:
+              type: boolean
+              example: true
+            condition:
+              type: object
+              properties:
+                text:
+                  type: string
+                  example: "Sunny"
+                icon:
+                  type: string
+                  example: "https://cdn.weatherapi.com/weather/64x64/day/113.png"
+                code:
+                  type: integer
+                  example: 1000
+            humidity:
+              type: number
+              example: 65
+            windKph:
+              type: number
+              example: 15.2
+            windDirection:
+              type: string
+              example: "SSE"
+            uvIndex:
+              type: number
+              example: 6.0
+            visibilityKm:
+              type: number
+              example: 10.0
+        meta:
+          type: object
+          properties:
+            provider:
+              type: string
+              example: "WeatherAPI"
+            cached:
+              type: boolean
+              example: true
 
     # --- RESTAURANTS SCHEMAS ---
     RestaurantDto:

@@ -5,7 +5,8 @@ import { WeatherQuerySchema } from './dto/weather.dto';
 
 const router = Router();
 
-// GET /weather (Public weather endpoint with query validation)
+// GET /weather and GET /weather/current (Public weather endpoints)
 router.get('/', validate({ query: WeatherQuerySchema }), weatherController.getWeather);
+router.get('/current', validate({ query: WeatherQuerySchema }), weatherController.getWeather);
 
 export const weatherRoutes: Router = router;

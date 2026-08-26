@@ -61,6 +61,16 @@ describe('Weather API Module (Phase 16)', () => {
       expect(response.body.data.current.temperatureC).toBeDefined();
     });
 
+    it('should return current weather data via /api/v1/weather/current alias', async () => {
+      const response = await request(app).get('/api/v1/weather/current');
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('location');
+      expect(response.body.data).toHaveProperty('current');
+      expect(response.body.data.current.temperatureC).toBeDefined();
+    });
+
     it('should serve subsequent requests from in-memory cache', async () => {
       // 1. Initial request (cache miss)
       const res1 = await request(app).get('/v1/weather?location=Senggigi');
