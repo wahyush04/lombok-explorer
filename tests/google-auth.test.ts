@@ -185,7 +185,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       });
 
       expect(res.status).toBe(401);
-      expect(res.body.errorCode).toBe('INVALID_REGISTRATION_TOKEN');
+      expect(res.body.errorCode).toBe('REGISTRATION_TOKEN_INVALID');
     });
 
     it('should successfully complete registration and create User + AuthIdentity in transaction', async () => {

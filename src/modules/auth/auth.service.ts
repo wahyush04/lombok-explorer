@@ -290,8 +290,9 @@ export class AuthService {
   }
 
   /**
-   * Generates a signed, short-lived registration token for new Google users.
-   * Tamper-resistant, contains Google profile data, and cannot be used as access token.
+   * Generates a signed, short-lived registration token for new Google users (Phase 13).
+   * Contains purpose = GOOGLE_REGISTRATION, googleSub, email, name, avatarUrl.
+   * Signed with a dedicated secret, expires in 10 minutes, and cannot be used as an access token.
    */
   public generateGoogleRegistrationToken(profile: {
     sub: string;
@@ -299,21 +300,23 @@ export class AuthService {
     name: string;
     avatarUrl?: string;
   }): string {
+    const registrationSecret = `${config.jwt.accessSecret}:google_registration`;
     return jwt.sign(
       {
+        purpose: 'GOOGLE_REGISTRATION',
+        googleSub: profile.sub,
         sub: profile.sub,
         email: profile.email,
         name: profile.name,
         avatarUrl: profile.avatarUrl,
-        type: 'google_registration',
       },
-      config.jwt.accessSecret,
-      { expiresIn: '15m' },
+      registrationSecret,
+      { expiresIn: '10m' },
     );
   }
 
   /**
-   * Verifies and decodes Google registration token.
+   * Verifies and decodes Google registration token with purpose and error code enforcement (Phase 13 & 14).
    */
   public verifyGoogleRegistrationToken(token: string): {
     sub: string;
@@ -321,26 +324,32 @@ export class AuthService {
     name: string;
     avatarUrl?: string;
   } {
+    const registrationSecret = `${config.jwt.accessSecret}:google_registration`;
     try {
-      const decoded = jwt.verify(token, config.jwt.accessSecret) as {
-        sub: string;
-        email: string;
-        name: string;
+      const decoded = jwt.verify(token, registrationSecret) as {
+        purpose?: string;
+        googleSub?: string;
+        sub?: string;
+        email?: string;
+        name?: string;
         avatarUrl?: string;
-        type: string;
       };
 
-      if (decoded.type !== 'google_registration' || !decoded.sub || !decoded.email) {
+      if (
+        decoded.purpose !== 'GOOGLE_REGISTRATION' ||
+        (!decoded.googleSub && !decoded.sub) ||
+        !decoded.email
+      ) {
         throw new UnauthorizedError(
-          'Invalid registration token payload',
-          'INVALID_REGISTRATION_TOKEN',
+          'Invalid registration token purpose or payload',
+          'REGISTRATION_TOKEN_INVALID',
         );
       }
 
       return {
-        sub: decoded.sub,
+        sub: decoded.googleSub || decoded.sub!,
         email: decoded.email,
-        name: decoded.name,
+        name: decoded.name || '',
         avatarUrl: decoded.avatarUrl,
       };
     } catch (err: unknown) {
@@ -355,7 +364,7 @@ export class AuthService {
       }
       throw new UnauthorizedError(
         'Invalid or malformed registration token',
-        'INVALID_REGISTRATION_TOKEN',
+        'REGISTRATION_TOKEN_INVALID',
       );
     }
   }

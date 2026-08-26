@@ -17,6 +17,26 @@ servers:
   - url: http://localhost:8080/v1
     description: Legacy Compatibility Alias Server
 
+tags:
+  - name: Authentication
+    description: User authentication, JWT issuance, password login, and session management
+  - name: Google Authentication
+    description: Google Sign-In with ID Token verification and complete registration flow
+  - name: Account Linking
+    description: Managing and linking multiple authentication methods to a single user account
+  - name: Health
+    description: System health and readiness probes
+  - name: Destinations
+    description: Tourism destination discovery, filtering, and search
+  - name: Categories
+    description: Destination categories and classifications
+  - name: Itineraries
+    description: Travel itinerary planning and generation
+  - name: Reviews
+    description: Destination reviews and ratings
+  - name: Admin
+    description: Administrative APIs and content management
+
 paths:
   # ==========================================
   # SYSTEM & HEALTH
@@ -94,7 +114,7 @@ paths:
       summary: Register a new user traveler account
       operationId: registerUser
       tags:
-        - Auth
+        - Authentication
       requestBody:
         required: true
         content:
@@ -128,7 +148,7 @@ paths:
       summary: Authenticate user and obtain JWT tokens
       operationId: loginUser
       tags:
-        - Auth
+        - Authentication
       requestBody:
         required: true
         content:
@@ -167,7 +187,8 @@ paths:
         - If user does not exist -> returns REGISTRATION_REQUIRED with short-lived registrationToken.
       operationId: googleLogin
       tags:
-        - Auth
+        - Google Authentication
+        - Authentication
       requestBody:
         required: true
         content:
@@ -206,7 +227,8 @@ paths:
         Creates User record, sets initial password hash, links Google `AuthIdentity`, and returns active JWT session.
       operationId: completeGoogleRegistration
       tags:
-        - Auth
+        - Google Authentication
+        - Authentication
       requestBody:
         required: true
         content:
@@ -243,7 +265,9 @@ paths:
       description: Verifies Google ID Token and links Google identity to authenticated user.
       operationId: linkGoogleAccount
       tags:
-        - Auth
+        - Account Linking
+        - Google Authentication
+        - Authentication
       security:
         - BearerAuth: []
       requestBody:
@@ -280,7 +304,9 @@ paths:
       description: Removes linked Google identity from user account if password or another auth method exists.
       operationId: unlinkGoogleAccount
       tags:
-        - Auth
+        - Account Linking
+        - Google Authentication
+        - Authentication
       security:
         - BearerAuth: []
       responses:
@@ -313,7 +339,8 @@ paths:
       description: Returns boolean indicators for password and Google sign-in support on the account.
       operationId: getAuthProviders
       tags:
-        - Auth
+        - Account Linking
+        - Authentication
       security:
         - BearerAuth: []
       responses:
@@ -333,7 +360,7 @@ paths:
       summary: Refresh expired access token using refresh token
       operationId: refreshToken
       tags:
-        - Auth
+        - Authentication
       requestBody:
         required: true
         content:
@@ -359,7 +386,7 @@ paths:
       summary: Get currently authenticated user profile
       operationId: getCurrentUser
       tags:
-        - Auth
+        - Authentication
       security:
         - BearerAuth: []
       responses:
@@ -379,7 +406,7 @@ paths:
       summary: Logout user and invalidate session
       operationId: logoutUser
       tags:
-        - Auth
+        - Authentication
       security:
         - BearerAuth: []
       requestBody:
