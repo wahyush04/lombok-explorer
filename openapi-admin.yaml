@@ -2082,6 +2082,26 @@ components:
         message:
           type: string
           example: "Action completed successfully"
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 42
+        totalPages:
+          type: integer
+          example: 5
     AdminAuditLogDto:
       $ref: "#/components/schemas/AdminAuditLogItem"
     AdminAuditLogItem:
