@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { destinationsController } from './destinations.controller';
 import { reviewsController } from '../reviews/reviews.controller';
-import { authenticate } from '../../common/middleware/auth.middleware';
+import { authenticate, optionalAuthenticate } from '../../common/middleware/auth.middleware';
 import { validate } from '../../common/middleware/validate.middleware';
 import {
   DestinationFilterQuerySchema,
@@ -15,19 +15,22 @@ const router = Router();
 // 1. List with pagination, filters (category, region, difficulty, rating, price, tags), and sorting
 router.get(
   '/',
+  optionalAuthenticate,
   validate({ query: DestinationFilterQuerySchema }),
   destinationsController.getDestinations,
 );
 
 // 2. Specific static endpoints MUST precede dynamic /:id
-router.get('/featured', destinationsController.getFeatured);
+router.get('/featured', optionalAuthenticate, destinationsController.getFeatured);
 router.get(
   '/nearby',
+  optionalAuthenticate,
   validate({ query: NearbyDestinationQuerySchema }),
   destinationsController.getNearby,
 );
 router.get(
   '/search',
+  optionalAuthenticate,
   validate({ query: SearchDestinationQuerySchema }),
   destinationsController.search,
 );
@@ -45,7 +48,7 @@ router.post(
   reviewsController.createDestinationReview,
 );
 
-// 4. Detail by ID or Slug
-router.get('/:id', destinationsController.getByIdOrSlug);
+// 4. Detail by ID or Slug (Guest can view; if authenticated, isFavorite is populated)
+router.get('/:id', optionalAuthenticate, destinationsController.getByIdOrSlug);
 
 export const destinationRoutes: Router = router;

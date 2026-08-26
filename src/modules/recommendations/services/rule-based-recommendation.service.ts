@@ -88,7 +88,6 @@ export class RuleBasedRecommendationService implements IRecommendationEngine {
     }
 
     // 2. Fetch candidate destinations with safety limit and query filter pushdown
-    const candidateLimit = context.limit ? Math.max(context.limit * 5, 50) : 100;
     const destinations = (await prisma.destination.findMany({
       where: {
         deletedAt: null,
@@ -99,7 +98,8 @@ export class RuleBasedRecommendationService implements IRecommendationEngine {
           ],
         }),
       },
-      take: candidateLimit,
+      orderBy: [{ isFeatured: 'desc' }, { rating: 'desc' }, { reviewCount: 'desc' }],
+      take: 250,
       include: {
         category: true,
         images: {
@@ -164,7 +164,7 @@ export class RuleBasedRecommendationService implements IRecommendationEngine {
             catSlug === 'snorkeling' ||
             catSlug === 'sunset')
         ) {
-          score += 30;
+          score += 60;
           matchReasons.push('Sangat cocok untuk gaya liburan pantai & relaksasi');
         } else if (
           context.travelStyle === TravelStyle.NATURE_ADVENTURE &&
@@ -173,31 +173,31 @@ export class RuleBasedRecommendationService implements IRecommendationEngine {
             catSlug === 'hill' ||
             catSlug === 'adventure')
         ) {
-          score += 30;
+          score += 60;
           matchReasons.push('Destinasi petualangan alam & trekking favorit');
         } else if (
           context.travelStyle === TravelStyle.CULTURE_HERITAGE &&
           (catSlug === 'culture' || catSlug === 'village')
         ) {
-          score += 30;
+          score += 60;
           matchReasons.push('Eksplorasi warisan budaya otentik Sasak');
         } else if (
           context.travelStyle === TravelStyle.CULINARY_EXPLORER &&
           catSlug === 'culinary'
         ) {
-          score += 35;
+          score += 60;
           matchReasons.push('Pusat kuliner legendaris khas Lombok');
         } else if (
           context.travelStyle === TravelStyle.PHOTOGRAPHY_SPOTS &&
           (catSlug === 'sunset' || catSlug === 'hill' || catSlug === 'waterfall')
         ) {
-          score += 30;
+          score += 60;
           matchReasons.push('Spot foto pemandangan terbaik & instagramable');
         } else if (
           context.travelStyle === TravelStyle.FAMILY_FRIENDLY &&
           dest.difficulty === 'EASY'
         ) {
-          score += 25;
+          score += 50;
           matchReasons.push('Akses ramah keluarga dan anak-anak');
         }
       }
@@ -206,7 +206,7 @@ export class RuleBasedRecommendationService implements IRecommendationEngine {
       if (context.category) {
         const queryCat = context.category.toLowerCase().trim();
         if (catSlug.includes(queryCat) || dest.category.name.toLowerCase().includes(queryCat)) {
-          score += 40;
+          score += 60;
           matchReasons.push(`Kategori sesuai pencarianmu: ${dest.category.name}`);
         }
       }
@@ -235,11 +235,11 @@ export class RuleBasedRecommendationService implements IRecommendationEngine {
         );
 
         if (context.radiusKm !== undefined && distanceKm > context.radiusKm) {
-          // Beyond radius: apply penalty
-          score -= (distanceKm - context.radiusKm) * 2;
+          // Beyond radius: apply significant penalty to prioritize nearby destinations
+          score -= 100 + (distanceKm - context.radiusKm) * 5;
         } else {
           // Proximity bonus: closer gives higher bonus
-          const proximityBonus = Math.max(0, 25 - distanceKm * 0.4);
+          const proximityBonus = Math.max(0, 40 - distanceKm * 0.8);
           score += proximityBonus;
           if (distanceKm <= 15) {
             matchReasons.push(`Dekat dengan lokasimu (${distanceKm} km)`);
