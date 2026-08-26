@@ -42,7 +42,9 @@ export const config = {
     name: env.ADMIN_NAME || 'Super Admin Lombok Explorer',
   },
   google: {
-    clientId: env.GOOGLE_CLIENT_ID || 'mock-google-client-id.apps.googleusercontent.com',
+    clientId: env.GOOGLE_CLIENT_ID || '',
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+    projectId: env.GOOGLE_PROJECT_ID,
   },
 } as const;
 

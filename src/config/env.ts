@@ -80,10 +80,9 @@ export const envSchema = z.object({
   ADMIN_PASSWORD: z.string().min(6).optional(),
   ADMIN_NAME: z.string().optional().default('Super Admin Lombok Explorer'),
 
-  GOOGLE_CLIENT_ID: z
-    .string()
-    .optional()
-    .default('mock-google-client-id.apps.googleusercontent.com'),
+  GOOGLE_CLIENT_ID: z.string().optional().default(''),
+  GOOGLE_CLIENT_SECRET: z.string().optional(),
+  GOOGLE_PROJECT_ID: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
