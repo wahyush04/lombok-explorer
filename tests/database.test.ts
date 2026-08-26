@@ -107,4 +107,68 @@ describe('Prisma Database Schema & Relations (Phase 4)', () => {
     expect(checklists.length).toBeGreaterThanOrEqual(1);
     expect(journals.length).toBeGreaterThanOrEqual(1);
   });
+
+  it('should support creating and querying Feed Post with Location, Media, Likes, Comments, and Bookmarks', async () => {
+    const testPost = await prisma.post.create({
+      data: {
+        userId: 'usr_demo_lombok',
+        title: 'Pesona Sunset Bukit Merese',
+        description: 'Pemandangan luar biasa saat senja di selatan Lombok.',
+        destinationId: 'dest_bukit_merese',
+        location: {
+          create: {
+            name: 'Bukit Merese',
+            latitude: -8.9083,
+            longitude: 116.3218,
+            destinationId: 'dest_bukit_merese',
+          },
+        },
+        media: {
+          create: [
+            {
+              url: 'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5',
+              type: 'IMAGE',
+              sortOrder: 0,
+            },
+          ],
+        },
+        likes: {
+          create: {
+            userId: 'usr_demo_lombok',
+          },
+        },
+        comments: {
+          create: {
+            userId: 'usr_demo_lombok',
+            content: 'Spot foto terbaik!',
+          },
+        },
+        bookmarks: {
+          create: {
+            userId: 'usr_demo_lombok',
+          },
+        },
+      },
+      include: {
+        location: true,
+        media: true,
+        likes: true,
+        comments: true,
+        bookmarks: true,
+        user: true,
+      },
+    });
+
+    expect(testPost).toBeDefined();
+    expect(testPost.title).toBe('Pesona Sunset Bukit Merese');
+    expect(testPost.location?.name).toBe('Bukit Merese');
+    expect(testPost.media.length).toBe(1);
+    expect(testPost.likes.length).toBe(1);
+    expect(testPost.comments.length).toBe(1);
+    expect(testPost.bookmarks.length).toBe(1);
+    expect(testPost.user.name).toBe('Bima Arya Pratama');
+
+    // Clean up test post
+    await prisma.post.delete({ where: { id: testPost.id } });
+  });
 });

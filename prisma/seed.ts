@@ -19,6 +19,13 @@ async function main(): Promise<void> {
   // =========================================================================
   // 1. CLEAN EXISTING DATA (Idempotent cleanup in reverse dependency order)
   // =========================================================================
+  await prisma.postReport.deleteMany({});
+  await prisma.postBookmark.deleteMany({});
+  await prisma.postComment.deleteMany({});
+  await prisma.postLike.deleteMany({});
+  await prisma.postMedia.deleteMany({});
+  await prisma.postLocation.deleteMany({});
+  await prisma.post.deleteMany({});
   await prisma.checklistItem.deleteMany({});
   await prisma.checklist.deleteMany({});
   await prisma.travelJournal.deleteMany({});
@@ -47,6 +54,7 @@ async function main(): Promise<void> {
     data: {
       id: 'usr_demo_lombok',
       email: 'traveler@lombokexplorer.com',
+      username: 'bima_arya',
       password: passwordHash,
       name: 'Bima Arya Pratama',
       avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
@@ -62,6 +70,7 @@ async function main(): Promise<void> {
     data: {
       id: 'usr_admin_lombok',
       email: 'admin@lombokexplorer.com',
+      username: 'super_admin',
       password: passwordHash,
       name: 'Super Admin Lombok Explorer',
       avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=200',
@@ -1876,6 +1885,91 @@ async function main(): Promise<void> {
       title: 'Makan Malam Kuliner Ayam Taliwang H. Ipip',
       amount: 85000,
       currency: 'IDR',
+    },
+  });
+
+  // =========================================================================
+  // 12. SEED SAMPLE FEED POSTS
+  // =========================================================================
+  await prisma.post.create({
+    data: {
+      id: 'post_seed_merese_sunset',
+      userId: demoUser.id,
+      title: 'Sunset Magis di Puncak Bukit Merese',
+      description:
+        'Pemandangan 360 derajat ke laut lepas Mandalika saat matahari terbenam luar biasa indah. Jangan lupa bawa jaket angin dan alas kaki yang nyaman!',
+      destinationId: 'dest_bukit_merese',
+      locationName: 'Bukit Merese, Pujut',
+      latitude: -8.9083,
+      longitude: 116.3218,
+      status: 'PUBLISHED',
+      likeCount: 15,
+      commentCount: 2,
+      shareCount: 4,
+      location: {
+        create: {
+          name: 'Bukit Merese',
+          latitude: -8.9083,
+          longitude: 116.3218,
+          address: 'Kawasan Mandalika, Pujut, Kabupaten Lombok Tengah, NTB',
+          destinationId: 'dest_bukit_merese',
+        },
+      },
+      media: {
+        create: [
+          {
+            url: 'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5',
+            type: 'IMAGE',
+            sortOrder: 0,
+            caption: 'Puncak Bukit Merese saat golden hour',
+          },
+        ],
+      },
+      comments: {
+        create: [
+          {
+            userId: baseAdmin.id,
+            content: 'Foto yang sangat indah! Salah satu spot sunset terbaik di Lombok.',
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.post.create({
+    data: {
+      id: 'post_seed_tanjung_aan_paddle',
+      userId: demoUser.id,
+      title: 'Serunya Stand-Up Paddle di Teluk Tanjung Aan',
+      description:
+        'Ombak di teluk Tanjung Aan sangat tenang dengan air laut hijau toska yang jernih. Pasir mericanya juga sangat unik!',
+      destinationId: 'dest_tanjung_aan',
+      locationName: 'Pantai Tanjung Aan',
+      latitude: -8.9083,
+      longitude: 116.3218,
+      status: 'PUBLISHED',
+      likeCount: 8,
+      commentCount: 1,
+      shareCount: 1,
+      location: {
+        create: {
+          name: 'Pantai Tanjung Aan',
+          latitude: -8.9083,
+          longitude: 116.3218,
+          address: 'Sengkol, Pujut, Kabupaten Lombok Tengah, NTB',
+          destinationId: 'dest_tanjung_aan',
+        },
+      },
+      media: {
+        create: [
+          {
+            url: '/assets/image/6a9e1195-a82d-479d-b2ef-93334f5381f6.png',
+            type: 'IMAGE',
+            sortOrder: 0,
+            caption: 'Air toska jernih Pantai Tanjung Aan',
+          },
+        ],
+      },
     },
   });
 

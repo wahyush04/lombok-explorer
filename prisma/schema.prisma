@@ -31,12 +31,12 @@ enum AuthProvider {
 }
 
 enum LombokRegion {
-  LOMBOK_SELATAN   // Kuta, Mandalika, Tanjung Aan, Merese, Mawun, Selong Belanak
-  LOMBOK_UTARA     // Senaru, Rinjani, Tiu Kelep, Bayan, Gili Islands
-  LOMBOK_BARAT     // Senggigi, Malimbu, Sekotong, Batu Layar
-  LOMBOK_TIMUR     // Sembalun, Pink Beach, Tetebatu
-  LOMBOK_TENGAH    // Sade, Sukarara, Praya
-  GILI_ISLANDS     // Trawangan, Meno, Air
+  LOMBOK_SELATAN // Kuta, Mandalika, Tanjung Aan, Merese, Mawun, Selong Belanak
+  LOMBOK_UTARA // Senaru, Rinjani, Tiu Kelep, Bayan, Gili Islands
+  LOMBOK_BARAT // Senggigi, Malimbu, Sekotong, Batu Layar
+  LOMBOK_TIMUR // Sembalun, Pink Beach, Tetebatu
+  LOMBOK_TENGAH // Sade, Sukarara, Praya
+  GILI_ISLANDS // Trawangan, Meno, Air
 }
 
 enum DifficultyLevel {
@@ -93,6 +93,29 @@ enum DestinationStatus {
   ARCHIVED
 }
 
+enum PostStatus {
+  DRAFT
+  PUBLISHED
+  HIDDEN
+  DELETED
+}
+
+enum ReportReason {
+  SPAM
+  INAPPROPRIATE
+  HARASSMENT
+  FRAUD
+  MISLEADING
+  OTHER
+}
+
+enum ReportStatus {
+  PENDING
+  REVIEWED
+  RESOLVED
+  DISMISSED
+}
+
 // ==========================================
 // USER MANAGEMENT & AUTHENTICATION
 // ==========================================
@@ -100,6 +123,7 @@ enum DestinationStatus {
 model User {
   id              String        @id @default(uuid())
   email           String        @unique
+  username        String?       @unique
   password        String?
   name            String
   avatarUrl       String?       @db.Text
@@ -115,16 +139,22 @@ model User {
   deletedAt       DateTime?
 
   // Relations
-  identities      AuthIdentity[]
-  favorites       Favorite[]
-  reviews         Review[]
-  itineraries     Itinerary[]
-  expenses        Expense[]
-  journals        TravelJournal[]
-  checklists      Checklist[]
-  auditLogs       AuditLog[]
+  identities    AuthIdentity[]
+  favorites     Favorite[]
+  reviews       Review[]
+  itineraries   Itinerary[]
+  expenses      Expense[]
+  journals      TravelJournal[]
+  checklists    Checklist[]
+  auditLogs     AuditLog[]
+  posts         Post[]
+  postLikes     PostLike[]
+  postComments  PostComment[]
+  postBookmarks PostBookmark[]
+  postReports   PostReport[]
 
   @@index([email])
+  @@index([username])
   @@index([role])
   @@index([status])
   @@index([createdAt])
@@ -137,10 +167,10 @@ model AuthIdentity {
   provider          AuthProvider
   providerAccountId String
 
-  user              User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([provider, providerAccountId])
   @@index([userId])
@@ -152,10 +182,10 @@ model AuthIdentity {
 // ==========================================
 
 model Category {
-  id            String        @id @default(uuid())
-  slug          String        @unique
+  id            String            @id @default(uuid())
+  slug          String            @unique
   name          String
-  description   String        @db.Text
+  description   String            @db.Text
   iconName      String
   coverImageUrl String            @db.Text
   status        DestinationStatus @default(PUBLISHED)
@@ -164,7 +194,7 @@ model Category {
   deletedAt     DateTime?
 
   // Relations
-  destinations  Destination[]
+  destinations Destination[]
 
   @@index([slug])
   @@index([status])
@@ -172,28 +202,28 @@ model Category {
 }
 
 model Destination {
-  id                       String          @id @default(uuid())
-  slug                     String          @unique
+  id                       String            @id @default(uuid())
+  slug                     String            @unique
   name                     String
-  shortDescription         String          @db.Text
-  description              String          @db.Text
+  shortDescription         String            @db.Text
+  description              String            @db.Text
   categoryId               String
-  category                 Category        @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  category                 Category          @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   region                   LombokRegion
   locationName             String
-  address                  String?         @db.Text
+  address                  String?           @db.Text
   latitude                 Float
   longitude                Float
-  rating                   Float           @default(0.0)
-  reviewCount              Int             @default(0)
-  entranceFee              Decimal         @default(0) @db.Decimal(12, 2)
-  currency                 String          @default("IDR")
+  rating                   Float             @default(0.0)
+  reviewCount              Int               @default(0)
+  entranceFee              Decimal           @default(0) @db.Decimal(12, 2)
+  currency                 String            @default("IDR")
   openingHours             String
-  estimatedDurationMinutes Int             @default(60)
+  estimatedDurationMinutes Int               @default(60)
   bestVisitingTime         String
-  difficulty               DifficultyLevel @default(EASY)
-  tags                     String          @db.Text // JSON array: ["Pasir Merica", "Sunset"]
-  coverImageUrl            String          @db.Text
+  difficulty               DifficultyLevel   @default(EASY)
+  tags                     String            @db.Text // JSON array: ["Pasir Merica", "Sunset"]
+  coverImageUrl            String            @db.Text
   facilities               String            @db.Text // JSON array: ["Area Parkir", "Toilet"]
   tips                     String?           @db.Text // JSON array: ["Kunjungi saat sore"]
   status                   DestinationStatus @default(PUBLISHED)
@@ -208,6 +238,8 @@ model Destination {
   favorites                  Favorite[]
   itineraryItems             ItineraryItem[]
   recommendationDestinations RecommendationDestination[]
+  posts                      Post[]
+  postLocations              PostLocation[]
 
   @@index([categoryId])
   @@index([region])
@@ -228,7 +260,7 @@ model DestinationImage {
   orderIndex    Int         @default(0)
   isPrimary     Boolean     @default(false)
   createdAt     DateTime    @default(now())
-  updatedAt     DateTime    @updatedAt @default(now())
+  updatedAt     DateTime    @default(now()) @updatedAt
 
   @@index([destinationId])
   @@index([orderIndex])
@@ -279,28 +311,28 @@ model Review {
 // ==========================================
 
 model Itinerary {
-  id                   String        @id @default(uuid())
+  id                   String      @id @default(uuid())
   userId               String?
-  user                 User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  user                 User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
   title                String
-  description          String?       @db.Text
-  coverImageUrl        String?       @db.Text
-  totalDays            Int           @default(1)
-  totalEstimatedBudget Decimal       @default(0) @db.Decimal(12, 2)
-  travelStyle          TravelStyle   @default(BEACH_RELAXATION)
-  budgetLevel          BudgetLevel   @default(MID_RANGE)
-  pace                 String        @default("BALANCED") // RELAXED, BALANCED, INTENSE
-  isPublic             Boolean       @default(false)
-  isSaved              Boolean       @default(true)
+  description          String?     @db.Text
+  coverImageUrl        String?     @db.Text
+  totalDays            Int         @default(1)
+  totalEstimatedBudget Decimal     @default(0) @db.Decimal(12, 2)
+  travelStyle          TravelStyle @default(BEACH_RELAXATION)
+  budgetLevel          BudgetLevel @default(MID_RANGE)
+  pace                 String      @default("BALANCED") // RELAXED, BALANCED, INTENSE
+  isPublic             Boolean     @default(false)
+  isSaved              Boolean     @default(true)
   startDate            DateTime?
   endDate              DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
+  createdAt            DateTime    @default(now())
+  updatedAt            DateTime    @updatedAt
   deletedAt            DateTime?
 
   // Relations
-  days                 ItineraryDay[]
-  expenses             Expense[]
+  days     ItineraryDay[]
+  expenses Expense[]
 
   @@index([userId])
   @@index([travelStyle])
@@ -309,18 +341,18 @@ model Itinerary {
 }
 
 model ItineraryDay {
-  id          String          @id @default(uuid())
+  id          String    @id @default(uuid())
   itineraryId String
-  itinerary   Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  itinerary   Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
   dayNumber   Int
   title       String
   date        DateTime?
-  notes       String?         @db.Text
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 
   // Relations
-  items       ItineraryItem[]
+  items ItineraryItem[]
 
   @@unique([itineraryId, dayNumber])
   @@index([itineraryId])
@@ -334,7 +366,7 @@ model ItineraryItem {
   destinationId            String?
   destination              Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
   orderIndex               Int
-  timeSlot                 String?      // e.g. "08:30 - 10:30"
+  timeSlot                 String? // e.g. "08:30 - 10:30"
   customTitle              String?
   activityNotes            String?      @db.Text
   estimatedDurationMinutes Int          @default(60)
@@ -352,20 +384,20 @@ model ItineraryItem {
 // ==========================================
 
 model Recommendation {
-  id              String                      @id @default(uuid())
+  id              String      @id @default(uuid())
   title           String
   subtitle        String
-  bannerUrl       String                      @db.Text
+  bannerUrl       String      @db.Text
   travelStyle     TravelStyle
-  budgetLevel     BudgetLevel                 @default(MID_RANGE)
-  recommendedDays Int                         @default(3)
-  estimatedBudget Decimal                     @default(0) @db.Decimal(12, 2)
-  isActive        Boolean                     @default(true)
-  createdAt       DateTime                    @default(now())
-  updatedAt       DateTime                    @updatedAt
+  budgetLevel     BudgetLevel @default(MID_RANGE)
+  recommendedDays Int         @default(3)
+  estimatedBudget Decimal     @default(0) @db.Decimal(12, 2)
+  isActive        Boolean     @default(true)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
 
   // Relations
-  destinations    RecommendationDestination[]
+  destinations RecommendationDestination[]
 
   @@index([travelStyle])
   @@index([budgetLevel])
@@ -391,24 +423,24 @@ model RecommendationDestination {
 // ==========================================
 
 model Restaurant {
-  id               String       @id @default(uuid())
+  id               String            @id @default(uuid())
   name             String
-  slug             String       @unique
-  description      String       @db.Text
+  slug             String            @unique
+  description      String            @db.Text
   cuisineType      String
   specialtyDish    String
   priceRange       String
-  minPrice         Decimal      @default(0) @db.Decimal(12, 2)
-  maxPrice         Decimal      @default(0) @db.Decimal(12, 2)
-  rating           Float        @default(0.0)
-  reviewCount      Int          @default(0)
-  address          String       @db.Text
+  minPrice         Decimal           @default(0) @db.Decimal(12, 2)
+  maxPrice         Decimal           @default(0) @db.Decimal(12, 2)
+  rating           Float             @default(0.0)
+  reviewCount      Int               @default(0)
+  address          String            @db.Text
   region           LombokRegion
   latitude         Float
   longitude        Float
   openingHours     String
-  coverImageUrl    String       @db.Text
-  images           String       @db.Text // JSON array of image URLs
+  coverImageUrl    String            @db.Text
+  images           String            @db.Text // JSON array of image URLs
   isHalalCertified Boolean           @default(true)
   status           DestinationStatus @default(PUBLISHED)
   isFeatured       Boolean           @default(false)
@@ -425,22 +457,22 @@ model Restaurant {
 }
 
 model Accommodation {
-  id            String       @id @default(uuid())
+  id            String            @id @default(uuid())
   name          String
-  slug          String       @unique
-  type          String       // resort, villa, hotel, homestay, glamping
-  description   String       @db.Text
-  rating        Float        @default(0.0)
-  reviewCount   Int          @default(0)
-  pricePerNight Decimal      @db.Decimal(12, 2)
-  currency      String       @default("IDR")
-  address       String       @db.Text
+  slug          String            @unique
+  type          String // resort, villa, hotel, homestay, glamping
+  description   String            @db.Text
+  rating        Float             @default(0.0)
+  reviewCount   Int               @default(0)
+  pricePerNight Decimal           @db.Decimal(12, 2)
+  currency      String            @default("IDR")
+  address       String            @db.Text
   region        LombokRegion
   latitude      Float
   longitude     Float
-  coverImageUrl String       @db.Text
-  images        String       @db.Text // JSON array of image URLs
-  amenities     String       @db.Text // JSON array of amenities
+  coverImageUrl String            @db.Text
+  images        String            @db.Text // JSON array of image URLs
+  amenities     String            @db.Text // JSON array of amenities
   contactPhone  String?
   websiteUrl    String?           @db.Text
   status        DestinationStatus @default(PUBLISHED)
@@ -512,7 +544,7 @@ model Checklist {
   updatedAt DateTime          @updatedAt
 
   // Relations
-  items     ChecklistItem[]
+  items ChecklistItem[]
 
   @@index([userId])
   @@map("checklists")
@@ -562,18 +594,18 @@ model WeatherCache {
 // ==========================================
 
 model AuditLog {
-  id         String   @id @default(uuid())
-  userId     String?
-  user       User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
-  action     String   // CREATE, UPDATE, DELETE, MODERATE, LOGIN, LOGOUT
-  entity     String   // Destination, Category, Review, User, Restaurant, Accommodation, etc.
-  entityId   String?
-  oldValues  String?  @db.Text // JSON string of before state
-  newValues  String?  @db.Text // JSON string of after state
-  details    String?  @db.Text // JSON string of operation metadata
-  ipAddress  String?
-  userAgent  String?
-  createdAt  DateTime @default(now())
+  id        String   @id @default(uuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String // CREATE, UPDATE, DELETE, MODERATE, LOGIN, LOGOUT
+  entity    String // Destination, Category, Review, User, Restaurant, Accommodation, etc.
+  entityId  String?
+  oldValues String?  @db.Text // JSON string of before state
+  newValues String?  @db.Text // JSON string of after state
+  details   String?  @db.Text // JSON string of operation metadata
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([action])
@@ -583,4 +615,139 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+// ==========================================
+// FEEDS & SOCIAL COMMUNITY MODULE
+// ==========================================
 
+model Post {
+  id            String       @id @default(uuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title         String       @db.VarChar(150)
+  description   String       @db.Text
+  destinationId String?
+  destination   Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  locationName  String?
+  latitude      Float?
+  longitude     Float?
+  status        PostStatus   @default(PUBLISHED)
+  likeCount     Int          @default(0)
+  commentCount  Int          @default(0)
+  shareCount    Int          @default(0)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  // Relations
+  location  PostLocation?
+  media     PostMedia[]
+  likes     PostLike[]
+  comments  PostComment[]
+  bookmarks PostBookmark[]
+  reports   PostReport[]
+
+  // Indexes optimized for deterministic cursor-based queries
+  @@index([status, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId, status, createdAt(sort: Desc)])
+  @@index([destinationId, status])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+model PostLocation {
+  id            String       @id @default(uuid())
+  postId        String       @unique
+  post          Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  destinationId String?
+  destination   Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  name          String
+  latitude      Float
+  longitude     Float
+  address       String?      @db.Text
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@index([destinationId])
+  @@index([latitude, longitude])
+  @@map("post_locations")
+}
+
+model PostMedia {
+  id        String   @id @default(uuid())
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url       String   @db.Text
+  type      String   @default("IMAGE") // IMAGE, VIDEO
+  sortOrder Int      @default(0)
+  caption   String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([postId, sortOrder])
+  @@map("post_media")
+}
+
+model PostLike {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([userId])
+  @@map("post_likes")
+}
+
+model PostComment {
+  id        String    @id @default(uuid())
+  postId    String
+  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   String    @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([postId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([userId])
+  @@map("post_comments")
+}
+
+model PostBookmark {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId    String
+  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([userId, postId])
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([postId])
+  @@map("post_bookmarks")
+}
+
+model PostReport {
+  id          String       @id @default(uuid())
+  userId      String
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  postId      String
+  post        Post         @relation(fields: [postId], references: [id], onDelete: Cascade)
+  reason      ReportReason
+  description String?      @db.Text
+  status      ReportStatus @default(PENDING)
+  adminNotes  String?      @db.Text
+  resolvedBy  String?
+  resolvedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@unique([userId, postId])
+  @@index([postId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("post_reports")
+}
