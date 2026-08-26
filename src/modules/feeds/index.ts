@@ -1,10 +1,13 @@
 export * from './feeds.types';
 export * from './dto/feed-post.dto';
 export * from './dto/feed-comment.dto';
+export * from './dto/feed-bookmark.dto';
+export * from './dto/feed-report.dto';
 export * from './feeds.mapper';
 export * from './feeds.repository';
 export * from './feeds.service';
 export * from './feeds.controller';
 export * from './feeds.routes';
 export * from './utils/cursor.util';
+
 

@@ -593,6 +593,169 @@ export class FeedsRepository {
       }
     });
   }
+
+  /**
+   * Bookmarks a post for a user.
+   */
+  public async addBookmark(userId: string, postId: string): Promise<{ isBookmarked: boolean }> {
+    const post = await prisma.post.findFirst({
+      where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
+      select: { id: true },
+    });
+
+    if (!post) {
+      throw new Error('POST_NOT_FOUND');
+    }
+
+    await prisma.postBookmark.upsert({
+      where: {
+        userId_postId: { userId, postId },
+      },
+      create: { userId, postId },
+      update: {},
+    });
+
+    return { isBookmarked: true };
+  }
+
+  /**
+   * Removes bookmark from a post for a user.
+   */
+  public async removeBookmark(userId: string, postId: string): Promise<{ isBookmarked: boolean }> {
+    const post = await prisma.post.findFirst({
+      where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
+      select: { id: true },
+    });
+
+    if (!post) {
+      throw new Error('POST_NOT_FOUND');
+    }
+
+    await prisma.postBookmark.deleteMany({
+      where: { userId, postId },
+    });
+
+    return { isBookmarked: false };
+  }
+
+  /**
+   * Finds bookmarked posts of a user using cursor pagination on bookmarks.
+   */
+  public async findBookmarkedPostsWithCursor(
+    userId: string,
+    params: {
+      cursor?: CursorPayload | null;
+      limit: number;
+    },
+  ) {
+    const limit = Math.max(1, Math.min(50, Number(params.limit) || 20));
+    const where: Prisma.PostBookmarkWhereInput = {
+      userId,
+      post: {
+        deletedAt: null,
+        status: 'PUBLISHED',
+      },
+    };
+
+    if (params.cursor) {
+      const cursorDate = new Date(params.cursor.createdAt);
+      const cursorId = params.cursor.id;
+
+      where.AND = [
+        {
+          OR: [
+            { createdAt: { lt: cursorDate } },
+            {
+              createdAt: cursorDate,
+              id: { lt: cursorId },
+            },
+          ],
+        },
+      ];
+    }
+
+    return prisma.postBookmark.findMany({
+      where,
+      orderBy: [
+        { createdAt: 'desc' },
+        { id: 'desc' },
+      ],
+      take: limit + 1,
+      include: {
+        post: {
+          include: this.defaultPostInclude,
+        },
+      },
+    });
+  }
+
+  /**
+   * Atomically increments shareCount for a post.
+   */
+  public async incrementShareCount(postId: string): Promise<{ shareCount: number }> {
+    return prisma.$transaction(async (tx) => {
+      const post = await tx.post.findFirst({
+        where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
+        select: { id: true },
+      });
+
+      if (!post) {
+        throw new Error('POST_NOT_FOUND');
+      }
+
+      const updated = await tx.post.update({
+        where: { id: postId },
+        data: { shareCount: { increment: 1 } },
+        select: { shareCount: true },
+      });
+
+      return { shareCount: updated.shareCount };
+    });
+  }
+
+  /**
+   * Creates or updates a post report.
+   */
+  public async createReport(
+    userId: string,
+    postId: string,
+    data: import('./dto/feed-report.dto').CreateReportDto,
+  ) {
+    const post = await prisma.post.findFirst({
+      where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
+      select: { id: true },
+    });
+
+    if (!post) {
+      throw new Error('POST_NOT_FOUND');
+    }
+
+    return prisma.postReport.upsert({
+      where: {
+        userId_postId: { userId, postId },
+      },
+      create: {
+        userId,
+        postId,
+        reason: data.reason,
+        description: data.description || null,
+      },
+      update: {
+        reason: data.reason,
+        description: data.description || null,
+        status: 'PENDING',
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            username: true,
+          },
+        },
+      },
+    });
+  }
 }
 
 export const feedsRepository = new FeedsRepository();

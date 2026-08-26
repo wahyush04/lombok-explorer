@@ -565,6 +565,152 @@ describe('Feeds Module - Post CRUD & Cursor Pagination (Phase 3 & 4)', () => {
     });
   });
 
+  describe('Bookmarks API (Phase 8)', () => {
+    it('should fail with 401 Unauthorized when bookmarking without authentication', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/bookmark`)
+        .expect(401);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('TOKEN_MISSING');
+    });
+
+    it('should fail with 404 Not Found when bookmarking non-existent post', async () => {
+      const res = await request(app)
+        .post('/api/v1/feeds/posts/post_non_existent_7777/bookmark')
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(404);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('POST_NOT_FOUND');
+    });
+
+    it('should bookmark post successfully', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/bookmark`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isBookmarked).toBe(true);
+
+      // Verify post detail reflects viewer.isBookmarked = true
+      const postRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(postRes.body.data.viewer.isBookmarked).toBe(true);
+    });
+
+    it('should retrieve user bookmarks list with cursor pagination', async () => {
+      const res = await request(app)
+        .get('/api/v1/feeds/bookmarks?limit=10')
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.items.length).toBeGreaterThanOrEqual(1);
+
+      const found = res.body.data.items.find((item: { id: string }) => item.id === createdPostId);
+      expect(found).toBeDefined();
+      expect(found.viewer.isBookmarked).toBe(true);
+    });
+
+    it('should remove post from bookmarks (unbookmark)', async () => {
+      const res = await request(app)
+        .delete(`/api/v1/feeds/posts/${createdPostId}/bookmark`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isBookmarked).toBe(false);
+
+      // Verify post detail reflects viewer.isBookmarked = false
+      const postRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(postRes.body.data.viewer.isBookmarked).toBe(false);
+    });
+  });
+
+  describe('Share API (Phase 9)', () => {
+    it('should fail with 404 Not Found when sharing non-existent post', async () => {
+      const res = await request(app)
+        .post('/api/v1/feeds/posts/post_non_existent_8888/share')
+        .expect(404);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('POST_NOT_FOUND');
+    });
+
+    it('should atomically increment shareCount when post is shared', async () => {
+      const res1 = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/share`)
+        .expect(200);
+
+      expect(res1.body.success).toBe(true);
+      expect(res1.body.data.shareCount).toBe(1);
+
+      const res2 = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/share`)
+        .expect(200);
+
+      expect(res2.body.data.shareCount).toBe(2);
+
+      // Verify post detail has shareCount = 2
+      const postRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .expect(200);
+
+      expect(postRes.body.data.stats.shareCount).toBe(2);
+    });
+  });
+
+  describe('Report API (Phase 9)', () => {
+    it('should fail with 401 Unauthorized when reporting without authentication', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/report`)
+        .send({ reason: 'SPAM' })
+        .expect(401);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('TOKEN_MISSING');
+    });
+
+    it('should fail with 400 Validation Error on invalid report reason', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/report`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({ reason: 'INVALID_REASON_XYZ' })
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('VALIDATION_ERROR');
+    });
+
+    it('should submit report successfully with valid reason and description', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/report`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({
+          reason: 'SPAM',
+          description: 'Post contains promotional affiliate link spam.',
+        })
+        .expect(201);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toMatchObject({
+        postId: createdPostId,
+        reason: 'SPAM',
+        status: 'PENDING',
+      });
+    });
+  });
+
   describe('DELETE /api/v1/feeds/posts/:id (Delete Post)', () => {
     it('should forbid non-owner from deleting the post (403 Forbidden)', async () => {
       const res = await request(app)

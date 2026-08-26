@@ -92,6 +92,41 @@ export class FeedsController {
     await this.service.deleteComment(commentId, userId, userRole);
     return ResponseUtil.sendActionSuccess(res, 'Comment deleted successfully');
   });
+
+  public bookmarkPost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const postId = String(req.params.id);
+    const result = await this.service.bookmarkPost(userId, postId);
+    return ResponseUtil.sendSuccess(res, result, 'Post bookmarked successfully', HttpStatus.OK);
+  });
+
+  public unbookmarkPost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const postId = String(req.params.id);
+    const result = await this.service.unbookmarkPost(userId, postId);
+    return ResponseUtil.sendSuccess(res, result, 'Post removed from bookmarks successfully', HttpStatus.OK);
+  });
+
+  public getUserBookmarks = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const query = req.query as unknown as import('./dto/feed-bookmark.dto').BookmarkQueryDto;
+    const result = await this.service.getUserBookmarks(userId, query);
+    return ResponseUtil.sendSuccess(res, result, 'Bookmarked feeds retrieved successfully', HttpStatus.OK);
+  });
+
+  public sharePost = asyncHandler(async (req: Request, res: Response) => {
+    const postId = String(req.params.id);
+    const result = await this.service.sharePost(postId);
+    return ResponseUtil.sendSuccess(res, result, 'Post shared successfully', HttpStatus.OK);
+  });
+
+  public reportPost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const postId = String(req.params.id);
+    const body = req.body as import('./dto/feed-report.dto').CreateReportDto;
+    const result = await this.service.reportPost(userId, postId, body);
+    return ResponseUtil.sendCreated(res, result, 'Post report submitted successfully');
+  });
 }
 
 export const feedsController = new FeedsController();

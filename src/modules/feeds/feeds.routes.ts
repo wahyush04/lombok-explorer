@@ -13,6 +13,8 @@ import {
   CommentQueryDtoSchema,
   CreateCommentDtoSchema,
 } from './dto/feed-comment.dto';
+import { BookmarkQueryDtoSchema } from './dto/feed-bookmark.dto';
+import { CreateReportDtoSchema } from './dto/feed-report.dto';
 
 const router = Router();
 
@@ -27,10 +29,18 @@ router.get(
   feedsController.searchDestinations,
 );
 
-// 2. Feed Timeline (Cursor-based infinite scroll)
+// 2. User Bookmarks (Cursor-based list) - Place before parameterized routes
+router.get(
+  '/bookmarks',
+  authenticate,
+  validate({ query: BookmarkQueryDtoSchema }),
+  feedsController.getUserBookmarks,
+);
+
+// 3. Feed Timeline (Cursor-based infinite scroll)
 router.get('/', optionalAuthenticate, validate({ query: FeedQueryDtoSchema }), feedsController.getFeeds);
 
-// 3. Post CRUD
+// 4. Post CRUD
 router.post(
   '/posts',
   authenticate,
@@ -57,11 +67,27 @@ router.put(
 
 router.delete('/posts/:id', authenticate, feedsController.deletePost);
 
-// 4. Like / Unlike Post
+// 5. Like / Unlike Post
 router.post('/posts/:id/like', authenticate, feedActionLimiter, feedsController.likePost);
 router.delete('/posts/:id/like', authenticate, feedActionLimiter, feedsController.unlikePost);
 
-// 5. Comments (Cursor-based list, create, delete)
+// 6. Bookmark / Unbookmark Post
+router.post('/posts/:id/bookmark', authenticate, feedActionLimiter, feedsController.bookmarkPost);
+router.delete('/posts/:id/bookmark', authenticate, feedActionLimiter, feedsController.unbookmarkPost);
+
+// 7. Share Post
+router.post('/posts/:id/share', feedActionLimiter, feedsController.sharePost);
+
+// 8. Report Post
+router.post(
+  '/posts/:id/report',
+  authenticate,
+  feedActionLimiter,
+  validate(CreateReportDtoSchema),
+  feedsController.reportPost,
+);
+
+// 9. Comments (Cursor-based list, create, delete)
 router.get(
   '/posts/:id/comments',
   optionalAuthenticate,

@@ -2,7 +2,7 @@ import { prisma } from '../../database/prisma';
 import { ForbiddenError, NotFoundError } from '../../common/errors/app-error';
 import { CreatePostDto, FeedQueryDto, SearchDestinationQueryDto, UpdatePostDto } from './dto/feed-post.dto';
 import { feedsRepository, FeedsRepository } from './feeds.repository';
-import { FeedsMapper } from './feeds.mapper';
+import { FeedsMapper, PrismaPostWithRelations } from './feeds.mapper';
 import { decodeCursor, encodeCursor } from './utils/cursor.util';
 import { CursorPaginatedData, FeedPostResponse } from './feeds.types';
 
@@ -265,6 +265,104 @@ export class FeedsService {
     }
 
     await this.repository.softDeleteComment(commentId, comment.postId);
+  }
+
+  /**
+   * Bookmarks a post for a user.
+   */
+  public async bookmarkPost(userId: string, postId: string) {
+    try {
+      return await this.repository.addBookmark(userId, postId);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Removes bookmark from a post.
+   */
+  public async unbookmarkPost(userId: string, postId: string) {
+    try {
+      return await this.repository.removeBookmark(userId, postId);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Retrieves cursor-paginated bookmarked posts of a user.
+   */
+  public async getUserBookmarks(userId: string, query: import('./dto/feed-bookmark.dto').BookmarkQueryDto) {
+    const limit = Math.max(1, Math.min(50, Number(query.limit) || 20));
+    const cursor = decodeCursor(query.cursor);
+
+    const bookmarks = await this.repository.findBookmarkedPostsWithCursor(userId, {
+      cursor,
+      limit,
+    });
+
+    const hasNextPage = bookmarks.length > limit;
+    const items = hasNextPage ? bookmarks.slice(0, limit) : bookmarks;
+    const lastItem = hasNextPage && items.length > 0 ? items[items.length - 1] : null;
+    const nextCursor = lastItem ? encodeCursor({ createdAt: lastItem.createdAt.toISOString(), id: lastItem.id }) : null;
+
+    const postIds = items.map((b: { post: { id: string } }) => b.post.id);
+    const interactionsMap = await this.repository.getUserInteractions(userId, postIds);
+
+    const mappedItems = items.map((b: { post: PrismaPostWithRelations }) => {
+      const viewer = interactionsMap.get(b.post.id) || { isLiked: false, isBookmarked: true };
+      viewer.isBookmarked = true;
+      return FeedsMapper.toPostResponse(b.post, viewer);
+    });
+
+    return {
+      items: mappedItems,
+      pagination: {
+        nextCursor,
+        hasNextPage,
+      },
+    };
+  }
+
+  /**
+   * Increments share count for a post.
+   */
+  public async sharePost(postId: string) {
+    try {
+      return await this.repository.incrementShareCount(postId);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Submits a report for a post.
+   */
+  public async reportPost(userId: string, postId: string, data: import('./dto/feed-report.dto').CreateReportDto) {
+    try {
+      const report = await this.repository.createReport(userId, postId, data);
+      return {
+        id: report.id,
+        postId: report.postId,
+        reason: report.reason,
+        status: report.status,
+        createdAt: report.createdAt.toISOString(),
+      };
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
+      throw err;
+    }
   }
 }
 
