@@ -1,6 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
-import { AuthProvider, User, UserRole } from '@prisma/client';
+import { AuthProvider, Prisma, User, UserRole } from '@prisma/client';
 import { config } from '../../config/config';
 import { prisma } from '../../database/prisma';
 import {
@@ -106,30 +106,40 @@ export class AuthService {
     const hashedPassword = await this.hashPassword(dto.password);
 
     // 3. Create user record
-    const user = await this.repository.create({
-      name: dto.name,
-      email: dto.email,
-      password: hashedPassword,
-      role: dto.role || UserRole.USER,
-      travelStyle: dto.travelStyle,
-      preferredRegion: dto.preferredRegion,
-      avatarUrl: dto.avatarUrl,
-      phone: dto.phone,
-    });
+    try {
+      const user = await this.repository.create({
+        name: dto.name,
+        email: dto.email,
+        password: hashedPassword,
+        role: dto.role || UserRole.USER,
+        travelStyle: dto.travelStyle,
+        preferredRegion: dto.preferredRegion,
+        avatarUrl: dto.avatarUrl,
+        phone: dto.phone,
+      });
 
-    // 4. Generate JWT token pair
-    const tokens = this.generateTokens(user);
+      // 4. Generate JWT token pair
+      const tokens = this.generateTokens(user);
 
-    // 5. Store refresh token for session tracking and rotation
-    await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
+      // 5. Store refresh token for session tracking and rotation
+      await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
 
-    return {
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
-      tokenType: 'Bearer',
-      user: this.sanitizeUser(user),
-    };
+      return {
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+        tokenType: 'Bearer',
+        user: this.sanitizeUser(user),
+      };
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictError(
+          'An account with this email address already exists',
+          'EMAIL_ALREADY_EXISTS',
+        );
+      }
+      throw err;
+    }
   }
 
   public async login(dto: LoginDto): Promise<AuthTokens> {
@@ -488,79 +498,102 @@ export class AuthService {
     // 2. Hash Password with bcrypt
     const hashedPassword = await this.hashPassword(dto.password);
 
-    // 3. Execute Prisma Transaction
-    const user = await prisma.$transaction(async (tx) => {
-      // Check if email already exists
-      const existingUser = await tx.user.findFirst({
-        where: {
-          email: googleProfile.email.toLowerCase().trim(),
-          deletedAt: null,
-        },
-      });
+    // 3. Execute Prisma Transaction with Race-Condition & Unique Constraint Protection (Phase 17)
+    try {
+      const user = await prisma.$transaction(async (tx) => {
+        // Check if email already exists
+        const existingUser = await tx.user.findFirst({
+          where: {
+            email: googleProfile.email.toLowerCase().trim(),
+            deletedAt: null,
+          },
+        });
 
-      if (existingUser) {
-        throw new ConflictError(
-          'An account with this email address already exists',
-          'EMAIL_ALREADY_EXISTS',
-        );
-      }
+        if (existingUser) {
+          throw new ConflictError(
+            'An account with this email address already exists',
+            'EMAIL_ALREADY_EXISTS',
+          );
+        }
 
-      // Check if Google identity is already linked
-      const existingIdentity = await tx.authIdentity.findUnique({
-        where: {
-          provider_providerAccountId: {
+        // Check if Google identity is already linked
+        const existingIdentity = await tx.authIdentity.findUnique({
+          where: {
+            provider_providerAccountId: {
+              provider: AuthProvider.GOOGLE,
+              providerAccountId: googleProfile.sub,
+            },
+          },
+        });
+
+        if (existingIdentity) {
+          throw new ConflictError(
+            'This Google account is already registered',
+            'GOOGLE_ACCOUNT_ALREADY_LINKED',
+          );
+        }
+
+        // Create User
+        const newUser = await tx.user.create({
+          data: {
+            name: username.trim(),
+            email: googleProfile.email.toLowerCase().trim(),
+            password: hashedPassword,
+            avatarUrl: googleProfile.avatarUrl,
+            isEmailVerified: true,
+            role: UserRole.USER,
+          },
+        });
+
+        // Create AuthIdentity
+        await tx.authIdentity.create({
+          data: {
+            userId: newUser.id,
             provider: AuthProvider.GOOGLE,
             providerAccountId: googleProfile.sub,
           },
-        },
+        });
+
+        return newUser;
       });
 
-      if (existingIdentity) {
+      // 4. Generate JWT tokens
+      const tokens = this.generateTokens(user);
+
+      // 5. Update refresh token in DB
+      await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
+
+      // 6. Return Registration Success
+      return {
+        status: 'REGISTRATION_SUCCESS',
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        expiresIn: tokens.expiresIn,
+        tokenType: 'Bearer',
+        user: this.sanitizeUser(user),
+      };
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = String((err.meta as { target?: string[] | string })?.target || '');
+        if (target.includes('providerAccountId') || target.includes('provider')) {
+          throw new ConflictError(
+            'This Google account is already registered',
+            'GOOGLE_ACCOUNT_ALREADY_LINKED',
+          );
+        }
+        if (target.includes('email')) {
+          throw new ConflictError(
+            'An account with this email address already exists',
+            'EMAIL_ALREADY_EXISTS',
+          );
+        }
         throw new ConflictError(
-          'This Google account is already registered',
-          'IDENTITY_ALREADY_EXISTS',
+          'An account with this unique information already exists',
+          'CONFLICT',
         );
       }
-
-      // Create User
-      const newUser = await tx.user.create({
-        data: {
-          name: username.trim(),
-          email: googleProfile.email.toLowerCase().trim(),
-          password: hashedPassword,
-          avatarUrl: googleProfile.avatarUrl,
-          isEmailVerified: true,
-          role: UserRole.USER,
-        },
-      });
-
-      // Create AuthIdentity
-      await tx.authIdentity.create({
-        data: {
-          userId: newUser.id,
-          provider: AuthProvider.GOOGLE,
-          providerAccountId: googleProfile.sub,
-        },
-      });
-
-      return newUser;
-    });
-
-    // 4. Generate JWT tokens
-    const tokens = this.generateTokens(user);
-
-    // 5. Update refresh token in DB
-    await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
-
-    // 6. Return Registration Success
-    return {
-      status: 'REGISTRATION_SUCCESS',
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresIn: tokens.expiresIn,
-      tokenType: 'Bearer',
-      user: this.sanitizeUser(user),
-    };
+      throw err;
+    }
   }
 
   /**
@@ -601,8 +634,18 @@ export class AuthService {
       );
     }
 
-    // 4. Create Google identity linked to current user
-    await this.repository.createIdentity(userId, AuthProvider.GOOGLE, googleUser.sub);
+    // 4. Create Google identity linked to current user with P2002 protection
+    try {
+      await this.repository.createIdentity(userId, AuthProvider.GOOGLE, googleUser.sub);
+    } catch (err: unknown) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictError(
+          'Google account is already linked to another user',
+          'GOOGLE_ACCOUNT_ALREADY_LINKED',
+        );
+      }
+      throw err;
+    }
   }
 
   /**

@@ -101,6 +101,20 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.body).toHaveProperty('success', false);
       expect(res.body).toHaveProperty('errorCode', 'INVALID_GOOGLE_TOKEN');
     });
+
+    it('should reject expired Google token with 401 and INVALID_GOOGLE_TOKEN', async () => {
+      const { UnauthorizedError } = await import('../src/common/errors/app-error');
+      vi.spyOn(googleAuthService, 'verifyIdToken').mockRejectedValueOnce(
+        new UnauthorizedError('Google ID Token has expired', 'INVALID_GOOGLE_TOKEN'),
+      );
+
+      const res = await request(app)
+        .post('/api/v1/auth/google')
+        .send({ idToken: 'expired.google.token' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('INVALID_GOOGLE_TOKEN');
+    });
   });
 
   describe('3. Phase 5 — Google Account Belum Terdaftar (REGISTRATION_REQUIRED)', () => {
@@ -186,6 +200,31 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
 
       expect(res.status).toBe(401);
       expect(res.body.errorCode).toBe('REGISTRATION_TOKEN_INVALID');
+    });
+
+    it('should reject expired registration token with 401 and REGISTRATION_TOKEN_EXPIRED', async () => {
+      const jwt = (await import('jsonwebtoken')).default;
+      const { config } = await import('../src/config/config');
+      const expiredToken = jwt.sign(
+        {
+          purpose: 'GOOGLE_REGISTRATION',
+          googleSub: 'sub_expired_reg_test',
+          sub: 'sub_expired_reg_test',
+          email: 'expired.reg@example.com',
+          name: 'Expired User',
+        },
+        `${config.jwt.accessSecret}:google_registration`,
+        { expiresIn: '-1s' },
+      );
+
+      const res = await request(app).post('/api/v1/auth/google/register').send({
+        registrationToken: expiredToken,
+        username: 'expireduser',
+        password: 'securePassword123!',
+      });
+
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('REGISTRATION_TOKEN_EXPIRED');
     });
 
     it('should successfully complete registration and create User + AuthIdentity in transaction', async () => {
@@ -463,6 +502,16 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.body.errorCode).toBe('GOOGLE_ACCOUNT_ALREADY_LINKED');
       expect(res.body.message).toBe('Google account is already linked to another user');
     });
+
+    it('should reject linking when Google ID token is invalid (401)', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/google/link')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ idToken: 'invalid.google.token.for.linking' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('INVALID_GOOGLE_TOKEN');
+    });
   });
 
   describe('8. Phase 9 — Unlink Google (DELETE /api/v1/auth/google/link)', () => {
@@ -522,6 +571,12 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       const { authService } = await import('../src/modules/auth/auth.service');
       const tokens = (authService as unknown as { generateTokens: (u: typeof googleOnlyUser) => { accessToken: string } }).generateTokens(googleOnlyUser);
       googleOnlyUserToken = tokens.accessToken;
+    });
+
+    it('should reject unlinking when request is unauthorized (401)', async () => {
+      const res = await request(app).delete('/api/v1/auth/google/link');
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('TOKEN_MISSING');
     });
 
     it('should reject unlinking when Google is the ONLY auth method (no password)', async () => {
