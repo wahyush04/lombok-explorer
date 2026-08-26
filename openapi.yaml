@@ -237,6 +237,97 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /auth/google/link:
+    post:
+      summary: Link Google account to currently authenticated user
+      description: Verifies Google ID Token and links Google identity to authenticated user.
+      operationId: linkGoogleAccount
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleAuthRequest'
+      responses:
+        '200':
+          description: Google account linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Google account already linked to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Google account is already linked to another user"
+                errorCode: "GOOGLE_ACCOUNT_ALREADY_LINKED"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Unlink Google account from currently authenticated user
+      description: Removes linked Google identity from user account if password or another auth method exists.
+      operationId: unlinkGoogleAccount
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Google account unlinked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+        '400':
+          description: Cannot unlink the only authentication method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Cannot unlink the only authentication method"
+                errorCode: "ONLY_AUTH_METHOD"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/providers:
+    get:
+      summary: Get active authentication methods/providers for current user
+      description: Returns boolean indicators for password and Google sign-in support on the account.
+      operationId: getAuthProviders
+      tags:
+        - Auth
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Active auth providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthProvidersResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   /auth/refresh-token:
     post:
       summary: Refresh expired access token using refresh token
@@ -1923,11 +2014,34 @@ components:
             expiresIn:
               type: integer
               example: 900
-            tokenType:
-              type: string
-              example: "Bearer"
             user:
               $ref: '#/components/schemas/UserDto'
+
+    AuthProvidersResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Auth providers retrieved successfully"
+        data:
+          type: object
+          required:
+            - password
+            - google
+          properties:
+            password:
+              type: boolean
+              example: true
+            google:
+              type: boolean
+              example: true
 
     UpdateProfileRequest:
       type: object

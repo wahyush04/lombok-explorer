@@ -29,6 +29,9 @@ router.post('/refresh', validate(RefreshTokenDtoSchema), authController.refresh)
 router.post('/refresh-token', validate(RefreshTokenDtoSchema), authController.refresh);
 
 // Protected routes (Requires valid JWT Access Token)
+router.post('/google/link', authenticate, validate(GoogleAuthDtoSchema), authController.linkGoogle);
+router.delete('/google/link', authenticate, authController.unlinkGoogle);
+router.get('/providers', authenticate, authController.getAuthProviders);
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getMe);
 

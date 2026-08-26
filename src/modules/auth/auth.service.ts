@@ -12,6 +12,7 @@ import {
 } from '../../common/errors/app-error';
 import { authRepository, AuthRepository } from './auth.repository';
 import {
+  AuthProvidersResult,
   AuthTokens,
   CompleteGoogleRegistrationDto,
   CompleteGoogleRegistrationResult,
@@ -550,6 +551,100 @@ export class AuthService {
       expiresIn: tokens.expiresIn,
       tokenType: 'Bearer',
       user: this.sanitizeUser(user),
+    };
+  }
+
+  /**
+   * PHASE 8 — Link Google Account to Authenticated User
+   * 1. Verify Google ID Token
+   * 2. Check if sub is already linked to another user (409 Conflict if linked to another)
+   * 3. Create AuthIdentity(userId, provider: GOOGLE, providerAccountId: sub)
+   */
+  public async linkGoogle(userId: string, dto: GoogleAuthDto): Promise<void> {
+    // 1. Verify Google ID Token cryptographically
+    const googleUser = await this.googleAuth.verifyIdToken(dto.idToken);
+
+    // 2. Check if this Google account (sub) is already linked to ANY user
+    const existingIdentity = await this.repository.findIdentity(
+      AuthProvider.GOOGLE,
+      googleUser.sub,
+    );
+
+    if (existingIdentity) {
+      if (existingIdentity.userId === userId) {
+        // Already linked to the current user
+        return;
+      }
+      // Linked to a DIFFERENT user -> 409 Conflict
+      throw new ConflictError(
+        'Google account is already linked to another user',
+        'GOOGLE_ACCOUNT_ALREADY_LINKED',
+      );
+    }
+
+    // 3. Check if current user already has a Google identity linked
+    const userIdentities = await this.repository.findIdentitiesByUserId(userId);
+    const hasGoogle = userIdentities.some((i) => i.provider === AuthProvider.GOOGLE);
+    if (hasGoogle) {
+      throw new ConflictError(
+        'User already has a linked Google account',
+        'USER_ALREADY_HAS_GOOGLE_ACCOUNT',
+      );
+    }
+
+    // 4. Create Google identity linked to current user
+    await this.repository.createIdentity(userId, AuthProvider.GOOGLE, googleUser.sub);
+  }
+
+  /**
+   * PHASE 9 — Unlink Google Account
+   * 1. Check if user has Google identity
+   * 2. Ensure user has password or another auth method (prevent losing account access)
+   * 3. Delete Google identity
+   */
+  public async unlinkGoogle(userId: string): Promise<void> {
+    // 1. Fetch user to inspect authentication methods
+    const user = await this.repository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User account not found', 'USER_NOT_FOUND');
+    }
+
+    const identities = await this.repository.findIdentitiesByUserId(userId);
+    const hasGoogleIdentity = identities.some((i) => i.provider === AuthProvider.GOOGLE);
+
+    if (!hasGoogleIdentity) {
+      throw new NotFoundError('Google account is not linked to this user', 'GOOGLE_NOT_LINKED');
+    }
+
+    // 2. Check if user has a password set
+    const hasPassword = Boolean(user.password && user.password.length > 0);
+
+    // If user has NO password and Google is their only method -> Reject!
+    if (!hasPassword) {
+      throw new BadRequestError('Cannot unlink the only authentication method', 'ONLY_AUTH_METHOD');
+    }
+
+    // 3. Delete Google identity
+    await this.repository.deleteIdentity(userId, AuthProvider.GOOGLE);
+  }
+
+  /**
+   * PHASE 10 — Get Active Auth Providers for Authenticated User
+   * Returns whether password and/or google auth methods are enabled
+   */
+  public async getAuthProviders(userId: string): Promise<AuthProvidersResult> {
+    const user = await this.repository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User account not found', 'USER_NOT_FOUND');
+    }
+
+    const identities = await this.repository.findIdentitiesByUserId(userId);
+    const hasPassword = Boolean(user.password && user.password.length > 0);
+    const hasGoogle = identities.some((i) => i.provider === AuthProvider.GOOGLE);
+
+    return {
+      password: hasPassword,
+      google: hasGoogle,
     };
   }
 }

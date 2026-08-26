@@ -63,6 +63,25 @@ export class AuthController {
     const user = await this.service.getMe(userId);
     return ResponseUtil.sendSuccess(res, user, 'User profile retrieved successfully');
   });
+
+  public linkGoogle = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const dto = req.body as GoogleAuthDto;
+    await this.service.linkGoogle(userId, dto);
+    return ResponseUtil.sendActionSuccess(res, 'Google account linked successfully');
+  });
+
+  public unlinkGoogle = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    await this.service.unlinkGoogle(userId);
+    return ResponseUtil.sendActionSuccess(res, 'Google account unlinked successfully');
+  });
+
+  public getAuthProviders = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const result = await this.service.getAuthProviders(userId);
+    return ResponseUtil.sendSuccess(res, result, 'Auth providers retrieved successfully');
+  });
 }
 
 export const authController = new AuthController();

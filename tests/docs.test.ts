@@ -42,6 +42,8 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(paths).toHaveProperty('/auth/login');
     expect(paths).toHaveProperty('/auth/google');
     expect(paths).toHaveProperty('/auth/google/register');
+    expect(paths).toHaveProperty('/auth/google/link');
+    expect(paths).toHaveProperty('/auth/providers');
     expect(paths).toHaveProperty('/auth/refresh-token');
     expect(paths).toHaveProperty('/auth/me');
     expect(paths).toHaveProperty('/auth/logout');
@@ -84,6 +86,7 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(schemas).toHaveProperty('GoogleAuthResponse');
     expect(schemas).toHaveProperty('CompleteGoogleRegistrationRequest');
     expect(schemas).toHaveProperty('CompleteGoogleRegistrationResponse');
+    expect(schemas).toHaveProperty('AuthProvidersResponse');
 
     // Verify reusable responses
     const responses = response.body.components.responses;

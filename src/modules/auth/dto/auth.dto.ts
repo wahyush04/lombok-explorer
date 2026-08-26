@@ -133,3 +133,8 @@ export interface CompleteGoogleRegistrationResult {
   tokenType: 'Bearer';
   user: SanitizedUser;
 }
+
+export interface AuthProvidersResult {
+  password: boolean;
+  google: boolean;
+}

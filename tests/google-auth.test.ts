@@ -373,4 +373,248 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.body.errorCode).toBe('ACCOUNT_SUSPENDED');
     });
   });
+
+  describe('7. Phase 8 — Google Account Linking (POST /api/v1/auth/google/link)', () => {
+    let userToken = '';
+    const linkUserEmail = 'user.for.linking@example.com';
+    const linkUserPassword = 'Password123!';
+    const linkUserGoogleSub = 'sub_linking_unique_12345';
+
+    beforeAll(async () => {
+      // Clean up previous test data if any
+      await prisma.authIdentity.deleteMany({
+        where: { providerAccountId: { in: [linkUserGoogleSub, 'sub_already_taken_999'] } },
+      });
+      await prisma.user.deleteMany({
+        where: { email: { in: [linkUserEmail, 'other.google.owner@example.com'] } },
+      });
+
+      // Register clean user
+      const res = await request(app).post('/api/v1/auth/register').send({
+        email: linkUserEmail,
+        password: linkUserPassword,
+        name: 'User For Linking',
+      });
+      userToken = res.body.data.accessToken;
+    });
+
+    it('should reject unauthenticated requests with 401', async () => {
+      const res = await request(app)
+        .post('/api/v1/auth/google/link')
+        .send({ idToken: 'some_token' });
+
+      expect(res.status).toBe(401);
+      expect(res.body.errorCode).toBe('TOKEN_MISSING');
+    });
+
+    it('should successfully link Google account to authenticated user', async () => {
+      vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
+        sub: linkUserGoogleSub,
+        email: linkUserEmail,
+        name: 'User For Linking',
+        isEmailVerified: true,
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/google/link')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ idToken: 'valid_link_token' });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Google account linked successfully');
+
+      // Verify in DB
+      const identity = await prisma.authIdentity.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider: AuthProvider.GOOGLE,
+            providerAccountId: linkUserGoogleSub,
+          },
+        },
+      });
+      expect(identity).toBeDefined();
+    });
+
+    it('should reject linking when Google account is already linked to ANOTHER user (409 Conflict)', async () => {
+      // Create another user
+      const otherUserRes = await request(app).post('/api/v1/auth/register').send({
+        email: 'other.google.owner@example.com',
+        password: 'Password123!',
+        name: 'Other Google Owner',
+      });
+      const otherUserToken = otherUserRes.body.data.accessToken;
+
+      // Try to link the SAME Google sub that belongs to linkUserEmail
+      vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
+        sub: linkUserGoogleSub,
+        email: linkUserEmail,
+        name: 'Other User',
+        isEmailVerified: true,
+      });
+
+      const res = await request(app)
+        .post('/api/v1/auth/google/link')
+        .set('Authorization', `Bearer ${otherUserToken}`)
+        .send({ idToken: 'valid_link_token_already_taken' });
+
+      expect(res.status).toBe(409);
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('GOOGLE_ACCOUNT_ALREADY_LINKED');
+      expect(res.body.message).toBe('Google account is already linked to another user');
+    });
+  });
+
+  describe('8. Phase 9 — Unlink Google (DELETE /api/v1/auth/google/link)', () => {
+    let dualUserToken = '';
+    let googleOnlyUserToken = '';
+    const dualUserEmail = 'dual.unlink.test@example.com';
+    const googleOnlyEmail = 'google.only.user@example.com';
+    const googleOnlySub = 'sub_google_only_cannot_unlink';
+
+    beforeAll(async () => {
+      // Clean up
+      await prisma.authIdentity.deleteMany({
+        where: { providerAccountId: { in: ['sub_dual_unlink_888', googleOnlySub] } },
+      });
+      await prisma.user.deleteMany({
+        where: { email: { in: [dualUserEmail, googleOnlyEmail] } },
+      });
+
+      // 1. Dual user (has password + Google)
+      const dualRes = await request(app).post('/api/v1/auth/register').send({
+        email: dualUserEmail,
+        password: 'Password123!',
+        name: 'Dual Unlink User',
+      });
+      dualUserToken = dualRes.body.data.accessToken;
+
+      // Link Google to dual user
+      vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
+        sub: 'sub_dual_unlink_888',
+        email: dualUserEmail,
+        name: 'Dual Unlink User',
+        isEmailVerified: true,
+      });
+      await request(app)
+        .post('/api/v1/auth/google/link')
+        .set('Authorization', `Bearer ${dualUserToken}`)
+        .send({ idToken: 'mock_token' });
+
+      // 2. Google-only user (has password = null)
+      const googleOnlyUser = await prisma.user.create({
+        data: {
+          email: googleOnlyEmail,
+          name: 'Google Only User',
+          password: null,
+          isEmailVerified: true,
+          role: UserRole.USER,
+          identities: {
+            create: {
+              provider: AuthProvider.GOOGLE,
+              providerAccountId: googleOnlySub,
+            },
+          },
+        },
+      });
+
+      // Create token for google-only user
+      const { authService } = await import('../src/modules/auth/auth.service');
+      const tokens = (authService as unknown as { generateTokens: (u: typeof googleOnlyUser) => { accessToken: string } }).generateTokens(googleOnlyUser);
+      googleOnlyUserToken = tokens.accessToken;
+    });
+
+    it('should reject unlinking when Google is the ONLY auth method (no password)', async () => {
+      const res = await request(app)
+        .delete('/api/v1/auth/google/link')
+        .set('Authorization', `Bearer ${googleOnlyUserToken}`);
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('ONLY_AUTH_METHOD');
+      expect(res.body.message).toBe('Cannot unlink the only authentication method');
+    });
+
+    it('should successfully unlink Google when user also has a password', async () => {
+      const res = await request(app)
+        .delete('/api/v1/auth/google/link')
+        .set('Authorization', `Bearer ${dualUserToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Google account unlinked successfully');
+
+      // Verify Google identity was deleted from DB
+      const identity = await prisma.authIdentity.findUnique({
+        where: {
+          provider_providerAccountId: {
+            provider: AuthProvider.GOOGLE,
+            providerAccountId: 'sub_dual_unlink_888',
+          },
+        },
+      });
+      expect(identity).toBeNull();
+    });
+  });
+
+  describe('9. Phase 10 — Auth Providers (GET /api/v1/auth/providers)', () => {
+    let testUserToken = '';
+    const provEmail = 'providers.test@example.com';
+    const provSub = 'sub_providers_test_777';
+
+    beforeAll(async () => {
+      await prisma.authIdentity.deleteMany({
+        where: { providerAccountId: provSub },
+      });
+      await prisma.user.deleteMany({
+        where: { email: provEmail },
+      });
+
+      const res = await request(app).post('/api/v1/auth/register').send({
+        email: provEmail,
+        password: 'Password123!',
+        name: 'Providers Test User',
+      });
+      testUserToken = res.body.data.accessToken;
+    });
+
+    it('should return password: true, google: false before linking Google', async () => {
+      const res = await request(app)
+        .get('/api/v1/auth/providers')
+        .set('Authorization', `Bearer ${testUserToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toEqual({
+        password: true,
+        google: false,
+      });
+    });
+
+    it('should return password: true, google: true after linking Google', async () => {
+      vi.spyOn(googleAuthService, 'verifyIdToken').mockResolvedValueOnce({
+        sub: provSub,
+        email: provEmail,
+        name: 'Providers Test User',
+        isEmailVerified: true,
+      });
+
+      await request(app)
+        .post('/api/v1/auth/google/link')
+        .set('Authorization', `Bearer ${testUserToken}`)
+        .send({ idToken: 'token_for_providers_test' });
+
+      const res = await request(app)
+        .get('/api/v1/auth/providers')
+        .set('Authorization', `Bearer ${testUserToken}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toEqual({
+        password: true,
+        google: true,
+      });
+    });
+  });
 });
+
