@@ -55,6 +55,43 @@ export class FeedsController {
     const result = await this.service.searchDestinations(query);
     return ResponseUtil.sendSuccess(res, result, 'Destinations search completed successfully', HttpStatus.OK);
   });
+
+  public likePost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const postId = String(req.params.id);
+    const result = await this.service.likePost(userId, postId);
+    return ResponseUtil.sendSuccess(res, result, 'Post liked successfully', HttpStatus.OK);
+  });
+
+  public unlikePost = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const postId = String(req.params.id);
+    const result = await this.service.unlikePost(userId, postId);
+    return ResponseUtil.sendSuccess(res, result, 'Post unliked successfully', HttpStatus.OK);
+  });
+
+  public getComments = asyncHandler(async (req: Request, res: Response) => {
+    const postId = String(req.params.id);
+    const query = req.query as unknown as import('./dto/feed-comment.dto').CommentQueryDto;
+    const result = await this.service.getComments(postId, query);
+    return ResponseUtil.sendSuccess(res, result, 'Comments retrieved successfully', HttpStatus.OK);
+  });
+
+  public createComment = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const postId = String(req.params.id);
+    const body = req.body as import('./dto/feed-comment.dto').CreateCommentDto;
+    const result = await this.service.createComment(userId, postId, body);
+    return ResponseUtil.sendCreated(res, result, 'Comment added successfully');
+  });
+
+  public deleteComment = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
+    const commentId = String(req.params.commentId);
+    await this.service.deleteComment(commentId, userId, userRole);
+    return ResponseUtil.sendActionSuccess(res, 'Comment deleted successfully');
+  });
 }
 
 export const feedsController = new FeedsController();

@@ -65,3 +65,18 @@ export interface FeedPostResponse {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface LikePostResponse {
+  isLiked: boolean;
+  likeCount: number;
+}
+
+export interface FeedCommentResponse {
+  id: string;
+  postId: string;
+  user: FeedAuthorResponse;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+}
+

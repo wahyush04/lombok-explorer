@@ -339,6 +339,232 @@ describe('Feeds Module - Post CRUD & Cursor Pagination (Phase 3 & 4)', () => {
     });
   });
 
+  describe('POST & DELETE /api/v1/feeds/posts/:id/like (Like / Unlike)', () => {
+    it('should fail with 401 Unauthorized if liking without authentication', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/like`)
+        .expect(401);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('TOKEN_MISSING');
+    });
+
+    it('should fail with 404 Not Found if liking non-existent post', async () => {
+      const res = await request(app)
+        .post('/api/v1/feeds/posts/post_non_existent_99999/like')
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(404);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('POST_NOT_FOUND');
+    });
+
+    it('should like a post and increment likeCount atomically', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/like`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isLiked).toBe(true);
+      expect(res.body.data.likeCount).toBe(1);
+
+      // Verify viewer.isLiked is true for the liker
+      const detailRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(detailRes.body.data.viewer.isLiked).toBe(true);
+      expect(detailRes.body.data.stats.likeCount).toBe(1);
+
+      // Verify viewer.isLiked is false for another user
+      const otherDetail = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .expect(200);
+
+      expect(otherDetail.body.data.viewer.isLiked).toBe(false);
+    });
+
+    it('should handle duplicate likes idempotently without duplicating counter', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/like`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isLiked).toBe(true);
+      expect(res.body.data.likeCount).toBe(1);
+    });
+
+    it('should allow another user to like the same post (likeCount increments to 2)', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/like`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isLiked).toBe(true);
+      expect(res.body.data.likeCount).toBe(2);
+    });
+
+    it('should unlike a post and decrement likeCount atomically', async () => {
+      const res = await request(app)
+        .delete(`/api/v1/feeds/posts/${createdPostId}/like`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.isLiked).toBe(false);
+      expect(res.body.data.likeCount).toBe(1);
+
+      // Verify viewer state updated to false
+      const detailRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(detailRes.body.data.viewer.isLiked).toBe(false);
+      expect(detailRes.body.data.stats.likeCount).toBe(1);
+    });
+  });
+
+  describe('Comments API (Phase 7)', () => {
+    let comment1Id: string;
+    let comment2Id: string;
+
+    it('should fail with 401 Unauthorized when adding comment without authentication', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/comments`)
+        .send({ content: 'Nice photo!' })
+        .expect(401);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('TOKEN_MISSING');
+    });
+
+    it('should fail with 400 Validation Error on empty comment content', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/comments`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ content: '   ' })
+        .expect(400);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('VALIDATION_ERROR');
+    });
+
+    it('should add comment successfully and increment post commentCount', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/comments`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .send({ content: 'Pemandangan yang luar biasa! Kapan waktu terbaik trekking ke sini?' })
+        .expect(201);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toHaveProperty('id');
+      expect(res.body.data.content).toBe('Pemandangan yang luar biasa! Kapan waktu terbaik trekking ke sini?');
+      expect(res.body.data.user.id).toBe(otherUserId);
+      expect(res.body.data.user.name).toBe('Other Feed User');
+
+      comment1Id = res.body.data.id;
+
+      // Check post detail commentCount
+      const postRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .expect(200);
+
+      expect(postRes.body.data.stats.commentCount).toBe(1);
+    });
+
+    it('should add a second comment from post author', async () => {
+      const res = await request(app)
+        .post(`/api/v1/feeds/posts/${createdPostId}/comments`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ content: 'Disarankan datang jam 5 sore untuk menikmati golden hour.' })
+        .expect(201);
+
+      expect(res.body.success).toBe(true);
+      comment2Id = res.body.data.id;
+
+      const postRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .expect(200);
+
+      expect(postRes.body.data.stats.commentCount).toBe(2);
+    });
+
+    it('should fetch comments list with cursor pagination', async () => {
+      const res = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}/comments?limit=1`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.items.length).toBe(1);
+      expect(res.body.data.pagination.hasNextPage).toBe(true);
+      expect(res.body.data.pagination.nextCursor).toBeDefined();
+
+      // Fetch second page using cursor
+      const nextCursor = res.body.data.pagination.nextCursor;
+      const page2 = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}/comments?limit=1&cursor=${nextCursor}`)
+        .expect(200);
+
+      expect(page2.body.data.items.length).toBe(1);
+      expect(page2.body.data.items[0].id).not.toBe(res.body.data.items[0].id);
+    });
+
+    it('should forbid non-author and non-post-owner from deleting a comment (403 Forbidden)', async () => {
+      // 3rd user register
+      const thirdUserEmail = `third.user.${Date.now()}@example.com`;
+      const reg3 = await request(app)
+        .post('/api/v1/auth/register')
+        .send({ name: 'Third Random User', email: thirdUserEmail, password: 'Password123!' });
+      const thirdToken = reg3.body.data.accessToken;
+
+      const res = await request(app)
+        .delete(`/api/v1/feeds/comments/${comment1Id}`)
+        .set('Authorization', `Bearer ${thirdToken}`)
+        .expect(403);
+
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('FORBIDDEN_RESOURCE');
+
+      await prisma.user.deleteMany({ where: { id: reg3.body.data.user.id } });
+    });
+
+    it('should allow comment author to delete their own comment', async () => {
+      const res = await request(app)
+        .delete(`/api/v1/feeds/comments/${comment1Id}`)
+        .set('Authorization', `Bearer ${otherToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+
+      const postRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .expect(200);
+
+      expect(postRes.body.data.stats.commentCount).toBe(1);
+    });
+
+    it('should allow post owner to delete comments on their post (moderation)', async () => {
+      const res = await request(app)
+        .delete(`/api/v1/feeds/comments/${comment2Id}`)
+        .set('Authorization', `Bearer ${userToken}`)
+        .expect(200);
+
+      expect(res.body.success).toBe(true);
+
+      const postRes = await request(app)
+        .get(`/api/v1/feeds/posts/${createdPostId}`)
+        .expect(200);
+
+      expect(postRes.body.data.stats.commentCount).toBe(0);
+    });
+  });
+
   describe('DELETE /api/v1/feeds/posts/:id (Delete Post)', () => {
     it('should forbid non-owner from deleting the post (403 Forbidden)', async () => {
       const res = await request(app)
@@ -365,3 +591,4 @@ describe('Feeds Module - Post CRUD & Cursor Pagination (Phase 3 & 4)', () => {
     });
   });
 });
+

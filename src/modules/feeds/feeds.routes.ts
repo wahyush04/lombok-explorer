@@ -9,6 +9,10 @@ import {
   SearchDestinationQuerySchema,
   UpdatePostDtoSchema,
 } from './dto/feed-post.dto';
+import {
+  CommentQueryDtoSchema,
+  CreateCommentDtoSchema,
+} from './dto/feed-comment.dto';
 
 const router = Router();
 
@@ -16,7 +20,7 @@ const router = Router();
 // PUBLIC & COMMUNITY FEEDS ROUTES
 // ==========================================
 
-// 1. Destination search for post attachment (must be placed before /posts/:id to avoid parameter clash)
+// 1. Destination search for post attachment
 router.get(
   '/destinations/search',
   validate({ query: SearchDestinationQuerySchema }),
@@ -52,5 +56,27 @@ router.put(
 );
 
 router.delete('/posts/:id', authenticate, feedsController.deletePost);
+
+// 4. Like / Unlike Post
+router.post('/posts/:id/like', authenticate, feedActionLimiter, feedsController.likePost);
+router.delete('/posts/:id/like', authenticate, feedActionLimiter, feedsController.unlikePost);
+
+// 5. Comments (Cursor-based list, create, delete)
+router.get(
+  '/posts/:id/comments',
+  optionalAuthenticate,
+  validate({ query: CommentQueryDtoSchema }),
+  feedsController.getComments,
+);
+
+router.post(
+  '/posts/:id/comments',
+  authenticate,
+  feedActionLimiter,
+  validate(CreateCommentDtoSchema),
+  feedsController.createComment,
+);
+
+router.delete('/comments/:commentId', authenticate, feedsController.deleteComment);
 
 export const feedRoutes: Router = router;

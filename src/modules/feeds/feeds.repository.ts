@@ -344,6 +344,256 @@ export class FeedsRepository {
 
     return resultMap;
   }
+
+  /**
+   * Adds like to post atomically and increments likeCount.
+   */
+  public async addLike(userId: string, postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+    return prisma.$transaction(async (tx) => {
+      const post = await tx.post.findFirst({
+        where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
+        select: { id: true, likeCount: true },
+      });
+
+      if (!post) {
+        throw new Error('POST_NOT_FOUND');
+      }
+
+      const existingLike = await tx.postLike.findUnique({
+        where: {
+          userId_postId: { userId, postId },
+        },
+      });
+
+      if (!existingLike) {
+        await tx.postLike.create({
+          data: { userId, postId },
+        });
+
+        const updated = await tx.post.update({
+          where: { id: postId },
+          data: { likeCount: { increment: 1 } },
+          select: { likeCount: true },
+        });
+
+        return { isLiked: true, likeCount: updated.likeCount };
+      }
+
+      return { isLiked: true, likeCount: post.likeCount };
+    });
+  }
+
+  /**
+   * Removes like from post atomically and decrements likeCount.
+   */
+  public async removeLike(userId: string, postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+    return prisma.$transaction(async (tx) => {
+      const post = await tx.post.findFirst({
+        where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
+        select: { id: true, likeCount: true },
+      });
+
+      if (!post) {
+        throw new Error('POST_NOT_FOUND');
+      }
+
+      const existingLike = await tx.postLike.findUnique({
+        where: {
+          userId_postId: { userId, postId },
+        },
+      });
+
+      if (existingLike) {
+        await tx.postLike.delete({
+          where: {
+            userId_postId: { userId, postId },
+          },
+        });
+
+        const currentCount = Math.max(0, post.likeCount - 1);
+        const updated = await tx.post.update({
+          where: { id: postId },
+          data: { likeCount: currentCount },
+          select: { likeCount: true },
+        });
+
+        return { isLiked: false, likeCount: updated.likeCount };
+      }
+
+      return { isLiked: false, likeCount: post.likeCount };
+    });
+  }
+
+  /**
+   * Creates a comment on a post atomically and increments commentCount.
+   */
+  public async createComment(userId: string, postId: string, content: string) {
+    return prisma.$transaction(async (tx) => {
+      const post = await tx.post.findFirst({
+        where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
+        select: { id: true },
+      });
+
+      if (!post) {
+        throw new Error('POST_NOT_FOUND');
+      }
+
+      const comment = await tx.postComment.create({
+        data: {
+          userId,
+          postId,
+          content,
+        },
+        include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              username: true,
+              avatarUrl: true,
+            },
+          },
+        },
+      });
+
+      await tx.post.update({
+        where: { id: postId },
+        data: { commentCount: { increment: 1 } },
+      });
+
+      return comment;
+    });
+  }
+
+  /**
+   * Finds a comment by ID with post owner information for authorization check.
+   */
+  public async findCommentById(commentId: string, includeDeleted = false) {
+    return prisma.postComment.findFirst({
+      where: {
+        id: commentId,
+        ...(includeDeleted ? {} : { deletedAt: null }),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            avatarUrl: true,
+          },
+        },
+        post: {
+          select: {
+            id: true,
+            userId: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Finds comments for a post using cursor-based pagination.
+   */
+  public async findCommentsWithCursor(
+    postId: string,
+    params: {
+      cursor?: CursorPayload | null;
+      limit: number;
+      order?: 'asc' | 'desc';
+    },
+  ) {
+    const limit = Math.max(1, Math.min(50, Number(params.limit) || 20));
+    const orderDirection = params.order === 'asc' ? 'asc' : 'desc';
+
+    const where: Prisma.PostCommentWhereInput = {
+      postId,
+      deletedAt: null,
+    };
+
+    if (params.cursor) {
+      const cursorDate = new Date(params.cursor.createdAt);
+      const cursorId = params.cursor.id;
+
+      if (orderDirection === 'desc') {
+        where.AND = [
+          {
+            OR: [
+              { createdAt: { lt: cursorDate } },
+              {
+                createdAt: cursorDate,
+                id: { lt: cursorId },
+              },
+            ],
+          },
+        ];
+      } else {
+        where.AND = [
+          {
+            OR: [
+              { createdAt: { gt: cursorDate } },
+              {
+                createdAt: cursorDate,
+                id: { gt: cursorId },
+              },
+            ],
+          },
+        ];
+      }
+    }
+
+    return prisma.postComment.findMany({
+      where,
+      orderBy: [
+        { createdAt: orderDirection },
+        { id: orderDirection },
+      ],
+      take: limit + 1,
+      include: {
+        user: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            username: true,
+            avatarUrl: true,
+          },
+        },
+      },
+    });
+  }
+
+  /**
+   * Soft deletes a comment and decrements post commentCount.
+   */
+  public async softDeleteComment(commentId: string, postId: string): Promise<void> {
+    await prisma.$transaction(async (tx) => {
+      await tx.postComment.update({
+        where: { id: commentId },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
+      const post = await tx.post.findUnique({
+        where: { id: postId },
+        select: { commentCount: true },
+      });
+
+      if (post) {
+        await tx.post.update({
+          where: { id: postId },
+          data: {
+            commentCount: Math.max(0, post.commentCount - 1),
+          },
+        });
+      }
+    });
+  }
 }
 
 export const feedsRepository = new FeedsRepository();
+

@@ -165,4 +165,33 @@ export class FeedsMapper {
       updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
     };
   }
+
+  public static toCommentResponse(comment: PrismaCommentWithUser): import('./feeds.types').FeedCommentResponse {
+    return {
+      id: comment.id,
+      postId: comment.postId,
+      user: this.toAuthor(comment.user),
+      content: comment.content,
+      createdAt: comment.createdAt instanceof Date ? comment.createdAt.toISOString() : comment.createdAt,
+      updatedAt: comment.updatedAt instanceof Date ? comment.updatedAt.toISOString() : comment.updatedAt,
+    };
+  }
 }
+
+export interface PrismaCommentWithUser {
+  id: string;
+  postId: string;
+  userId: string;
+  content: string;
+  createdAt: Date;
+  updatedAt: Date;
+  deletedAt?: Date | null;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    username?: string | null;
+    avatarUrl?: string | null;
+  };
+}
+

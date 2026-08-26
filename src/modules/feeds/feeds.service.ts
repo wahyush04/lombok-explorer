@@ -166,6 +166,107 @@ export class FeedsService {
   public async searchDestinations(query: SearchDestinationQueryDto) {
     return this.repository.searchDestinations(query.q || '', query.limit);
   }
+
+  /**
+   * Likes a post (atomic + idempotent).
+   */
+  public async likePost(userId: string, postId: string) {
+    try {
+      return await this.repository.addLike(userId, postId);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Unlikes a post (atomic).
+   */
+  public async unlikePost(userId: string, postId: string) {
+    try {
+      return await this.repository.removeLike(userId, postId);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Retrieves cursor-paginated comments for a post.
+   */
+  public async getComments(postId: string, query: import('./dto/feed-comment.dto').CommentQueryDto) {
+    // Verify post exists
+    const post = await this.repository.findById(postId);
+    if (!post) {
+      throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+    }
+
+    const limit = Math.max(1, Math.min(50, Number(query.limit) || 20));
+    const cursor = decodeCursor(query.cursor);
+
+    const comments = await this.repository.findCommentsWithCursor(postId, {
+      cursor,
+      limit,
+      order: query.order,
+    });
+
+    const hasNextPage = comments.length > limit;
+    const items = hasNextPage ? comments.slice(0, limit) : comments;
+    const lastItem = hasNextPage && items.length > 0 ? items[items.length - 1] : null;
+    const nextCursor = lastItem ? encodeCursor(lastItem) : null;
+
+    const mappedItems = comments.slice(0, limit).map((comment: import('./feeds.mapper').PrismaCommentWithUser) =>
+      FeedsMapper.toCommentResponse(comment),
+    );
+
+    return {
+      items: mappedItems,
+      pagination: {
+        nextCursor,
+        hasNextPage,
+      },
+    };
+  }
+
+  /**
+   * Creates a new comment on a post.
+   */
+  public async createComment(userId: string, postId: string, data: import('./dto/feed-comment.dto').CreateCommentDto) {
+    try {
+      const comment = await this.repository.createComment(userId, postId, data.content);
+      return FeedsMapper.toCommentResponse(comment);
+    } catch (err: unknown) {
+      if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
+        throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Deletes a comment (comment author, post owner, or admin authorized).
+   */
+  public async deleteComment(commentId: string, userId: string, userRole: string): Promise<void> {
+    const comment = await this.repository.findCommentById(commentId);
+    if (!comment) {
+      throw new NotFoundError('Comment not found', 'COMMENT_NOT_FOUND');
+    }
+
+    const isCommentAuthor = comment.userId === userId;
+    const isPostOwner = comment.post?.userId === userId;
+    const isAdmin = userRole === 'ADMIN';
+
+    if (!isCommentAuthor && !isPostOwner && !isAdmin) {
+      throw new ForbiddenError('You do not have permission to delete this comment', 'FORBIDDEN_RESOURCE');
+    }
+
+    await this.repository.softDeleteComment(commentId, comment.postId);
+  }
 }
 
 export const feedsService = new FeedsService();
+
