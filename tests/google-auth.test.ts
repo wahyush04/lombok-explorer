@@ -185,7 +185,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
     it('should reject registration when registrationToken or password is missing', async () => {
       const res = await request(app)
         .post('/api/v1/auth/google/register')
-        .send({ username: 'wahyu' });
+        .send({ name: 'Wahyu Traveler' });
 
       expect(res.status).toBe(400);
       expect(res.body.errorCode).toBe('VALIDATION_ERROR');
@@ -194,7 +194,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
     it('should reject invalid or tampered registrationToken', async () => {
       const res = await request(app).post('/api/v1/auth/google/register').send({
         registrationToken: 'tampered.token.here',
-        username: 'wahyu',
+        name: 'Wahyu Traveler',
         password: 'secure-password-123',
       });
 
@@ -219,7 +219,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
 
       const res = await request(app).post('/api/v1/auth/google/register').send({
         registrationToken: expiredToken,
-        username: 'expireduser',
+        name: 'Expired User',
         password: 'securePassword123!',
       });
 
@@ -227,10 +227,10 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.body.errorCode).toBe('REGISTRATION_TOKEN_EXPIRED');
     });
 
-    it('should successfully complete registration and create User + AuthIdentity in transaction', async () => {
+    it('should successfully complete registration with prefilled name & password in transaction', async () => {
       const res = await request(app).post('/api/v1/auth/google/register').send({
         registrationToken,
-        username: 'wahyutraveler',
+        name: 'Wahyu Traveler',
         password: 'securePassword@2026',
       });
 
@@ -241,7 +241,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.body.data).toHaveProperty('accessToken');
       expect(res.body.data).toHaveProperty('refreshToken');
       expect(res.body.data.user).toHaveProperty('email', testGoogleUser.email);
-      expect(res.body.data.user).toHaveProperty('name', 'wahyutraveler');
+      expect(res.body.data.user).toHaveProperty('name', 'Wahyu Traveler');
 
       registeredUserId = res.body.data.user.id;
 
@@ -269,27 +269,14 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.body.data.user.id).toBe(registeredUserId);
     });
 
-    it('PHASE 7: should allow login via Username + Password with SAME User ID', async () => {
-      // 1. Using { username, password }
-      const resUsername = await request(app).post('/api/v1/auth/login').send({
-        username: 'wahyutraveler',
+    it('should reject login when invalid email format is supplied', async () => {
+      const res = await request(app).post('/api/v1/auth/login').send({
+        email: 'not-an-email',
         password: 'securePassword@2026',
       });
 
-      expect(resUsername.status).toBe(200);
-      expect(resUsername.body.success).toBe(true);
-      expect(resUsername.body.data.user.id).toBe(registeredUserId);
-      expect(resUsername.body.data.user.name).toBe('wahyutraveler');
-
-      // 2. Using { email: username, password }
-      const resEmailAsUsername = await request(app).post('/api/v1/auth/login').send({
-        email: 'wahyutraveler',
-        password: 'securePassword@2026',
-      });
-
-      expect(resEmailAsUsername.status).toBe(200);
-      expect(resEmailAsUsername.body.success).toBe(true);
-      expect(resEmailAsUsername.body.data.user.id).toBe(registeredUserId);
+      expect(res.status).toBe(400);
+      expect(res.body.errorCode).toBe('VALIDATION_ERROR');
     });
 
     it('should allow subsequent login via Google Sign-In with SAME User ID (CASE A)', async () => {

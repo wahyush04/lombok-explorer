@@ -1989,22 +1989,23 @@ components:
       type: object
       required:
         - registrationToken
-        - username
         - password
       properties:
         registrationToken:
           type: string
           description: Short-lived signed registration token from POST /auth/google
           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-        username:
+        name:
           type: string
           minLength: 2
           maxLength: 100
-          example: "wahyu"
+          description: User's full name (prefilled on Android from Google Profile, editable)
+          example: "Wahyu Pratama"
         password:
           type: string
           minLength: 6
           maxLength: 100
+          description: User password (minimum 6 characters)
           example: "secure-password123"
 
     CompleteGoogleRegistrationResponse:

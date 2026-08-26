@@ -143,9 +143,9 @@ export class AuthService {
   }
 
   public async login(dto: LoginDto): Promise<AuthTokens> {
-    // 1. Find user by email or username
-    const identifier = (dto.email || dto.username || dto.identifier || '').trim();
-    const user = await this.repository.findByEmailOrUsername(identifier);
+    // 1. Find user by email
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.repository.findByEmail(email);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
@@ -198,9 +198,9 @@ export class AuthService {
    * Dedicated Admin login method enforcing ADMIN role and active status.
    */
   public async adminLogin(dto: LoginDto): Promise<AuthTokens> {
-    // 1. Find user by email or username
-    const identifier = (dto.email || dto.username || dto.identifier || '').trim();
-    const user = await this.repository.findByEmailOrUsername(identifier);
+    // 1. Find user by email
+    const email = dto.email.toLowerCase().trim();
+    const user = await this.repository.findByEmail(email);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
@@ -486,9 +486,9 @@ export class AuthService {
     // 1. Verify Registration Token & recover Google profile
     const googleProfile = this.verifyGoogleRegistrationToken(dto.registrationToken);
 
-    const username = dto.username || dto.name || googleProfile.name;
-    if (!username || username.trim().length < 2) {
-      throw new BadRequestError('Username must be at least 2 characters', 'INVALID_USERNAME');
+    const fullName = (dto.name || googleProfile.name || 'User').trim();
+    if (fullName.length < 2) {
+      throw new BadRequestError('Name must be at least 2 characters', 'INVALID_NAME');
     }
 
     if (!dto.password || dto.password.length < 6) {
@@ -536,7 +536,7 @@ export class AuthService {
         // Create User
         const newUser = await tx.user.create({
           data: {
-            name: username.trim(),
+            name: fullName,
             email: googleProfile.email.toLowerCase().trim(),
             password: hashedPassword,
             avatarUrl: googleProfile.avatarUrl,

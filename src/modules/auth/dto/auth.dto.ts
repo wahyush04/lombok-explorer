@@ -19,21 +19,17 @@ export const RegisterDtoSchema = z.object({
   role: z.nativeEnum(UserRole).optional().default(UserRole.USER),
 });
 
-export const LoginDtoSchema = z
-  .object({
-    email: z.string().min(1, 'Email or username is required').optional(),
-    username: z.string().min(1, 'Username is required').optional(),
-    identifier: z.string().min(1, 'Identifier is required').optional(),
-    password: z.string().min(1, 'Password is required'),
-  })
-  .refine((data) => data.email || data.username || data.identifier, {
-    message: 'Email or username is required',
-    path: ['email'],
-  });
+export const LoginDtoSchema = z.object({
+  email: z
+    .string({ required_error: 'Email is required' })
+    .min(1, 'Email is required')
+    .email('Invalid email address format'),
+  password: z.string({ required_error: 'Password is required' }).min(1, 'Password is required'),
+});
 
 export const AdminLoginDtoSchema = z.object({
-  email: z.string().email('Invalid email address format'),
-  password: z.string().min(1, 'Password is required'),
+  email: z.string({ required_error: 'Email is required' }).email('Invalid email address format'),
+  password: z.string({ required_error: 'Password is required' }).min(1, 'Password is required'),
 });
 
 export const RefreshTokenDtoSchema = z.object({
@@ -48,34 +44,24 @@ export const GoogleAuthDtoSchema = z.object({
     .min(1, 'Google idToken cannot be empty'),
 });
 
-export const CompleteGoogleRegistrationDtoSchema = z
-  .object({
-    registrationToken: z
-      .string({
-        required_error: 'registrationToken is required',
-      })
-      .min(1, 'registrationToken cannot be empty'),
-    username: z
-      .string()
-      .min(2, 'Username must be at least 2 characters')
-      .max(100, 'Username must not exceed 100 characters')
-      .optional(),
-    name: z
-      .string()
-      .min(2, 'Name must be at least 2 characters')
-      .max(100, 'Name must not exceed 100 characters')
-      .optional(),
-    password: z
-      .string({
-        required_error: 'Password is required',
-      })
-      .min(6, 'Password must be at least 6 characters')
-      .max(100, 'Password must not exceed 100 characters'),
-  })
-  .refine((data) => data.username || data.name, {
-    message: 'Username is required',
-    path: ['username'],
-  });
+export const CompleteGoogleRegistrationDtoSchema = z.object({
+  registrationToken: z
+    .string({
+      required_error: 'registrationToken is required',
+    })
+    .min(1, 'registrationToken cannot be empty'),
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must not exceed 100 characters')
+    .optional(),
+  password: z
+    .string({
+      required_error: 'Password is required',
+    })
+    .min(6, 'Password must be at least 6 characters')
+    .max(100, 'Password must not exceed 100 characters'),
+});
 
 export type RegisterDto = z.infer<typeof RegisterDtoSchema>;
 export type LoginDto = z.infer<typeof LoginDtoSchema>;
