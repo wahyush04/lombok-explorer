@@ -214,6 +214,7 @@ describe('Destinations API Module (Phase 8)', () => {
 
     beforeAll(async () => {
       const registerRes = await request(app).post('/v1/auth/register').send({
+        username: `dest_fav_${Date.now().toString().slice(-6)}`,
         name: 'Favorite Tester',
         email: `dest.fav.${Date.now()}@lombokexplorer.com`,
         password: 'Password123!',

@@ -59,6 +59,7 @@ describe('Admin Zod Validation Architecture Suite (Phase 15)', () => {
 
     // 4. Create user and submit review for moderation testing
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `reviewer_${testSuffix.toString().slice(-4)}`,
       name: `Reviewer ${testSuffix}`,
       email: `reviewer_${testSuffix}@lombokexplorer.com`,
       password: 'Password123!',

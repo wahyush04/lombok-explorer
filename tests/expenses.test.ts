@@ -24,6 +24,7 @@ describe('Expenses API Module (Phase 17)', () => {
     // 2. Create another user for permission testing
     const uniqueEmail = `other_traveler_${Date.now()}@example.com`;
     const res2 = await request(app).post('/v1/auth/register').send({
+      username: `other_traveler_${Date.now().toString().slice(-4)}`,
       name: 'Other Traveler',
       email: uniqueEmail,
       password: 'Password123!',

@@ -79,6 +79,7 @@ export class AuthService {
   public sanitizeUser(user: User): SanitizedUser {
     return {
       id: user.id,
+      username: user.username,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
@@ -93,23 +94,36 @@ export class AuthService {
   }
 
   public async register(dto: RegisterDto): Promise<AuthTokens> {
+    const normalizedEmail = dto.email.toLowerCase().trim();
+    const normalizedUsername = dto.username.toLowerCase().trim();
+
     // 1. Check if email already exists
-    const existing = await this.repository.findByEmail(dto.email);
-    if (existing) {
+    const existingEmail = await this.repository.findByEmail(normalizedEmail);
+    if (existingEmail) {
       throw new ConflictError(
         'An account with this email address already exists',
         'EMAIL_ALREADY_EXISTS',
       );
     }
 
-    // 2. Hash password with bcrypt
+    // 2. Check if username already exists
+    const existingUsername = await this.repository.findByUsername(normalizedUsername);
+    if (existingUsername) {
+      throw new ConflictError(
+        'Username is already taken',
+        'USERNAME_ALREADY_EXISTS',
+      );
+    }
+
+    // 3. Hash password with bcrypt
     const hashedPassword = await this.hashPassword(dto.password);
 
-    // 3. Create user record
+    // 4. Create user record
     try {
       const user = await this.repository.create({
+        username: normalizedUsername,
         name: dto.name,
-        email: dto.email,
+        email: normalizedEmail,
         password: hashedPassword,
         role: dto.role || UserRole.USER,
         travelStyle: dto.travelStyle,
@@ -118,10 +132,10 @@ export class AuthService {
         phone: dto.phone,
       });
 
-      // 4. Generate JWT token pair
+      // 5. Generate JWT token pair
       const tokens = this.generateTokens(user);
 
-      // 5. Store refresh token for session tracking and rotation
+      // 6. Store refresh token for session tracking and rotation
       await this.repository.updateRefreshToken(user.id, tokens.refreshToken);
 
       return {
@@ -133,6 +147,10 @@ export class AuthService {
       };
     } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        const target = String((err.meta as { target?: string[] | string })?.target || '');
+        if (target.includes('username')) {
+          throw new ConflictError('Username is already taken', 'USERNAME_ALREADY_EXISTS');
+        }
         throw new ConflictError(
           'An account with this email address already exists',
           'EMAIL_ALREADY_EXISTS',
@@ -143,9 +161,13 @@ export class AuthService {
   }
 
   public async login(dto: LoginDto): Promise<AuthTokens> {
-    // 1. Find user by email
-    const email = dto.email.toLowerCase().trim();
-    const user = await this.repository.findByEmail(email);
+    // 1. Find user by email or username
+    const rawIdentifier = (dto.identifier || dto.email || dto.username || '').toLowerCase().trim();
+    if (!rawIdentifier) {
+      throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    const user = await this.repository.findByEmailOrUsername(rawIdentifier);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
@@ -198,9 +220,13 @@ export class AuthService {
    * Dedicated Admin login method enforcing ADMIN role and active status.
    */
   public async adminLogin(dto: LoginDto): Promise<AuthTokens> {
-    // 1. Find user by email
-    const email = dto.email.toLowerCase().trim();
-    const user = await this.repository.findByEmail(email);
+    // 1. Find user by email or username
+    const rawIdentifier = (dto.identifier || dto.email || dto.username || '').toLowerCase().trim();
+    if (!rawIdentifier) {
+      throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
+    }
+
+    const user = await this.repository.findByEmailOrUsername(rawIdentifier);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
@@ -227,7 +253,7 @@ export class AuthService {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
-    // 4. Enforce ADMIN role requirement
+    // 4. Role Authorization: Must be ADMIN
     if (user.role !== UserRole.ADMIN) {
       throw new ForbiddenError('Admin access required', 'ADMIN_ACCESS_REQUIRED');
     }
@@ -500,11 +526,14 @@ export class AuthService {
 
     // 3. Execute Prisma Transaction with Race-Condition & Unique Constraint Protection (Phase 17)
     try {
+      const normalizedUsername = dto.username.toLowerCase().trim();
+      const normalizedEmail = googleProfile.email.toLowerCase().trim();
+
       const user = await prisma.$transaction(async (tx) => {
         // Check if email already exists
         const existingUser = await tx.user.findFirst({
           where: {
-            email: googleProfile.email.toLowerCase().trim(),
+            email: normalizedEmail,
             deletedAt: null,
           },
         });
@@ -513,6 +542,21 @@ export class AuthService {
           throw new ConflictError(
             'An account with this email address already exists',
             'EMAIL_ALREADY_EXISTS',
+          );
+        }
+
+        // Check if username already exists
+        const existingUsername = await tx.user.findFirst({
+          where: {
+            username: normalizedUsername,
+            deletedAt: null,
+          },
+        });
+
+        if (existingUsername) {
+          throw new ConflictError(
+            'Username is already taken',
+            'USERNAME_ALREADY_EXISTS',
           );
         }
 
@@ -536,8 +580,9 @@ export class AuthService {
         // Create User
         const newUser = await tx.user.create({
           data: {
+            username: normalizedUsername,
             name: fullName,
-            email: googleProfile.email.toLowerCase().trim(),
+            email: normalizedEmail,
             password: hashedPassword,
             avatarUrl: googleProfile.avatarUrl,
             isEmailVerified: true,
@@ -575,6 +620,12 @@ export class AuthService {
     } catch (err: unknown) {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const target = String((err.meta as { target?: string[] | string })?.target || '');
+        if (target.includes('username')) {
+          throw new ConflictError(
+            'Username is already taken',
+            'USERNAME_ALREADY_EXISTS',
+          );
+        }
         if (target.includes('providerAccountId') || target.includes('provider')) {
           throw new ConflictError(
             'This Google account is already registered',

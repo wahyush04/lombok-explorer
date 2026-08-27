@@ -13,14 +13,16 @@ describe('Recommendations Engine API Module (Phase 15)', () => {
   let app: Application;
   let userToken = '';
 
-  const user = {
-    name: 'Recommendation Traveler Rina',
-    email: `rina.recom.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordRec123!',
-  };
-
   beforeAll(async () => {
     app = createApp();
+
+    const suffix = `${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 1000)}`;
+    const user = {
+      username: `rec_u_${suffix}`,
+      name: 'Recommendation Traveler Rina',
+      email: `rina.recom.${suffix}@lombokexplorer.com`,
+      password: 'PasswordRec123!',
+    };
 
     // 1. Register User
     const res = await request(app).post('/v1/auth/register').send(user);

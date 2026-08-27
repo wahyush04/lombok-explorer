@@ -22,6 +22,7 @@ describe('Admin Backend Authorization Security Matrix (Phase 16)', () => {
     // 2. Register regular traveler user (role: USER)
     const suffix = `${Date.now()}_${Math.floor(Math.random() * 100000)}`;
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `traveler_${Date.now().toString().slice(-6)}`,
       name: `Regular Traveler ${suffix}`,
       email: `traveler_auth_${suffix}@lombokexplorer.com`,
       password: 'Password123!',

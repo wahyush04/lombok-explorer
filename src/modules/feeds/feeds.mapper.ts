@@ -26,8 +26,7 @@ export interface PrismaPostWithRelations {
   user: {
     id: string;
     name: string;
-    email: string;
-    username?: string | null;
+    username: string;
     avatarUrl?: string | null;
   };
   destination?: {
@@ -61,11 +60,10 @@ export interface PrismaPostWithRelations {
 
 export class FeedsMapper {
   public static toAuthor(user: PrismaPostWithRelations['user']): FeedAuthorResponse {
-    const fallbackUsername = user.email ? (user.email.split('@')[0] ?? 'user') : 'user';
     return {
       id: user.id,
       name: user.name,
-      username: user.username || fallbackUsername,
+      username: user.username,
       avatarUrl: user.avatarUrl || null,
     };
   }
@@ -189,8 +187,7 @@ export interface PrismaCommentWithUser {
   user: {
     id: string;
     name: string;
-    email: string;
-    username?: string | null;
+    username: string;
     avatarUrl?: string | null;
   };
 }

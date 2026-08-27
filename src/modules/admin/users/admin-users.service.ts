@@ -17,6 +17,7 @@ export class AdminUsersService {
   public mapToDto = (user: UserWithStats): AdminUserDto => {
     return {
       id: user.id,
+      username: user.username,
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,

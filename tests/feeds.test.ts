@@ -31,6 +31,7 @@ describe('Feeds Module - Post CRUD & Cursor Pagination (Phase 3 & 4)', () => {
     const regRes2 = await request(app)
       .post('/api/v1/auth/register')
       .send({
+        username: `other_feed_${Date.now().toString().slice(-4)}`,
         name: 'Other Feed User',
         email: otherEmail,
         password: 'Password123!',
@@ -169,6 +170,8 @@ describe('Feeds Module - Post CRUD & Cursor Pagination (Phase 3 & 4)', () => {
       expect(res.body.data.title).toBe('Sunset Indah di Bukit Merese');
       expect(res.body.data.author.id).toBe(userId);
       expect(res.body.data.author.name).toBe('Bima Arya Pratama');
+      expect(res.body.data.author.username).toBe('bima_arya');
+      expect(res.body.data.author).not.toHaveProperty('email');
       expect(res.body.data.location?.name).toBe('Bukit Merese');
       expect(res.body.data.media.length).toBe(1);
       expect(res.body.data.media[0].caption).toBe('Pemandangan golden hour');
@@ -520,7 +523,12 @@ describe('Feeds Module - Post CRUD & Cursor Pagination (Phase 3 & 4)', () => {
       const thirdUserEmail = `third.user.${Date.now()}@example.com`;
       const reg3 = await request(app)
         .post('/api/v1/auth/register')
-        .send({ name: 'Third Random User', email: thirdUserEmail, password: 'Password123!' });
+        .send({
+          username: `third_user_${Date.now().toString().slice(-4)}`,
+          name: 'Third Random User',
+          email: thirdUserEmail,
+          password: 'Password123!',
+        });
       const thirdToken = reg3.body.data.accessToken;
 
       const res = await request(app)

@@ -8,21 +8,26 @@ describe('Reviews API Module (Phase 11)', () => {
   let userTokenA = '';
   let userTokenB = '';
   let createdReviewId = '';
-
-  const userA = {
-    name: 'Reviewer Satria',
-    email: `satria.rev.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordReview123!',
-  };
-
-  const userB = {
-    name: 'Reviewer Dian',
-    email: `dian.rev.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordReview123!',
-  };
+  let userA: { username: string; name: string; email: string; password: string };
+  let userB: { username: string; name: string; email: string; password: string };
 
   beforeAll(async () => {
     app = createApp();
+
+    const suffix = `${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 1000)}`;
+    userA = {
+      username: `rev_satria_${suffix}`,
+      name: 'Reviewer Satria',
+      email: `satria.rev.${suffix}@lombokexplorer.com`,
+      password: 'PasswordReview123!',
+    };
+
+    const userB = {
+      username: `rev_dian_${suffix}`,
+      name: 'Reviewer Dian',
+      email: `dian.rev.${suffix}@lombokexplorer.com`,
+      password: 'PasswordReview123!',
+    };
 
     // Register User A
     const resA = await request(app).post('/v1/auth/register').send(userA);

@@ -26,6 +26,7 @@ describe('Admin Audit Logs API Suite (Phase 13)', () => {
 
     // 2. Register regular user for auth tests
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `audit_tester_${testSuffix.toString().slice(-4)}`,
       name: `Audit Tester ${testSuffix}`,
       email: `audit.tester.${testSuffix}@lombokexplorer.com`,
       password: 'Password123!',

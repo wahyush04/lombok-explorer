@@ -38,6 +38,8 @@ tags:
     description: Destination reviews and ratings
   - name: Feeds & Community
     description: Social feeds timeline, travel posts, media attachments, likes, comments, bookmarks, and sharing
+  - name: Users
+    description: User profile management, username availability checks, and profile feeds
   - name: Admin
     description: Administrative APIs and content management
 
@@ -547,10 +549,62 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
-  /users/profile:
-    put:
-      summary: Update profile for current authenticated user
-      operationId: updateUserProfile
+  # ==========================================
+  # USERS & PROFILES
+  # ==========================================
+  /users/username/check:
+    get:
+      summary: Check if a username is available or taken
+      description: Validates username format, length, reserved words, and uniqueness in real-time.
+      operationId: checkUsernameAvailability
+      tags:
+        - Users
+      parameters:
+        - name: username
+          in: query
+          required: true
+          description: Username to check (3-30 characters, lowercase alphanumeric and underscore)
+          schema:
+            type: string
+            example: wahyu_pratama
+      responses:
+        '200':
+          description: Username availability status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckUsernameResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me:
+    get:
+      summary: Get current authenticated user profile
+      description: Returns full user profile including username, email, travel style, preferences, and metadata.
+      operationId: getCurrentUserProfile
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      summary: Update current authenticated user profile
+      description: Updates username, name, avatarUrl, phone, bio, travel style, and preferences.
+      operationId: updateCurrentUserProfile
       tags:
         - Users
       security:
@@ -563,15 +617,77 @@ paths:
               $ref: '#/components/schemas/UpdateProfileRequest'
       responses:
         '200':
-          description: Profile updated successfully
+          description: User profile updated successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfileResponse'
+                $ref: '#/components/schemas/UpdateProfileResponse'
         '400':
           $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                message: "Username is already taken"
+                errorCode: "USERNAME_ALREADY_EXISTS"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/{userId}/posts:
+    get:
+      summary: Get feed posts created by a specific user (Public Profile Feed)
+      description: Retrieves timeline of posts published by the specified user with cursor pagination.
+      operationId: getUserFeedPosts
+      tags:
+        - Users
+        - Feeds & Community
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: Unique user ID
+          schema:
+            type: string
+            example: usr_traveler_demo_01
+        - name: cursor
+          in: query
+          required: false
+          description: Next page cursor token
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          description: Number of items per page (default 20, max 50)
+          schema:
+            type: integer
+            default: 20
+        - name: order
+          in: query
+          required: false
+          description: Sorting order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: User feed posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -1924,35 +2040,6 @@ paths:
               schema:
                 $ref: '#/components/schemas/FeedPostListResponse'
 
-  /users/{userId}/posts:
-    get:
-      summary: Get user profile posts (Public resource alias)
-      operationId: getUserProfilePosts
-      tags:
-        - Feeds & Community
-      parameters:
-        - name: userId
-          in: path
-          required: true
-          schema:
-            type: string
-        - name: limit
-          in: query
-          schema:
-            type: integer
-            default: 20
-        - name: cursor
-          in: query
-          schema:
-            type: string
-      responses:
-        '200':
-          description: User posts retrieved successfully
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/FeedPostListResponse'
-
   /feeds:
     get:
       summary: Get social timeline feed posts (Infinite scroll with cursor pagination)
@@ -2422,6 +2509,16 @@ components:
             success: false
             message: "Resource already exists"
             errorCode: "CONFLICT"
+    TooManyRequestsError:
+      description: Rate limit exceeded
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Too many requests, please try again later"
+            errorCode: "RATE_LIMIT_EXCEEDED"
     InternalServerError:
       description: Internal server error
       content:
@@ -2607,6 +2704,7 @@ components:
       type: object
       required:
         - id
+        - username
         - email
         - name
         - role
@@ -2617,6 +2715,9 @@ components:
         id:
           type: string
           example: "usr_demo_lombok"
+        username:
+          type: string
+          example: "wahyu_traveler"
         email:
           type: string
           format: email
@@ -2657,10 +2758,17 @@ components:
     RegisterRequest:
       type: object
       required:
+        - username
         - name
         - email
         - password
       properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9_]{3,30}$'
+          example: "wahyu_traveler"
         name:
           type: string
           minLength: 2
@@ -2690,13 +2798,21 @@ components:
     LoginRequest:
       type: object
       required:
-        - email
         - password
       properties:
+        identifier:
+          type: string
+          description: User email address or username
+          example: "wahyu_traveler"
         email:
           type: string
           format: email
+          description: Legacy email credential field
           example: "traveler@lombokexplorer.com"
+        username:
+          type: string
+          description: Username credential field
+          example: "wahyu_traveler"
         password:
           type: string
           example: "SuperSecret123!"
@@ -2807,12 +2923,20 @@ components:
       type: object
       required:
         - registrationToken
+        - username
         - password
       properties:
         registrationToken:
           type: string
           description: Short-lived signed registration token from POST /auth/google
           example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9_]{3,30}$'
+          description: Unique public username identifier
+          example: "wahyu_pratama"
         name:
           type: string
           minLength: 2
@@ -2825,6 +2949,100 @@ components:
           maxLength: 100
           description: User password (minimum 6 characters)
           example: "secure-password123"
+
+    CheckUsernameResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Username availability status checked"
+        data:
+          type: object
+          required:
+            - username
+            - available
+          properties:
+            username:
+              type: string
+              example: "wahyu_pratama"
+            available:
+              type: boolean
+              example: true
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9_]{3,30}$'
+          example: "wahyu_syarif"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "Wahyu Syarif"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        bio:
+          type: string
+          maxLength: 500
+          example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
+        phone:
+          type: string
+          nullable: true
+          example: "+6281234567890"
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        preferredRegion:
+          $ref: '#/components/schemas/LombokRegion'
+        preferences:
+          type: array
+          items:
+            type: string
+          example: ["Snorkeling", "Sunset Point", "Culinary"]
+
+    UpdateProfileResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "User profile updated successfully"
+        data:
+          $ref: '#/components/schemas/UserDto'
+
+    UserProfileResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "User profile retrieved successfully"
+        data:
+          $ref: '#/components/schemas/UserDto'
 
     CompleteGoogleRegistrationResponse:
       type: object
@@ -2889,32 +3107,6 @@ components:
               type: boolean
               example: true
 
-    UpdateProfileRequest:
-      type: object
-      properties:
-        name:
-          type: string
-          minLength: 2
-          maxLength: 100
-          example: "Wahyu Traveler"
-        avatarUrl:
-          type: string
-          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
-        bio:
-          type: string
-          maxLength: 500
-          example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
-        phone:
-          type: string
-          example: "+6281234567890"
-        travelStyle:
-          $ref: '#/components/schemas/TravelStyle'
-        preferences:
-          type: array
-          items:
-            type: string
-          example: ["Snorkeling", "Sunset Point", "Culinary"]
-
     AuthTokenData:
       type: object
       required:
@@ -2953,22 +3145,6 @@ components:
           example: "Authentication successful"
         data:
           $ref: '#/components/schemas/AuthTokenData'
-
-    UserProfileResponse:
-      type: object
-      required:
-        - success
-        - message
-        - data
-      properties:
-        success:
-          type: boolean
-          example: true
-        message:
-          type: string
-          example: "User profile retrieved successfully"
-        data:
-          $ref: '#/components/schemas/UserDto'
 
     SystemHealthResponse:
       type: object

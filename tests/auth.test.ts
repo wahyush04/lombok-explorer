@@ -11,6 +11,7 @@ describe('Authentication & Authorization Module (Phase 7)', () => {
   let rbacApp: Application;
 
   const testUser = {
+    username: `siti_rahma_${Date.now().toString().slice(-6)}`,
     name: 'Siti Rahmawati',
     email: `siti.rahma.${Date.now()}@lombokexplorer.com`,
     password: 'PasswordRahasia123!',
@@ -49,6 +50,7 @@ describe('Authentication & Authorization Module (Phase 7)', () => {
       expect(response.body.data).toHaveProperty('refreshToken');
       expect(response.body.data.tokenType).toBe('Bearer');
       expect(response.body.data.user.email).toBe(testUser.email.toLowerCase());
+      expect(response.body.data.user.username).toBe(testUser.username.toLowerCase());
       expect(response.body.data.user.role).toBe('USER');
       expect(response.body.data.user).not.toHaveProperty('password');
 

@@ -23,6 +23,7 @@ describe('Packing Checklists API Module (Phase 18)', () => {
     // 2. Register other traveler
     const uniqueEmail = `checklist_tester_${Date.now()}@example.com`;
     const res2 = await request(app).post('/v1/auth/register').send({
+      username: `checklist_other_${Date.now().toString().slice(-4)}`,
       name: 'Checklist Other User',
       email: uniqueEmail,
       password: 'Password123!',

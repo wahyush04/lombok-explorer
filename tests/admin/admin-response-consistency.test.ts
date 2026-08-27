@@ -21,6 +21,7 @@ describe('Admin API Response Consistency Suite (Phase 21)', () => {
 
     // 2. Register Standard User
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `consist_${testSuffix.toString().slice(-4)}`,
       name: `Consistency Tester ${testSuffix}`,
       email: `tester_resp_${testSuffix}_${Math.floor(Math.random() * 100000)}@lombokexplorer.com`,
       password: 'Password123!',

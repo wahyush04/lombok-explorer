@@ -22,9 +22,11 @@ export const AdminUserFilterQuerySchema = z.object({
     }, z.boolean().optional())
     .default(false),
   sortBy: z
-    .enum(['name', 'email', 'role', 'status', 'createdAt', 'updatedAt'])
+    .enum(['name', 'username', 'email', 'role', 'status', 'createdAt', 'updatedAt'])
     .default('createdAt'),
-  sort_by: z.enum(['name', 'email', 'role', 'status', 'createdAt', 'updatedAt']).optional(),
+  sort_by: z
+    .enum(['name', 'username', 'email', 'role', 'status', 'createdAt', 'updatedAt'])
+    .optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
   sortOrder: z.enum(['asc', 'desc']).optional(),
   sort_order: z.enum(['asc', 'desc']).optional(),
@@ -64,6 +66,7 @@ export type DeleteUserQueryDto = z.infer<typeof DeleteUserQuerySchema>;
 
 export interface AdminUserDto {
   id: string;
+  username: string;
   email: string;
   name: string;
   avatarUrl: string | null;

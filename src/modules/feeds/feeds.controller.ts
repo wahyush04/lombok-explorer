@@ -23,7 +23,7 @@ export class FeedsController {
     res.setHeader('Vary', 'Authorization');
     const targetUserId = String(req.params.userId || req.params.id);
     const query = req.query as unknown as FeedQueryDto;
-    const result = await this.service.getFeeds({ ...query, userId: targetUserId }, req.user?.userId);
+    const result = await this.service.getUserPosts(targetUserId, query, req.user?.userId);
     return ResponseUtil.sendSuccess(res, result, 'User feed posts retrieved successfully', HttpStatus.OK);
   });
 

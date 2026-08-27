@@ -26,6 +26,7 @@ describe('Admin Security Hardening Architecture Suite (Phase 17)', () => {
 
     // 2. Register standard user (role: USER)
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `sectest_${Date.now().toString().slice(-4)}`,
       name: 'Security Test User',
       email: `sectest_${Date.now()}@lombokexplorer.com`,
       password: 'Password123!',

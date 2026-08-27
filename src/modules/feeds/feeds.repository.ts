@@ -10,7 +10,6 @@ export class FeedsRepository {
       select: {
         id: true,
         name: true,
-        email: true,
         username: true,
         avatarUrl: true,
       },
@@ -449,7 +448,6 @@ export class FeedsRepository {
             select: {
               id: true,
               name: true,
-              email: true,
               username: true,
               avatarUrl: true,
             },

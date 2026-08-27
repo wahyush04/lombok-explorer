@@ -11,11 +11,20 @@ export class AuthRepository {
     });
   }
 
-  public async findByEmailOrUsername(identifier: string): Promise<User | null> {
-    const trimmed = identifier.trim();
+  public async findByUsername(username: string): Promise<User | null> {
     return prisma.user.findFirst({
       where: {
-        OR: [{ email: trimmed.toLowerCase() }, { name: { equals: trimmed, mode: 'insensitive' } }],
+        username: username.toLowerCase().trim(),
+        deletedAt: null,
+      },
+    });
+  }
+
+  public async findByEmailOrUsername(identifier: string): Promise<User | null> {
+    const trimmed = identifier.trim().toLowerCase();
+    return prisma.user.findFirst({
+      where: {
+        OR: [{ email: trimmed }, { username: trimmed }],
         deletedAt: null,
       },
     });
@@ -35,6 +44,7 @@ export class AuthRepository {
       data: {
         ...data,
         email: data.email.toLowerCase().trim(),
+        username: data.username.toLowerCase().trim(),
       },
     });
   }

@@ -27,6 +27,7 @@ describe('Admin User Management API Suite (Phase 9)', () => {
 
     // 2. Register Target User for testing
     const targetRes = await request(app).post('/api/v1/auth/register').send({
+      username: `target_user_${testSuffix.toString().slice(-4)}`,
       name: `Target User ${testSuffix}`,
       email: testEmail1,
       password: 'Password123!',
@@ -36,6 +37,7 @@ describe('Admin User Management API Suite (Phase 9)', () => {
 
     // 3. Register Disposable User for deletion testing
     const dispRes = await request(app).post('/api/v1/auth/register').send({
+      username: `disp_user_${testSuffix.toString().slice(-4)}`,
       name: `Disposable User ${testSuffix}`,
       email: testEmail2,
       password: 'Password123!',
@@ -73,6 +75,7 @@ describe('Admin User Management API Suite (Phase 9)', () => {
       const firstUser = res.body.data[0];
       expect(firstUser).toHaveProperty('id');
       expect(firstUser).toHaveProperty('email');
+      expect(firstUser).toHaveProperty('username');
       expect(firstUser).toHaveProperty('name');
       expect(firstUser).toHaveProperty('role');
       expect(firstUser).toHaveProperty('status');

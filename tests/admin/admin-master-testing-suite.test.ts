@@ -22,6 +22,7 @@ describe('Admin Master Testing & Quality Assurance Suite (Phase 19)', () => {
 
     // 2. Register Standard Traveler User (role: USER)
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `traveler_${testSuffix.toString().slice(-4)}`,
       name: `Standard Traveler ${testSuffix}`,
       email: `traveler_${testSuffix}@lombokexplorer.com`,
       password: 'Password123!',
@@ -31,6 +32,7 @@ describe('Admin Master Testing & Quality Assurance Suite (Phase 19)', () => {
     // 3. Register another account, promote to ADMIN, and suspend via Admin API
     suspendedAdminEmail = `suspended_admin_${testSuffix}@lombokexplorer.com`;
     const regRes = await request(app).post('/api/v1/auth/register').send({
+      username: `susp_adm_${testSuffix.toString().slice(-4)}`,
       name: 'Suspended Admin',
       email: suspendedAdminEmail,
       password: 'Password123!',

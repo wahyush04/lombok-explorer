@@ -1,14 +1,16 @@
 import { z } from 'zod';
 import { TravelStyle, LombokRegion, UserRole } from '@prisma/client';
+import { usernameSchema } from '../../../common/validators/username.validator';
 
 export const RegisterDtoSchema = z.object({
+  username: usernameSchema,
   name: z
-    .string()
+    .string({ required_error: 'Name is required' })
     .min(2, 'Name must be at least 2 characters')
     .max(100, 'Name must not exceed 100 characters'),
-  email: z.string().email('Invalid email address format'),
+  email: z.string({ required_error: 'Email is required' }).email('Invalid email address format'),
   password: z
-    .string()
+    .string({ required_error: 'Password is required' })
     .min(6, 'Password must be at least 6 characters')
     .max(100, 'Password must not exceed 100 characters'),
   travelStyle: z.nativeEnum(TravelStyle).optional(),
@@ -19,18 +21,29 @@ export const RegisterDtoSchema = z.object({
   role: z.nativeEnum(UserRole).optional().default(UserRole.USER),
 });
 
-export const LoginDtoSchema = z.object({
-  email: z
-    .string({ required_error: 'Email is required' })
-    .min(1, 'Email is required')
-    .email('Invalid email address format'),
-  password: z.string({ required_error: 'Password is required' }).min(1, 'Password is required'),
-});
+export const LoginDtoSchema = z
+  .object({
+    identifier: z.string().min(1, 'Identifier cannot be empty').optional(),
+    email: z.string().email('Invalid email address format').optional(),
+    username: z.string().optional(),
+    password: z.string({ required_error: 'Password is required' }).min(1, 'Password is required'),
+  })
+  .refine((data) => Boolean(data.identifier || data.email || data.username), {
+    message: 'Email or username is required',
+    path: ['identifier'],
+  });
 
-export const AdminLoginDtoSchema = z.object({
-  email: z.string({ required_error: 'Email is required' }).email('Invalid email address format'),
-  password: z.string({ required_error: 'Password is required' }).min(1, 'Password is required'),
-});
+export const AdminLoginDtoSchema = z
+  .object({
+    identifier: z.string().min(1, 'Identifier cannot be empty').optional(),
+    email: z.string().email('Invalid email address format').optional(),
+    username: z.string().optional(),
+    password: z.string({ required_error: 'Password is required' }).min(1, 'Password is required'),
+  })
+  .refine((data) => Boolean(data.identifier || data.email || data.username), {
+    message: 'Email or username is required',
+    path: ['identifier'],
+  });
 
 export const RefreshTokenDtoSchema = z.object({
   refreshToken: z.string().min(1, 'Refresh token is required'),
@@ -50,6 +63,7 @@ export const CompleteGoogleRegistrationDtoSchema = z.object({
       required_error: 'registrationToken is required',
     })
     .min(1, 'registrationToken cannot be empty'),
+  username: usernameSchema,
   name: z
     .string()
     .min(2, 'Name must be at least 2 characters')
@@ -71,6 +85,7 @@ export type CompleteGoogleRegistrationDto = z.infer<typeof CompleteGoogleRegistr
 
 export interface SanitizedUser {
   id: string;
+  username: string;
   email: string;
   name: string;
   avatarUrl: string | null;

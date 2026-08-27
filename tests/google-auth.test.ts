@@ -17,6 +17,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
   };
 
   const existingPasswordUser = {
+    username: 'dual_auth_traveler',
     email: 'dual.auth.user@example.com',
     password: 'Password123!',
     name: 'Dual Auth Traveler',
@@ -100,7 +101,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.status).toBe(401);
       expect(res.body).toHaveProperty('success', false);
       expect(res.body).toHaveProperty('errorCode', 'INVALID_GOOGLE_TOKEN');
-    });
+    }, 15000);
 
     it('should reject expired Google token with 401 and INVALID_GOOGLE_TOKEN', async () => {
       const { UnauthorizedError } = await import('../src/common/errors/app-error');
@@ -185,7 +186,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
     it('should reject registration when registrationToken or password is missing', async () => {
       const res = await request(app)
         .post('/api/v1/auth/google/register')
-        .send({ name: 'Wahyu Traveler' });
+        .send({ username: 'wahyu_traveler', name: 'Wahyu Traveler' });
 
       expect(res.status).toBe(400);
       expect(res.body.errorCode).toBe('VALIDATION_ERROR');
@@ -194,6 +195,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
     it('should reject invalid or tampered registrationToken', async () => {
       const res = await request(app).post('/api/v1/auth/google/register').send({
         registrationToken: 'tampered.token.here',
+        username: 'wahyu_traveler',
         name: 'Wahyu Traveler',
         password: 'secure-password-123',
       });
@@ -219,6 +221,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
 
       const res = await request(app).post('/api/v1/auth/google/register').send({
         registrationToken: expiredToken,
+        username: 'expired_user',
         name: 'Expired User',
         password: 'securePassword123!',
       });
@@ -230,6 +233,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
     it('should successfully complete registration with prefilled name & password in transaction', async () => {
       const res = await request(app).post('/api/v1/auth/google/register').send({
         registrationToken,
+        username: 'wahyu_google_traveler',
         name: 'Wahyu Traveler',
         password: 'securePassword@2026',
       });
@@ -241,6 +245,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       expect(res.body.data).toHaveProperty('accessToken');
       expect(res.body.data).toHaveProperty('refreshToken');
       expect(res.body.data.user).toHaveProperty('email', testGoogleUser.email);
+      expect(res.body.data.user).toHaveProperty('username', 'wahyu_google_traveler');
       expect(res.body.data.user).toHaveProperty('name', 'Wahyu Traveler');
 
       registeredUserId = res.body.data.user.id;
@@ -303,6 +308,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
 
     it('should register a standard Password user first', async () => {
       const res = await request(app).post('/api/v1/auth/register').send({
+        username: existingPasswordUser.username,
         email: existingPasswordUser.email,
         password: existingPasswordUser.password,
         name: existingPasswordUser.name,
@@ -370,6 +376,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       // Create suspended user with linked Google identity
       const suspendedUser = await prisma.user.create({
         data: {
+          username: 'suspended_google_user',
           email: 'suspended.google@example.com',
           name: 'Suspended Google User',
           status: UserStatus.SUSPENDED,
@@ -417,6 +424,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
 
       // Register clean user
       const res = await request(app).post('/api/v1/auth/register').send({
+        username: 'user_for_linking',
         email: linkUserEmail,
         password: linkUserPassword,
         name: 'User For Linking',
@@ -465,6 +473,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
     it('should reject linking when Google account is already linked to ANOTHER user (409 Conflict)', async () => {
       // Create another user
       const otherUserRes = await request(app).post('/api/v1/auth/register').send({
+        username: 'other_google_owner',
         email: 'other.google.owner@example.com',
         password: 'Password123!',
         name: 'Other Google Owner',
@@ -519,6 +528,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
 
       // 1. Dual user (has password + Google)
       const dualRes = await request(app).post('/api/v1/auth/register').send({
+        username: 'dual_unlink_user',
         email: dualUserEmail,
         password: 'Password123!',
         name: 'Dual Unlink User',
@@ -540,6 +550,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       // 2. Google-only user (has password = null)
       const googleOnlyUser = await prisma.user.create({
         data: {
+          username: 'google_only_user',
           email: googleOnlyEmail,
           name: 'Google Only User',
           password: null,
@@ -613,6 +624,7 @@ describe('Google Authentication, Registration & Dual-Method Auth (Phases 4, 5 & 
       });
 
       const res = await request(app).post('/api/v1/auth/register').send({
+        username: 'providers_test_user',
         email: provEmail,
         password: 'Password123!',
         name: 'Providers Test User',

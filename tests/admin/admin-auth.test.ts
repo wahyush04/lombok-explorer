@@ -18,6 +18,7 @@ describe('Admin Authentication & Authorization Suite (Phase 1 & 2)', () => {
     // Register a fresh regular user to obtain user tokens
     const userSuffix = Date.now();
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `reg_user_${userSuffix.toString().slice(-6)}`,
       name: `Regular Test User ${userSuffix}`,
       email: `test.regular.${userSuffix}@lombokexplorer.com`,
       password: 'Password123!',
@@ -28,6 +29,7 @@ describe('Admin Authentication & Authorization Suite (Phase 1 & 2)', () => {
     // Create a dedicated admin user to avoid race conditions with other test files
     adminEmail = `dedicated.admin.${userSuffix}@lombokexplorer.com`;
     await request(app).post('/api/v1/auth/register').send({
+      username: `adm_user_${userSuffix.toString().slice(-6)}`,
       name: `Admin Test User ${userSuffix}`,
       email: adminEmail,
       password: 'Password123!',

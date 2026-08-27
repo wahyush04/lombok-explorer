@@ -2505,6 +2505,9 @@ components:
         id:
           type: string
           example: usr_traveler_demo_01
+        username:
+          type: string
+          example: rizky_travels
         email:
           type: string
           format: email

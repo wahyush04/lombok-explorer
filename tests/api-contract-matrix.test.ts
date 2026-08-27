@@ -26,6 +26,7 @@ describe('OpenAPI Contract & HTTP Status Matrix Test (Phase 21)', () => {
 
     if (traveler2Res.status !== 200) {
       traveler2Res = await request(app).post('/v1/auth/register').send({
+        username: 'matrix_tester',
         name: 'Matrix Tester',
         email: 'matrix_tester@lombokexplorer.com',
         password: 'Password123!',
@@ -167,6 +168,7 @@ describe('OpenAPI Contract & HTTP Status Matrix Test (Phase 21)', () => {
   describe('6. HTTP 409 Conflict Matrix', () => {
     it('should return 409 CONFLICT when attempting to register an already existing email address', async () => {
       const res = await request(app).post('/v1/auth/register').send({
+        username: 'existing_traveler_unique',
         name: 'Existing Traveler',
         email: 'traveler@lombokexplorer.com', // Already registered
         password: 'Password123!',

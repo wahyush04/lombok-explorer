@@ -8,20 +8,23 @@ describe('Favorites API Module (Phase 10)', () => {
   let userToken = '';
   let otherUserToken = '';
 
-  const userA = {
-    name: 'Andi Pratama',
-    email: `andi.fav.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordFavorit123!',
-  };
-
-  const userB = {
-    name: 'Bella Safitri',
-    email: `bella.fav.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordFavorit123!',
-  };
-
   beforeAll(async () => {
     app = createApp();
+
+    const suffix = `${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 1000)}`;
+    const userA = {
+      username: `fav_a_${suffix}`,
+      name: 'Andi Pratama',
+      email: `andi.fav.${suffix}@lombokexplorer.com`,
+      password: 'PasswordFavorit123!',
+    };
+
+    const userB = {
+      username: `fav_b_${suffix}`,
+      name: 'Bella Safitri',
+      email: `bella.fav.${suffix}@lombokexplorer.com`,
+      password: 'PasswordFavorit123!',
+    };
 
     // Register User A
     const resA = await request(app).post('/v1/auth/register').send(userA);

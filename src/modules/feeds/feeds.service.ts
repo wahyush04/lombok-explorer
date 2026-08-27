@@ -55,6 +55,24 @@ export class FeedsService {
   }
 
   /**
+   * Retrieves public published posts for a specific user. Throws 404 if user not found.
+   */
+  public async getUserPosts(
+    targetUserId: string,
+    query: FeedQueryDto,
+    viewerUserId?: string,
+  ): Promise<CursorPaginatedData<FeedPostResponse>> {
+    const user = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundError('User not found', 'USER_NOT_FOUND');
+    }
+    return this.getFeeds({ ...query, userId: targetUserId }, viewerUserId);
+  }
+
+  /**
    * Retrieves single post detail by ID.
    */
   public async getPostById(postId: string, viewerUserId?: string, userRole?: string): Promise<FeedPostResponse> {

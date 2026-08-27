@@ -47,6 +47,7 @@ export class AdminUsersRepository {
       ...(query.search && {
         OR: [
           { name: { contains: query.search.trim(), mode: 'insensitive' } },
+          { username: { contains: query.search.trim(), mode: 'insensitive' } },
           { email: { contains: query.search.trim(), mode: 'insensitive' } },
           { phone: { contains: query.search.trim(), mode: 'insensitive' } },
         ],

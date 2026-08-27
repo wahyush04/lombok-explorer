@@ -9,20 +9,23 @@ describe('Itineraries API Module (Phase 13)', () => {
   let userTokenB = '';
   let createdItineraryId = '';
 
-  const userA = {
-    name: 'Itinerary Planner Doni',
-    email: `doni.itin.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordItin123!',
-  };
-
-  const userB = {
-    name: 'Traveler Eka',
-    email: `eka.itin.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordItin123!',
-  };
-
   beforeAll(async () => {
     app = createApp();
+
+    const suffix = `${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 1000)}`;
+    const userA = {
+      username: `doni_it_${suffix}`,
+      name: 'Itinerary Planner Doni',
+      email: `doni.itin.${suffix}@lombokexplorer.com`,
+      password: 'PasswordItin123!',
+    };
+
+    const userB = {
+      username: `eka_it_${suffix}`,
+      name: 'Traveler Eka',
+      email: `eka.itin.${suffix}@lombokexplorer.com`,
+      password: 'PasswordItin123!',
+    };
 
     // Register User A
     const resA = await request(app).post('/v1/auth/register').send(userA);

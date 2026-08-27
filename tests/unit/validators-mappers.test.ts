@@ -11,6 +11,7 @@ describe('Unit Test: Zod Validators & Response Mappers (Phase 21)', () => {
   describe('Auth Validators (Register & Login)', () => {
     it('should validate correct registration payload', () => {
       const valid = {
+        username: 'rinjani_climber',
         name: 'Rinjani Climber',
         email: 'climber@rinjani.com',
         password: 'SecurePassword123!',
@@ -18,6 +19,24 @@ describe('Unit Test: Zod Validators & Response Mappers (Phase 21)', () => {
 
       const result = RegisterDtoSchema.safeParse(valid);
       expect(result.success).toBe(true);
+    });
+
+    it('should reject invalid username formats and reserved words in registration', () => {
+      const reserved = {
+        username: 'admin',
+        name: 'Admin User',
+        email: 'admin.user@example.com',
+        password: 'SecurePassword123!',
+      };
+      expect(RegisterDtoSchema.safeParse(reserved).success).toBe(false);
+
+      const invalidChars = {
+        username: 'user with spaces',
+        name: 'User Spaces',
+        email: 'user.spaces@example.com',
+        password: 'SecurePassword123!',
+      };
+      expect(RegisterDtoSchema.safeParse(invalidChars).success).toBe(false);
     });
 
     it('should reject invalid email and short password in registration', () => {

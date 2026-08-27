@@ -47,7 +47,8 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(paths).toHaveProperty('/auth/refresh-token');
     expect(paths).toHaveProperty('/auth/me');
     expect(paths).toHaveProperty('/auth/logout');
-    expect(paths).toHaveProperty('/users/profile');
+    expect(paths).toHaveProperty('/users/me');
+    expect(paths).toHaveProperty('/users/username/check');
     expect(paths).toHaveProperty('/destinations');
     expect(paths).toHaveProperty('/destinations/{id}');
     expect(paths).toHaveProperty('/destinations/featured');

@@ -12,9 +12,8 @@ import { expenseRoutes } from '../../modules/expenses/expenses.routes';
 import { journalRoutes } from '../../modules/journals/journals.routes';
 import { checklistRoutes } from '../../modules/checklists/checklists.routes';
 import { storageRoutes } from '../../modules/storage/storage.routes';
-import { feedRoutes, feedsController, FeedQueryDtoSchema } from '../../modules/feeds';
-import { optionalAuthenticate } from '../../common/middleware/auth.middleware';
-import { validate } from '../../common/middleware/validate.middleware';
+import { feedRoutes } from '../../modules/feeds';
+import { userRoutes } from '../../modules/users/users.routes';
 import { adminRoutes } from '../admin/admin.routes';
 
 const router = Router();
@@ -61,13 +60,8 @@ router.use('/storage', storageRoutes);
 // 14. Feeds & Community Social Module
 router.use('/feeds', feedRoutes);
 
-// 15. User Public Profile Resources
-router.get(
-  '/users/:userId/posts',
-  optionalAuthenticate,
-  validate({ query: FeedQueryDtoSchema }),
-  feedsController.getUserPosts,
-);
+// 15. User Management & Profile Resources
+router.use('/users', userRoutes);
 
 // 16. Dedicated Admin API Layer (Phase 28 / Admin Operations)
 router.use('/admin', adminRoutes);

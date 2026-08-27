@@ -123,7 +123,7 @@ enum ReportStatus {
 model User {
   id              String        @id @default(uuid())
   email           String        @unique
-  username        String?       @unique
+  username        String        @unique
   password        String?
   name            String
   avatarUrl       String?       @db.Text

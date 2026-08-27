@@ -28,6 +28,7 @@ describe('Admin Destinations Bulk Operations API Suite (Phase 12)', () => {
 
     // 2. Register regular user for auth tests
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `bulk_tester_${testSuffix.toString().slice(-4)}`,
       name: `Bulk Tester ${testSuffix}`,
       email: `bulk.tester.${testSuffix}@lombokexplorer.com`,
       password: 'Password123!',

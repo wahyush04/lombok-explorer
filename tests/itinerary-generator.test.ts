@@ -8,14 +8,16 @@ describe('Smart Itinerary Generator API Module (Phase 14)', () => {
   let app: Application;
   let userToken = '';
 
-  const user = {
-    name: 'Generator Tester Hendra',
-    email: `hendra.gen.${Date.now()}@lombokexplorer.com`,
-    password: 'PasswordGen123!',
-  };
-
   beforeAll(async () => {
     app = createApp();
+
+    const suffix = `${Date.now().toString().slice(-6)}_${Math.floor(Math.random() * 1000)}`;
+    const user = {
+      username: `gen_u_${suffix}`,
+      name: 'Generator Tester Hendra',
+      email: `hendra.gen.${suffix}@lombokexplorer.com`,
+      password: 'PasswordGen123!',
+    };
 
     const res = await request(app).post('/v1/auth/register').send(user);
     userToken = res.body.data.accessToken;

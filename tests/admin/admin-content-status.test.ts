@@ -26,6 +26,7 @@ describe('Admin Content Status Transition Suite (Phase 11)', () => {
 
     // 2. Register regular user for auth tests
     const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `status_tester_${testSuffix.toString().slice(-4)}`,
       name: `Status Tester ${testSuffix}`,
       email: `status.tester.${testSuffix}@lombokexplorer.com`,
       password: 'Password123!',

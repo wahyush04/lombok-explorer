@@ -24,6 +24,7 @@ describe('Travel Journals API Module (Phase 18)', () => {
     // 2. Register other traveler
     const uniqueEmail = `journal_tester_${Date.now()}@example.com`;
     const res2 = await request(app).post('/v1/auth/register').send({
+      username: `journal_other_${Date.now().toString().slice(-4)}`,
       name: 'Journal Other User',
       email: uniqueEmail,
       password: 'Password123!',

@@ -90,6 +90,7 @@ async function main(): Promise<void> {
       data: {
         id: 'usr_dev_admin_env',
         email: devAdminEmail.toLowerCase().trim(),
+        username: 'dev_admin',
         password: devAdminHash,
         name: devAdminName,
         avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200',
@@ -113,6 +114,7 @@ async function main(): Promise<void> {
     data: {
       id: 'usr_guide_sasak',
       email: 'guide.rinjani@lombokexplorer.com',
+      username: 'hendra_rinjani',
       password: passwordHash,
       name: 'Lalu Hendra Rinjani',
       avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200',
