@@ -1,0 +1,1310 @@
+openapi: 3.0.3
+info:
+  title: Lombok Explorer — Authentication & Identity API
+  description: |
+    # Lombok Explorer Authentication & Identity API Specification
+    
+    Spesifikasi OpenAPI 3.0.3 khusus untuk subsistem **Autentikasi, Identitas Pengguna (Username), Google OAuth 2.0, Account Linking, dan Administrasi Keamanan** pada platform Lombok Explorer.
+    
+    ### Fitur Utama:
+    1. **Registrasi Akun Baru**: Mendukung registrasi berbasis password dengan `username` unik publik dan preferensi wisata.
+    2. **Dual-Identifier Login**: Autentikasi fleksibel menggunakan **Email** maupun **Username** (*case-insensitive*).
+    3. **Google Sign-In**: Verifikasi ID Token Google secara kriptografis, *auto-linking*, dan alur penyelesaian registrasi dengan penetapan password & username.
+    4. **Account Linking**: Hubungkan / lepas akun Google dari profil yang sedang terautentikasi dan cek metode autentikasi aktif.
+    5. **Manajemen Sesi & JWT**: Penerbitan Access Token (short-lived) dan Refresh Token (rotating) serta invalidasi sesi saat logout.
+    6. **Pengecekan Username Real-Time**: Endpoint publik tervalidasi Zod & rate-limited untuk memeriksa ketersediaan username.
+    7. **Admin Authentication**: Jalur autentikasi khusus dengan verifikasi hak akses peran `ADMIN` dan pembatasan laju (*brute-force protection*).
+  version: 1.0.0
+  contact:
+    name: Lombok Explorer Engineering Team
+    email: support@lombokexplorer.com
+
+servers:
+  - url: https://api.lombokexplorer.com/api/v1
+    description: Production Server (v1 API Base)
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server (v1 API Base)
+  - url: http://localhost:8080/v1
+    description: Legacy Compatibility Alias Server
+  - url: http://localhost:8080/api/v1/admin
+    description: Local Development Server (Admin API Base)
+
+tags:
+  - name: User Authentication
+    description: Registrasi pengguna baru, login fleksibel (email/username), refresh token, logout, dan verifikasi sesi
+  - name: Google Authentication
+    description: Google Sign-In menggunakan Google ID Token dan alur penyelesaian pendaftaran pengguna baru
+  - name: Account Linking
+    description: Manajemen multi-provider (menghubungkan & melepas akun Google serta cek status penyedia aktif)
+  - name: Username & Identity
+    description: Validasi format dan pengecekan ketersediaan username publik secara real-time
+  - name: Admin Authentication
+    description: Autentikasi administrator, refresh token admin, pengecekan sesi admin, dan logout
+
+paths:
+  # ==========================================
+  # USER REGISTRATION & LOGIN
+  # ==========================================
+  /auth/register:
+    post:
+      summary: Register a new user traveler account
+      description: |
+        Mendaftarkan akun traveler baru ke sistem Lombok Explorer.
+        - Membutuhkan `username` unik (3-30 karakter, lowercase alphanumeric & underscore).
+        - Membutuhkan `email` valid yang belum pernah terdaftar.
+        - Password minimal 6 karakter (dihash dengan bcrypt).
+        - Mengembalikan pasangan token JWT (`accessToken`, `refreshToken`) dan data profil pengguna.
+      operationId: registerUser
+      tags:
+        - User Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterRequest'
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '409':
+          description: Email or username already registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                emailExists:
+                  summary: Email Already Registered
+                  value:
+                    success: false
+                    statusCode: 409
+                    message: "Email address is already in use"
+                    errorCode: "EMAIL_ALREADY_EXISTS"
+                usernameExists:
+                  summary: Username Already Taken
+                  value:
+                    success: false
+                    statusCode: 409
+                    message: "Username is already taken"
+                    errorCode: "USERNAME_ALREADY_EXISTS"
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/login:
+    post:
+      summary: Authenticate user via Email or Username (Dual-Identifier Login)
+      description: |
+        Mengotentikasi pengguna menggunakan kredensial password.
+        Klien dapat mengirimkan salah satu dari:
+        - `identifier`: string (dapat berupa email atau username, case-insensitive).
+        - `email`: format email valid.
+        - `username`: string username.
+        - `password`: password pengguna.
+      operationId: loginUser
+      tags:
+        - User Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: Invalid credentials or deactivated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 401
+                message: "Invalid email or password"
+                errorCode: "INVALID_CREDENTIALS"
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # GOOGLE OAUTH 2.0 AUTHENTICATION
+  # ==========================================
+  /auth/google:
+    post:
+      summary: Authenticate user with verified Google ID Token (Google Sign-In)
+      description: |
+        Mengotentikasi pengguna dengan token ID Google dari Google Sign-In SDK (Android/Web).
+        - **Kasus A (Direct Login)**: Jika identitas Google telah tertaut, user langsung login.
+        - **Kasus B (Auto-Link)**: Jika identitas Google belum tertaut tetapi email Google cocok dengan akun lokal, akun Google akan ditautkan otomatis dan user login.
+        - **Kasus C (Registration Required)**: Jika pengguna belum terdaftar, endpoint mengembalikan `status: "REGISTRATION_REQUIRED"` beserta `registrationToken` sementara (signed JWT) untuk melanjutkan pendaftaran.
+      operationId: googleLogin
+      tags:
+        - Google Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleAuthRequest'
+      responses:
+        '200':
+          description: Login successful OR registration required
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GoogleAuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: Invalid or expired Google ID Token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 401
+                message: "Google token verification failed: Invalid signature or expired token"
+                errorCode: "INVALID_GOOGLE_TOKEN"
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/google/register:
+    post:
+      summary: Complete Google Registration with custom username and password
+      description: |
+        Menyelesaikan proses pendaftaran untuk user baru yang login melalui Google Sign-In.
+        Menggunakan `registrationToken` yang didapat dari `POST /auth/google`.
+        Pengguna menentukan `username` unik dan `password` untuk akunnya.
+      operationId: completeGoogleRegistration
+      tags:
+        - Google Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteGoogleRegistrationRequest'
+      responses:
+        '201':
+          description: Google user registration completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CompleteGoogleRegistrationResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: Invalid or expired registration token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 401
+                message: "Registration token has expired. Please sign in with Google again."
+                errorCode: "REGISTRATION_TOKEN_EXPIRED"
+        '409':
+          description: Username or email already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 409
+                message: "Username is already taken"
+                errorCode: "USERNAME_ALREADY_EXISTS"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # ACCOUNT LINKING & PROVIDERS
+  # ==========================================
+  /auth/google/link:
+    post:
+      summary: Link Google account to currently authenticated user
+      description: |
+        Menautkan akun Google ke akun pengguna yang sedang login.
+        Membutuhkan Access Token JWT pada header `Authorization` dan `idToken` Google yang valid pada request body.
+      operationId: linkGoogleAccount
+      tags:
+        - Account Linking
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GoogleAuthRequest'
+      responses:
+        '200':
+          description: Google account linked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Google account is already linked to another user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 409
+                message: "Google account is already linked to another user"
+                errorCode: "GOOGLE_ACCOUNT_ALREADY_LINKED"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Unlink Google account from currently authenticated user
+      description: |
+        Melepas tautan akun Google dari akun pengguna yang sedang login.
+        Ditolak jika Google adalah satu-satunya metode login yang dimiliki akun (harus memiliki password terdaftar).
+      operationId: unlinkGoogleAccount
+      tags:
+        - Account Linking
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Google account unlinked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '400':
+          description: Cannot unlink the only authentication method
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 400
+                message: "Cannot unlink the only authentication method"
+                errorCode: "ONLY_AUTH_METHOD"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/providers:
+    get:
+      summary: Get active authentication providers for current user
+      description: |
+        Mengembalikan status boolean metode login yang aktif pada akun (`password` dan `google`).
+      operationId: getAuthProviders
+      tags:
+        - Account Linking
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Active auth providers retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthProvidersResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # TOKEN REFRESH, PROFILE, & LOGOUT
+  # ==========================================
+  /auth/refresh:
+    post:
+      summary: Refresh expired access token (Standard Endpoint)
+      description: |
+        Menerbitkan pasangan access token baru dan refresh token yang dirotasi menggunakan refresh token yang masih valid.
+      operationId: refreshUserToken
+      tags:
+        - User Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/refresh-token:
+    post:
+      summary: Refresh expired access token (Compatibility Alias)
+      description: |
+        Endpoint alias kompatibilitas untuk `POST /auth/refresh`.
+      operationId: refreshTokenAlias
+      tags:
+        - User Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/me:
+    get:
+      summary: Get currently authenticated user profile
+      description: |
+        Mengambil data profil pengguna yang sedang login berdasarkan Access Token JWT.
+      operationId: getCurrentUser
+      tags:
+        - User Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Current user profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /auth/logout:
+    post:
+      summary: Logout user and invalidate refresh token session
+      description: |
+        Mencabut sesi login pengguna dengan menghapus refresh token yang tersimpan di database.
+      operationId: logoutUser
+      tags:
+        - User Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # USERNAME VALIDATION & AVAILABILITY CHECK
+  # ==========================================
+  /users/username/check:
+    get:
+      summary: Check if a username is available or taken (Real-time check)
+      description: |
+        Memeriksa ketersediaan username secara instan.
+        - Memvalidasi panjang (3-30 karakter) dan regex format.
+        - Mendeteksi reserved username (`admin`, `system`, `support`, `official`, dll).
+        - Memeriksa keunikan di database secara *case-insensitive*.
+      operationId: checkUsernameAvailability
+      tags:
+        - Username & Identity
+      parameters:
+        - name: username
+          in: query
+          required: true
+          description: Username to validate and check
+          schema:
+            type: string
+            minLength: 3
+            maxLength: 30
+            example: "wahyu_pratama"
+      responses:
+        '200':
+          description: Username availability status checked
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckUsernameResponse'
+              examples:
+                available:
+                  summary: Username Available
+                  value:
+                    success: true
+                    statusCode: 200
+                    message: "Username availability status checked"
+                    data:
+                      username: "wahyu_pratama"
+                      available: true
+                taken:
+                  summary: Username Taken
+                  value:
+                    success: true
+                    statusCode: 200
+                    message: "Username availability status checked"
+                    data:
+                      username: "wahyu_pratama"
+                      available: false
+                      reason: "TAKEN"
+                reserved:
+                  summary: Username Reserved
+                  value:
+                    success: true
+                    statusCode: 200
+                    message: "Username availability status checked"
+                    data:
+                      username: "admin"
+                      available: false
+                      reason: "RESERVED"
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # ADMIN AUTHENTICATION
+  # ==========================================
+  /admin/auth/login:
+    post:
+      summary: Administrator Login
+      description: |
+        Mengotentikasi akun administrator. Wajib memiliki `role: ADMIN` dan status akun `ACTIVE`.
+        Dilindungi oleh `adminAuthLimiter` khusus untuk mencegah brute-force login.
+      operationId: adminLogin
+      tags:
+        - Admin Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminLoginRequest'
+      responses:
+        '200':
+          description: Administrator login successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          description: Invalid email or password, or deactivated account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 401
+                message: "Invalid email or password"
+                errorCode: "INVALID_CREDENTIALS"
+        '403':
+          description: Forbidden - User account exists but is not an ADMIN
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 403
+                message: "Admin access required"
+                errorCode: "ADMIN_ACCESS_REQUIRED"
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/auth/refresh:
+    post:
+      summary: Refresh Administrator Access Token
+      description: |
+        Menerbitkan access token admin baru dan rotasi refresh token menggunakan token refresh admin yang valid.
+      operationId: adminRefreshToken
+      tags:
+        - Admin Authentication
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Admin tokens refreshed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAuthResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Refreshed account lacks ADMIN role
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 403
+                message: "Admin access required"
+                errorCode: "ADMIN_ACCESS_REQUIRED"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/auth/me:
+    get:
+      summary: Get Current Administrator Profile
+      description: |
+        Mengambil profil administrator yang sedang aktif. Wajib menyertakan Bearer Token milik role `ADMIN`.
+      operationId: getAdminMe
+      tags:
+        - Admin Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Admin profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/auth/logout:
+    post:
+      summary: Administrator Logout
+      description: |
+        Mencabut sesi refresh token admin di database.
+      operationId: adminLogout
+      tags:
+        - Admin Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Administrator logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+# ==========================================
+# COMPONENTS & SCHEMAS
+# ==========================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Masukkan JWT Access Token dengan format: `Bearer <token>`.
+        Diperoleh setelah sukses login melalui `POST /auth/login`, `POST /auth/google`, atau `POST /admin/auth/login`.
+
+  responses:
+    BadRequestError:
+      description: Bad Request - Parameter atau payload tidak valid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 400
+            message: "Invalid request parameters or payload"
+            errorCode: "VALIDATION_ERROR"
+            details:
+              - "username: Username must be at least 3 characters"
+              - "email: Invalid email address format"
+    UnauthorizedError:
+      description: Unauthorized - Token tidak ada, tidak valid, atau telah kadaluarsa
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 401
+            message: "Authentication token is required"
+            errorCode: "TOKEN_MISSING"
+    ForbiddenError:
+      description: Forbidden - Akses ditolak karena tidak memiliki izin atau peran yang memadai
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 403
+            message: "You do not have permission to perform this action"
+            errorCode: "FORBIDDEN_RESOURCE"
+    NotFoundError:
+      description: Not Found - Sumber daya tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 404
+            message: "User not found"
+            errorCode: "USER_NOT_FOUND"
+    ConflictError:
+      description: Conflict - Sumber daya sudah ada atau melanggar batasan keunikan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 409
+            message: "Username is already taken"
+            errorCode: "USERNAME_ALREADY_EXISTS"
+    TooManyRequestsError:
+      description: Too Many Requests - Batas laju pemanggilan API terlampaui
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 429
+            message: "Too many authentication attempts, please try again later"
+            errorCode: "RATE_LIMIT_EXCEEDED"
+    InternalServerError:
+      description: Internal Server Error - Terjadi kesalahan internal pada server
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 500
+            message: "Internal server error occurred"
+            errorCode: "INTERNAL_SERVER_ERROR"
+
+  schemas:
+    # --- ENUMS ---
+    UserRole:
+      type: string
+      enum:
+        - USER
+        - ADMIN
+        - MODERATOR
+      example: "USER"
+
+    UserStatus:
+      type: string
+      enum:
+        - ACTIVE
+        - INACTIVE
+        - SUSPENDED
+        - BANNED
+      example: "ACTIVE"
+
+    TravelStyle:
+      type: string
+      enum:
+        - NATURE_ADVENTURE
+        - BEACH_RELAXATION
+        - CULTURE_HERITAGE
+        - CULINARY_EXPLORER
+        - PHOTOGRAPHY_SPOTS
+        - FAMILY_FRIENDLY
+      example: "BEACH_RELAXATION"
+
+    LombokRegion:
+      type: string
+      enum:
+        - LOMBOK_SELATAN
+        - LOMBOK_UTARA
+        - LOMBOK_BARAT
+        - LOMBOK_TIMUR
+        - LOMBOK_TENGAH
+        - GILI_ISLANDS
+      example: "LOMBOK_SELATAN"
+
+    AuthProvider:
+      type: string
+      enum:
+        - LOCAL
+        - GOOGLE
+      example: "LOCAL"
+
+    # --- BASE ENTITIES ---
+    UserDto:
+      type: object
+      required:
+        - id
+        - username
+        - email
+        - name
+        - role
+        - isEmailVerified
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e8a942f9-190a-400f-b598-ec9e489c03f2"
+        username:
+          type: string
+          example: "wahyu_traveler"
+        email:
+          type: string
+          format: email
+          example: "traveler@lombokexplorer.com"
+        name:
+          type: string
+          example: "Wahyu Traveler"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        phone:
+          type: string
+          nullable: true
+          example: "+6281234567890"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+          nullable: true
+        preferredRegion:
+          $ref: '#/components/schemas/LombokRegion'
+          nullable: true
+        isEmailVerified:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T08:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T08:00:00.000Z"
+
+    # --- REQUEST SCHEMAS ---
+    RegisterRequest:
+      type: object
+      required:
+        - username
+        - name
+        - email
+        - password
+      properties:
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9_]{3,30}$'
+          description: Username unik publik (3-30 karakter, lowercase, angka, _)
+          example: "wahyu_traveler"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Nama lengkap pengguna
+          example: "Wahyu Traveler"
+        email:
+          type: string
+          format: email
+          description: Alamat email aktif
+          example: "traveler@lombokexplorer.com"
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: Kata sandi pengguna
+          example: "Password123!"
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        preferredRegion:
+          $ref: '#/components/schemas/LombokRegion'
+        phone:
+          type: string
+          maxLength: 20
+          description: Nomor telepon pengguna
+          example: "+6281234567890"
+        avatarUrl:
+          type: string
+          format: uri
+          description: URL avatar profil pengguna
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+
+    LoginRequest:
+      type: object
+      required:
+        - password
+      properties:
+        identifier:
+          type: string
+          description: Identifier fleksibel (dapat berupa Email atau Username)
+          example: "wahyu_traveler"
+        email:
+          type: string
+          format: email
+          description: Alamat email pengguna
+          example: "traveler@lombokexplorer.com"
+        username:
+          type: string
+          description: Username pengguna
+          example: "wahyu_traveler"
+        password:
+          type: string
+          description: Kata sandi pengguna
+          example: "Password123!"
+
+    AdminLoginRequest:
+      type: object
+      required:
+        - password
+      properties:
+        identifier:
+          type: string
+          description: Email atau username administrator
+          example: "admin_lombok"
+        email:
+          type: string
+          format: email
+          description: Email administrator
+          example: "admin@lombokexplorer.com"
+        username:
+          type: string
+          description: Username administrator
+          example: "admin_lombok"
+        password:
+          type: string
+          description: Kata sandi administrator
+          example: "AdminSecurePassword@2026"
+
+    RefreshTokenRequest:
+      type: object
+      required:
+        - refreshToken
+      properties:
+        refreshToken:
+          type: string
+          description: Rotating refresh token yang valid
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+
+    GoogleAuthRequest:
+      type: object
+      required:
+        - idToken
+      properties:
+        idToken:
+          type: string
+          description: Google ID Token mentah dari Google SDK
+          example: "eyJhbGciOiJSUzI1NiIsImtpZCI6IjEyMzQ1NiJ9..."
+
+    CompleteGoogleRegistrationRequest:
+      type: object
+      required:
+        - registrationToken
+        - username
+        - password
+      properties:
+        registrationToken:
+          type: string
+          description: Signed token yang diperoleh dari respon REGISTRATION_REQUIRED POST /auth/google
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9_]{3,30}$'
+          description: Username unik publik untuk akun baru
+          example: "wahyu_pratama"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Nama lengkap pengguna (opsional jika ingin mengubah dari profil Google)
+          example: "Wahyu Pratama"
+        password:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: Kata sandi yang akan ditetapkan untuk akun baru
+          example: "securePassword@2026"
+
+    # --- RESPONSE PAYLOAD SCHEMAS ---
+    AuthTokenData:
+      type: object
+      required:
+        - accessToken
+        - refreshToken
+        - expiresIn
+        - tokenType
+        - user
+      properties:
+        accessToken:
+          type: string
+          description: JWT Access Token untuk header Authorization Bearer (berlaku 15 menit)
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        refreshToken:
+          type: string
+          description: Rotating JWT Refresh Token untuk memperbarui sesi (berlaku 7 hari)
+          example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+        expiresIn:
+          type: integer
+          description: Masa berlaku access token dalam hitungan detik
+          example: 900
+        tokenType:
+          type: string
+          example: "Bearer"
+        user:
+          $ref: '#/components/schemas/UserDto'
+
+    AuthResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Authentication successful"
+        data:
+          $ref: '#/components/schemas/AuthTokenData'
+
+    AdminAuthResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Administrator authentication successful"
+        data:
+          $ref: '#/components/schemas/AuthTokenData'
+
+    GoogleAuthResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Google authentication successful"
+        data:
+          type: object
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              enum:
+                - LOGIN_SUCCESS
+                - REGISTRATION_REQUIRED
+              example: "LOGIN_SUCCESS"
+            accessToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            refreshToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            expiresIn:
+              type: integer
+              example: 900
+            tokenType:
+              type: string
+              example: "Bearer"
+            registrationToken:
+              type: string
+              description: Hanya tersedia jika status adalah REGISTRATION_REQUIRED
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            profile:
+              type: object
+              description: Profil Google dari ID Token jika user baru
+              properties:
+                name:
+                  type: string
+                  example: "Wahyu Traveler"
+                email:
+                  type: string
+                  format: email
+                  example: "traveler@gmail.com"
+                avatarUrl:
+                  type: string
+                  nullable: true
+                  example: "https://lh3.googleusercontent.com/a/photo"
+            user:
+              $ref: '#/components/schemas/UserDto'
+
+    CompleteGoogleRegistrationResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 201
+        message:
+          type: string
+          example: "Google registration completed successfully"
+        data:
+          type: object
+          required:
+            - status
+            - accessToken
+            - refreshToken
+            - expiresIn
+            - tokenType
+            - user
+          properties:
+            status:
+              type: string
+              example: "REGISTRATION_SUCCESS"
+            accessToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            refreshToken:
+              type: string
+              example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+            expiresIn:
+              type: integer
+              example: 900
+            tokenType:
+              type: string
+              example: "Bearer"
+            user:
+              $ref: '#/components/schemas/UserDto'
+
+    AuthProvidersResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Auth providers retrieved successfully"
+        data:
+          type: object
+          required:
+            - password
+            - google
+          properties:
+            password:
+              type: boolean
+              description: Menandakan akun memiliki password lokal terdaftar
+              example: true
+            google:
+              type: boolean
+              description: Menandakan akun terhubung dengan Google Sign-In
+              example: true
+
+    UserProfileResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "User profile retrieved successfully"
+        data:
+          $ref: '#/components/schemas/UserDto'
+
+    CheckUsernameResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Username availability status checked"
+        data:
+          type: object
+          required:
+            - username
+            - available
+          properties:
+            username:
+              type: string
+              example: "wahyu_pratama"
+            available:
+              type: boolean
+              example: true
+            reason:
+              type: string
+              enum:
+                - TAKEN
+                - RESERVED
+              description: Alasan penolakan jika available = false
+              example: "TAKEN"
+
+    StandardActionResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Operation completed successfully"
+        data:
+          type: object
+          nullable: true
+          example: null
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - errorCode
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Invalid request parameters or payload"
+        errorCode:
+          type: string
+          example: "VALIDATION_ERROR"
+        details:
+          type: array
+          items:
+            type: string
+          nullable: true
+          example: ["username: Username can only contain lowercase letters, numbers, and underscores"]

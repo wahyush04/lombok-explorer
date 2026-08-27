@@ -98,6 +98,70 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(responses).toHaveProperty('ActionSuccessResponse');
   });
 
+  it('GET /api/docs/auth/ should serve Swagger UI HTML for Auth API', async () => {
+    const response = await request(app).get('/api/docs/auth/');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('swagger-ui');
+    expect(response.text).toContain('Lombok Explorer Auth API Documentation');
+  });
+
+  it('GET /docs/auth/ should also serve Swagger UI HTML (convenience alias)', async () => {
+    const response = await request(app).get('/docs/auth/');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('swagger-ui');
+  });
+
+  it('GET /api/docs/auth/json should serve parsed Auth OpenAPI specification JSON', async () => {
+    const response = await request(app).get('/api/docs/auth/json');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('openapi', '3.0.3');
+    expect(response.body.info).toHaveProperty('title', 'Lombok Explorer — Authentication & Identity API');
+    expect(response.body).toHaveProperty('paths');
+    expect(response.body).toHaveProperty('components');
+
+    const paths = response.body.paths;
+    expect(paths).toHaveProperty('/auth/register');
+    expect(paths).toHaveProperty('/auth/login');
+    expect(paths).toHaveProperty('/auth/google');
+    expect(paths).toHaveProperty('/auth/google/register');
+    expect(paths).toHaveProperty('/auth/google/link');
+    expect(paths).toHaveProperty('/auth/providers');
+    expect(paths).toHaveProperty('/auth/refresh');
+    expect(paths).toHaveProperty('/auth/refresh-token');
+    expect(paths).toHaveProperty('/auth/me');
+    expect(paths).toHaveProperty('/auth/logout');
+    expect(paths).toHaveProperty('/users/username/check');
+    expect(paths).toHaveProperty('/admin/auth/login');
+    expect(paths).toHaveProperty('/admin/auth/refresh');
+    expect(paths).toHaveProperty('/admin/auth/me');
+    expect(paths).toHaveProperty('/admin/auth/logout');
+
+    const schemas = response.body.components.schemas;
+    expect(schemas).toHaveProperty('RegisterRequest');
+    expect(schemas).toHaveProperty('LoginRequest');
+    expect(schemas).toHaveProperty('GoogleAuthRequest');
+    expect(schemas).toHaveProperty('GoogleAuthResponse');
+    expect(schemas).toHaveProperty('CompleteGoogleRegistrationRequest');
+    expect(schemas).toHaveProperty('CompleteGoogleRegistrationResponse');
+    expect(schemas).toHaveProperty('AuthProvidersResponse');
+    expect(schemas).toHaveProperty('CheckUsernameResponse');
+    expect(schemas).toHaveProperty('AdminLoginRequest');
+    expect(schemas).toHaveProperty('AdminAuthResponse');
+    expect(schemas).toHaveProperty('UserDto');
+  });
+
+  it('GET /api/docs/auth/yaml should serve raw Auth OpenAPI YAML specification', async () => {
+    const response = await request(app).get('/api/docs/auth/yaml');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/yaml');
+    expect(response.text).toContain('openapi: 3.0.3');
+    expect(response.text).toContain('Lombok Explorer — Authentication & Identity API');
+  });
+
   it('GET /api/docs/yaml should serve raw OpenAPI YAML specification', async () => {
     const response = await request(app).get('/api/docs/yaml');
 
@@ -117,3 +181,4 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(response.body.data).toHaveProperty('docsYaml', '/api/docs/yaml');
   });
 });
+

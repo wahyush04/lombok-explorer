@@ -116,7 +116,51 @@ export const createApp = (): Application => {
       );
     }
 
-    // 8b. Public OpenAPI Documentation (/api/docs)
+    const authOpenApiPath = path.resolve(process.cwd(), 'openapi-auth.yaml');
+
+    // 8b. Auth OpenAPI Documentation (/api/docs/auth)
+    if (fs.existsSync(authOpenApiPath)) {
+      const authFileContent = fs.readFileSync(authOpenApiPath, 'utf8');
+      const authSwaggerDoc = yaml.parse(authFileContent);
+
+      const authUiOptions: swaggerUi.SwaggerUiOptions = {
+        customSiteTitle: 'Lombok Explorer Auth API Documentation',
+        customCss: `
+          .swagger-ui .topbar { display: none }
+          .swagger-ui .info { margin-bottom: 24px; }
+          .swagger-ui .scheme-container { background: #eff6ff; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        `,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: 'none',
+          filter: true,
+          tryItOutEnabled: true,
+        },
+      };
+
+      app.get('/api/docs/auth/json', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.json(authSwaggerDoc);
+      });
+      app.get('/api/docs/auth/yaml', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+        res.send(authFileContent);
+      });
+
+      app.use(
+        '/api/docs/auth',
+        swaggerUi.serveFiles(authSwaggerDoc, authUiOptions),
+        swaggerUi.setup(authSwaggerDoc, authUiOptions),
+      );
+      app.use(
+        '/docs/auth',
+        swaggerUi.serveFiles(authSwaggerDoc, authUiOptions),
+        swaggerUi.setup(authSwaggerDoc, authUiOptions),
+      );
+    }
+
+    // 8c. Public OpenAPI Documentation (/api/docs)
     if (fs.existsSync(openApiPath)) {
       const fileContent = fs.readFileSync(openApiPath, 'utf8');
       const swaggerDocument = yaml.parse(fileContent);
