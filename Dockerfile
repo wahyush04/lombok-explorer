@@ -16,7 +16,7 @@ RUN npm ci
 # Copy source code and build
 COPY tsconfig.json ./
 COPY src ./src
-COPY openapi.yaml openapi-admin.yaml ./
+COPY openapi*.yaml ./
 RUN npm run build
 RUN npx prisma generate
 
@@ -48,7 +48,7 @@ RUN npm ci --only=production
 COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
-COPY openapi.yaml openapi-admin.yaml ./
+COPY openapi*.yaml ./
 
 # Switch to non-root user
 USER appuser
@@ -57,6 +57,6 @@ EXPOSE 8080
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/v1/health || exit 1
+  CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 CMD ["node", "dist/server.js"]
