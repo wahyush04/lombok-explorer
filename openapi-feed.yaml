@@ -1,0 +1,1873 @@
+openapi: 3.0.3
+info:
+  title: Lombok Explorer — Feeds & Community API
+  description: |
+    # Lombok Explorer Feeds & Community API Specification
+    
+    Spesifikasi OpenAPI 3.0.3 khusus untuk fitur **Feeds & Community Social Platform** pada platform Lombok Explorer.
+    
+    ### Fitur Utama:
+    1. **Linimasa Komunitas (Timeline)**: Penjelajahan linimasa tak terbatas (*infinite scroll*) dengan paginasi berbasis kursor (*cursor-based pagination*).
+    2. **Pembuatan & Manajemen Postingan**: Mendukung pembuatan cerita perjalanan dengan attachment media (hingga 10 foto) serta tagging destinasi katalog atau lokasi custom GPS.
+    3. **Interaksi Sosial**:
+       - **Like / Unlike**: Memberikan apresiasi pada postingan pengguna lain.
+       - **Bookmark / Simpan**: Menyimpan postingan favorit ke daftar bookmark pribadi.
+       - **Share Counter**: Pelacakan statistik pembagian postingan.
+    4. **Sistem Komentar Komprehensif**: Diskusi interaktif pada postingan dengan paginasi kursor dan urutan kronologis.
+    5. **Pelaporan & Moderasi Konten**:
+       - Pengguna dapat melaporkan postingan mencurigakan/melanggar aturan (`SPAM`, `INAPPROPRIATE`, `HARASSMENT`, dll).
+       - Dashboard administrasi untuk meninjau laporan, mengubah status laporan, dan menyembunyikan/menghapus postingan.
+    6. **Keamanan & Rate Limiting**: Proteksi *rate limiting* pada aksi sosial (`feedActionLimiter`) untuk mencegah spam dan abuse.
+  version: 1.0.0
+  contact:
+    name: Lombok Explorer Engineering Team
+    email: support@lombokexplorer.com
+
+servers:
+  - url: https://api.lombokexplorer.com/api/v1
+    description: Production Server (v1 API Base)
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server (v1 API Base)
+  - url: http://localhost:3000/api/v1
+    description: Docker Development Server (v1 API Base)
+  - url: http://localhost:8080/api/v1/admin
+    description: Admin API Base
+
+tags:
+  - name: Feeds Timeline & Discovery
+    description: Linimasa postingan publik, pencarian destinasi untuk tag postingan, postingan user, dan bookmark
+  - name: Post Management
+    description: Pembuatan postingan baru, pembacaan detail, pembaruan konten, dan penghapusan postingan
+  - name: Social Interactions
+    description: Interaksi menyukai postingan (like/unlike), bookmark, share counter, dan pelaporan konten
+  - name: Comments
+    description: Membaca komentar pada postingan, menambahkan komentar baru, dan menghapus komentar
+  - name: Admin Feed Moderation
+    description: Dashboard moderasi laporan postingan dan kontrol status visibilitas postingan oleh administrator
+
+paths:
+  # ==========================================
+  # FEEDS TIMELINE & DISCOVERY
+  # ==========================================
+  /feeds:
+    get:
+      summary: Get community feed timeline (Infinite Scroll Cursor Pagination)
+      description: |
+        Mengambil linimasa postingan feed publik berstatus `PUBLISHED` dengan pengurutan kronologis terbalik (terbaru lebih dulu).
+        Mendukung `optionalAuthenticate`:
+        - Jika menyertakan Bearer Token valid, field `viewer.isLiked` dan `viewer.isBookmarked` akan bernilai sesuai status akun yang login.
+        - Jika tanpa token, `viewer.isLiked` dan `viewer.isBookmarked` akan bernilai `false`.
+      operationId: getFeedsTimeline
+      tags:
+        - Feeds Timeline & Discovery
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: Kursor pagination base64 dari request sebelumnya
+          schema:
+            type: string
+            example: "eyJjcmVhdGVkQXQiOiIyMDI2LTA4LTI3VDEwOjAwOjAwLjAwMFoiLCJpZCI6InBzdF8xMjMifQ=="
+        - name: limit
+          in: query
+          required: false
+          description: Jumlah postingan per halaman (1 - 50, default 20)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+            example: 20
+        - name: destinationId
+          in: query
+          required: false
+          description: Filter postingan berdasarkan ID destinasi katalog
+          schema:
+            type: string
+            example: "dest_bukit_merese"
+        - name: userId
+          in: query
+          required: false
+          description: Filter postingan berdasarkan ID pembuat postingan
+          schema:
+            type: string
+            example: "usr_traveler_123"
+      responses:
+        '200':
+          description: Feed posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /feeds/destinations/search:
+    get:
+      summary: Quick search destinations for post location tagging
+      description: |
+        Pencarian cepat destinasi katalog aktif untuk disematkan saat pengguna membuat atau mengedit postingan feed.
+      operationId: searchFeedDestinations
+      tags:
+        - Feeds Timeline & Discovery
+      parameters:
+        - name: q
+          in: query
+          required: false
+          description: Kata kunci pencarian nama atau lokasi destinasi
+          schema:
+            type: string
+            example: "merese"
+        - name: limit
+          in: query
+          required: false
+          description: Batas jumlah hasil pencarian (1 - 30, default 10)
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 10
+            example: 10
+      responses:
+        '200':
+          description: Destinations search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationSearchResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /feeds/bookmarks:
+    get:
+      summary: Get current authenticated user's bookmarked feed posts
+      description: |
+        Mengambil daftar postingan feed yang telah disimpan/dibookmark oleh pengguna yang sedang login.
+      operationId: getUserBookmarks
+      tags:
+        - Feeds Timeline & Discovery
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: cursor
+          in: query
+          required: false
+          description: Kursor pagination base64
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: Bookmarked feeds retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /feeds/users/{userId}:
+    get:
+      summary: Get feed posts authored by a specific user profile
+      description: |
+        Mengambil linimasa postingan publik yang diunggah oleh profil pengguna tertentu. Mengembalikan `404` jika user tidak ditemukan.
+      operationId: getUserFeedPosts
+      tags:
+        - Feeds Timeline & Discovery
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          description: UUID akun pengguna target
+          schema:
+            type: string
+            example: "usr_traveler_123"
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        '200':
+          description: User feed posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '404':
+          description: User profile not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 404
+                message: "User not found"
+                errorCode: "USER_NOT_FOUND"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /feeds/users/{userId}/posts:
+    get:
+      summary: Get feed posts authored by a specific user (Convenience Alias)
+      description: |
+        Endpoint alias kompatibilitas untuk `GET /feeds/users/{userId}`.
+      operationId: getUserFeedPostsAlias
+      tags:
+        - Feeds Timeline & Discovery
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: User feed posts retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostListResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==========================================
+  # POST MANAGEMENT (CRUD)
+  # ==========================================
+  /feeds/posts:
+    post:
+      summary: Create a new feed post
+      description: |
+        Membuat postingan cerita perjalanan baru di komunitas Lombok Explorer.
+        - Membutuhkan minimal `title` (2-150 karakter) dan `description` (2-5000 karakter).
+        - **Aturan Lokasi**: Wajib menyertakan salah satu dari `destinationId` (ID destinasi katalog) ATAU custom `location` (`name`, `latitude`, `longitude`).
+        - Mendukung hingga 10 media gambar/video.
+      operationId: createFeedPost
+      tags:
+        - Post Management
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePostRequest'
+      responses:
+        '201':
+          description: Feed post created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /feeds/posts/{id}:
+    get:
+      summary: Get feed post detail by ID
+      description: |
+        Mengambil data lengkap sebuah postingan feed berdasarkan ID uniknya.
+      operationId: getFeedPostById
+      tags:
+        - Post Management
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: UUID postingan feed
+          schema:
+            type: string
+            example: "pst_merese_sunset_01"
+      responses:
+        '200':
+          description: Feed post detail retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '404':
+          description: Post not found or hidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 404
+                message: "Feed post not found"
+                errorCode: "POST_NOT_FOUND"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update an existing feed post
+      description: |
+        Memperbarui konten postingan yang telah dibuat. Hanya dapat dilakukan oleh pemilik postingan atau administrator.
+      operationId: updateFeedPost
+      tags:
+        - Post Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostRequest'
+      responses:
+        '200':
+          description: Feed post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Forbidden - Not the post author
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 403
+                message: "You do not have permission to edit this post"
+                errorCode: "FORBIDDEN"
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Replace an existing feed post (Compatibility)
+      description: Alias kompatibilitas untuk `PATCH /feeds/posts/{id}`.
+      operationId: replaceFeedPost
+      tags:
+        - Post Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdatePostRequest'
+      responses:
+        '200':
+          description: Feed post updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    delete:
+      summary: Delete a feed post
+      description: |
+        Menghapus postingan (soft-delete). Hanya dapat dilakukan oleh pemilik postingan atau administrator.
+      operationId: deleteFeedPost
+      tags:
+        - Post Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Feed post deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # SOCIAL INTERACTIONS (LIKE, BOOKMARK, SHARE, REPORT)
+  # ==========================================
+  /feeds/posts/{id}/like:
+    post:
+      summary: Like a feed post
+      description: Memberikan like pada postingan feed. Bersifat idempoten jika sudah pernah di-like sebelumnya.
+      operationId: likeFeedPost
+      tags:
+        - Social Interactions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post liked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LikePostResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+    delete:
+      summary: Unlike a feed post
+      description: Membatalkan like pada postingan feed.
+      operationId: unlikeFeedPost
+      tags:
+        - Social Interactions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post unliked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LikePostResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/bookmark:
+    post:
+      summary: Bookmark / save a feed post
+      description: Menyimpan postingan ke daftar bookmark akun.
+      operationId: bookmarkFeedPost
+      tags:
+        - Social Interactions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post bookmarked successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookmarkPostResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+    delete:
+      summary: Remove post from bookmarks
+      description: Menghapus postingan dari daftar bookmark.
+      operationId: unbookmarkFeedPost
+      tags:
+        - Social Interactions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post removed from bookmarks successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BookmarkPostResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/share:
+    post:
+      summary: Increment post share counter
+      description: Mencatat aktivitas share postingan dan menambah counter share. Dapat dipanggil publik.
+      operationId: shareFeedPost
+      tags:
+        - Social Interactions
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Post shared successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SharePostResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /feeds/posts/{id}/report:
+    post:
+      summary: Report inappropriate feed post to moderation
+      description: |
+        Melaporkan postingan ke tim admin untuk peninjauan moderasi.
+        Alasan yang didukung: `SPAM`, `INAPPROPRIATE`, `HARASSMENT`, `FRAUD`, `MISLEADING`, `OTHER`.
+      operationId: reportFeedPost
+      tags:
+        - Social Interactions
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReportRequest'
+      responses:
+        '201':
+          description: Post report submitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedReportResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+
+  # ==========================================
+  # COMMENTS
+  # ==========================================
+  /feeds/posts/{id}/comments:
+    get:
+      summary: List comments for a post (Cursor Pagination)
+      description: Mengambil daftar komentar pada postingan feed secara berurutan.
+      operationId: getPostComments
+      tags:
+        - Comments
+      security:
+        - {}
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: cursor
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+        - name: order
+          in: query
+          required: false
+          description: Urutan kronologis komentar ('asc' = terlama dulu, 'desc' = terbaru dulu)
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Comments retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedCommentListResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    post:
+      summary: Add a comment to a feed post
+      description: Mengirimkan komentar baru pada postingan. Maksimal 1000 karakter.
+      operationId: addPostComment
+      tags:
+        - Comments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCommentRequest'
+      responses:
+        '201':
+          description: Comment added successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedCommentDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '429':
+          $ref: '#/components/responses/TooManyRequestsError'
+
+  /feeds/comments/{commentId}:
+    delete:
+      summary: Delete a comment
+      description: Menghapus komentar. Hanya dapat dilakukan oleh pembuat komentar atau administrator.
+      operationId: deletePostComment
+      tags:
+        - Comments
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: commentId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Comment deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==========================================
+  # ADMIN MODERATION & GOVERNANCE
+  # ==========================================
+  /admin/feeds/reports:
+    get:
+      summary: List user content reports (Admin only)
+      description: Mengambil daftar laporan konten dengan filter status dan alasan.
+      operationId: getAdminFeedReports
+      tags:
+        - Admin Feed Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ReportStatusEnum'
+        - name: reason
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ReportReasonEnum'
+        - name: search
+          in: query
+          required: false
+          schema:
+            type: string
+        - name: page
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Feed post reports retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /admin/feeds/reports/{id}:
+    get:
+      summary: Get feed report detail by ID (Admin only)
+      description: Mengambil detail laporan konten beserta data postingan dan pelapor.
+      operationId: getAdminFeedReportById
+      tags:
+        - Admin Feed Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Feed post report detail retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportDetailResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      summary: Update report moderation status (Admin only)
+      description: Mengubah status peninjauan laporan (`REVIEWED`, `RESOLVED`, `DISMISSED`) dan menyimpan catatan admin.
+      operationId: updateAdminFeedReportStatus
+      tags:
+        - Admin Feed Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateReportStatusRequest'
+      responses:
+        '200':
+          description: Report status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminReportDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /admin/feeds/posts/{id}/status:
+    patch:
+      summary: Moderate post visibility status (Admin only)
+      description: Mengubah status visibilitas postingan (`PUBLISHED`, `HIDDEN`, `DELETED`) untuk keperluan moderasi.
+      operationId: updateAdminPostStatus
+      tags:
+        - Admin Feed Moderation
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdatePostStatusRequest'
+      responses:
+        '200':
+          description: Feed post status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeedPostDetailResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+# ==========================================
+# COMPONENTS & SCHEMAS
+# ==========================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Masukkan JWT Access Token dengan format: `Bearer <token>`.
+
+  responses:
+    BadRequestError:
+      description: Bad Request - Parameter atau payload tidak valid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 400
+            message: "Validation error occurred"
+            errorCode: "VALIDATION_ERROR"
+            details:
+              - "location: Either destinationId or custom location (name, latitude, longitude) must be provided"
+    UnauthorizedError:
+      description: Unauthorized - Token diperlukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 401
+            message: "Authentication token is required"
+            errorCode: "TOKEN_MISSING"
+    ForbiddenError:
+      description: Forbidden - Izin tidak mencukupi
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 403
+            message: "You do not have permission to perform this action"
+            errorCode: "FORBIDDEN"
+    NotFoundError:
+      description: Not Found - Data tidak ditemukan
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 404
+            message: "Feed post not found"
+            errorCode: "POST_NOT_FOUND"
+    TooManyRequestsError:
+      description: Too Many Requests - Rate limit terlampaui
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 429
+            message: "Too many feed actions, please slow down"
+            errorCode: "RATE_LIMIT_EXCEEDED"
+    InternalServerError:
+      description: Internal Server Error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 500
+            message: "Internal server error occurred"
+            errorCode: "INTERNAL_SERVER_ERROR"
+
+  schemas:
+    # --- ENUMS ---
+    PostStatusEnum:
+      type: string
+      enum:
+        - DRAFT
+        - PUBLISHED
+        - HIDDEN
+        - DELETED
+      example: "PUBLISHED"
+
+    ReportReasonEnum:
+      type: string
+      enum:
+        - SPAM
+        - INAPPROPRIATE
+        - HARASSMENT
+        - FRAUD
+        - MISLEADING
+        - OTHER
+      example: "INAPPROPRIATE"
+
+    ReportStatusEnum:
+      type: string
+      enum:
+        - PENDING
+        - REVIEWED
+        - RESOLVED
+        - DISMISSED
+      example: "PENDING"
+
+    # --- SUB-ENTITIES ---
+    FeedAuthorResponse:
+      type: object
+      required:
+        - id
+        - name
+        - username
+        - avatarUrl
+      properties:
+        id:
+          type: string
+          example: "usr_traveler_123"
+        name:
+          type: string
+          example: "Wahyu Traveler"
+        username:
+          type: string
+          example: "wahyu_traveler"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+
+    FeedLocationResponse:
+      type: object
+      required:
+        - name
+        - latitude
+        - longitude
+      properties:
+        id:
+          type: string
+          example: "loc_merese_01"
+        name:
+          type: string
+          example: "Bukit Merese Sunset Point"
+        latitude:
+          type: number
+          example: -8.9167
+        longitude:
+          type: number
+          example: 116.3167
+        address:
+          type: string
+          nullable: true
+          example: "Kuta, Pujut, Lombok Tengah"
+        destination:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+              example: "dest_bukit_merese"
+            name:
+              type: string
+              example: "Bukit Merese"
+            slug:
+              type: string
+              example: "bukit-merese"
+
+    FeedMediaResponse:
+      type: object
+      required:
+        - id
+        - url
+        - type
+        - sortOrder
+      properties:
+        id:
+          type: string
+          example: "med_img_01"
+        url:
+          type: string
+          example: "https://images.unsplash.com/photo-1570789210967-2cac24afeb00?q=80&w=1200"
+        type:
+          type: string
+          example: "IMAGE"
+        sortOrder:
+          type: integer
+          example: 0
+        caption:
+          type: string
+          nullable: true
+          example: "Pemandangan magis matahari terbenam dari atas bukit"
+
+    FeedStatsResponse:
+      type: object
+      required:
+        - likeCount
+        - commentCount
+        - shareCount
+      properties:
+        likeCount:
+          type: integer
+          example: 42
+        commentCount:
+          type: integer
+          example: 8
+        shareCount:
+          type: integer
+          example: 15
+
+    FeedViewerResponse:
+      type: object
+      required:
+        - isLiked
+        - isBookmarked
+      properties:
+        isLiked:
+          type: boolean
+          example: true
+        isBookmarked:
+          type: boolean
+          example: false
+
+    FeedPostResponse:
+      type: object
+      required:
+        - id
+        - author
+        - title
+        - description
+        - location
+        - media
+        - stats
+        - viewer
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: "pst_merese_sunset_01"
+        author:
+          $ref: '#/components/schemas/FeedAuthorResponse'
+        title:
+          type: string
+          example: "Sunset Magis di Bukit Merese, Lombok Selatan"
+        description:
+          type: string
+          example: "Pengalaman terbaik melihat pemandangan gradasi laut dan langit jingga saat sore hari di Merese."
+        location:
+          $ref: '#/components/schemas/FeedLocationResponse'
+          nullable: true
+        media:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedMediaResponse'
+        stats:
+          $ref: '#/components/schemas/FeedStatsResponse'
+        viewer:
+          $ref: '#/components/schemas/FeedViewerResponse'
+        status:
+          $ref: '#/components/schemas/PostStatusEnum'
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T08:30:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T08:30:00.000Z"
+
+    CursorPaginationMeta:
+      type: object
+      required:
+        - nextCursor
+        - hasNextPage
+      properties:
+        nextCursor:
+          type: string
+          nullable: true
+          example: "eyJjcmVhdGVkQXQiOiIyMDI2LTA4LTI3VDA4OjMwOjAwLjAwMFoiLCJpZCI6InBzdF8wMSJ9"
+        hasNextPage:
+          type: boolean
+          example: true
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - totalItems
+        - totalPages
+        - hasNextPage
+        - hasPrevPage
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalItems:
+          type: integer
+          example: 25
+        totalPages:
+          type: integer
+          example: 3
+        hasNextPage:
+          type: boolean
+          example: true
+        hasPrevPage:
+          type: boolean
+          example: false
+
+    # --- REQUEST SCHEMAS ---
+    PostLocationInput:
+      type: object
+      required:
+        - name
+        - latitude
+        - longitude
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 150
+          example: "Bukit Merese"
+        latitude:
+          type: number
+          minimum: -90
+          maximum: 90
+          example: -8.9167
+        longitude:
+          type: number
+          minimum: -180
+          maximum: 180
+          example: 116.3167
+        address:
+          type: string
+          maxLength: 300
+          example: "Jl. Pariwisata Pantai Kuta, Pujut, Lombok Tengah"
+
+    PostMediaInput:
+      type: object
+      required:
+        - url
+      properties:
+        url:
+          type: string
+          example: "https://images.unsplash.com/photo-1570789210967-2cac24afeb00?q=80&w=1200"
+        type:
+          type: string
+          default: "IMAGE"
+          example: "IMAGE"
+        sortOrder:
+          type: integer
+          minimum: 0
+          default: 0
+          example: 0
+        caption:
+          type: string
+          maxLength: 500
+          example: "Pemandangan bukit saat senja"
+
+    CreatePostRequest:
+      type: object
+      required:
+        - title
+        - description
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: "Sunset Magis di Bukit Merese"
+        description:
+          type: string
+          minLength: 2
+          maxLength: 5000
+          example: "Suasana senja yang sangat damai dengan angin sepoi-sepoi dan pemandangan Tanjung Aan dari ketinggian."
+        destinationId:
+          type: string
+          description: ID destinasi katalog resmi Lombok Explorer (opsional jika menyertakan custom location)
+          example: "dest_bukit_merese"
+        location:
+          $ref: '#/components/schemas/PostLocationInput'
+        media:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/PostMediaInput'
+
+    UpdatePostRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 2
+          maxLength: 150
+          example: "Sunset Magis di Bukit Merese (Updated)"
+        description:
+          type: string
+          minLength: 2
+          maxLength: 5000
+          example: "Deskripsi yang telah diperbarui dengan tips waktu terbaik berkunjung."
+        destinationId:
+          type: string
+          nullable: true
+          example: "dest_bukit_merese"
+        location:
+          $ref: '#/components/schemas/PostLocationInput'
+          nullable: true
+        media:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/PostMediaInput'
+
+    CreateCommentRequest:
+      type: object
+      required:
+        - content
+      properties:
+        content:
+          type: string
+          minLength: 1
+          maxLength: 1000
+          example: "Keren sekali fotonya! Jam berapa biasanya paling bagus ke sini?"
+
+    CreateReportRequest:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          $ref: '#/components/schemas/ReportReasonEnum'
+        description:
+          type: string
+          maxLength: 1000
+          example: "Postingan ini memuat konten promosi spam yang tidak relevan dengan pariwisata."
+
+    AdminUpdateReportStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/ReportStatusEnum'
+        adminNotes:
+          type: string
+          maxLength: 1000
+          example: "Laporan diverifikasi valid, postingan telah disembunyikan oleh admin."
+
+    AdminUpdatePostStatusRequest:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: '#/components/schemas/PostStatusEnum'
+        adminNotes:
+          type: string
+          maxLength: 1000
+          example: "Postingan disembunyikan karena melanggar pedoman komunitas."
+
+    # --- RESPONSE SCHEMAS ---
+    FeedPostListResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Feed posts retrieved successfully"
+        data:
+          type: object
+          required:
+            - items
+            - pagination
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeedPostResponse'
+            pagination:
+              $ref: '#/components/schemas/CursorPaginationMeta'
+
+    FeedPostDetailResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Feed post detail retrieved successfully"
+        data:
+          $ref: '#/components/schemas/FeedPostResponse'
+
+    DestinationSearchItem:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - category
+        - location
+      properties:
+        id:
+          type: string
+          example: "dest_bukit_merese"
+        name:
+          type: string
+          example: "Bukit Merese"
+        slug:
+          type: string
+          example: "bukit-merese"
+        category:
+          type: object
+          properties:
+            name:
+              type: string
+              example: "Pantai & Bukit"
+        location:
+          type: object
+          properties:
+            latitude:
+              type: number
+              example: -8.9167
+            longitude:
+              type: number
+              example: 116.3167
+            address:
+              type: string
+              example: "Kuta, Lombok Tengah"
+
+    DestinationSearchResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Destinations search completed successfully"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationSearchItem'
+
+    LikePostResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Post liked successfully"
+        data:
+          type: object
+          required:
+            - isLiked
+            - likeCount
+          properties:
+            isLiked:
+              type: boolean
+              example: true
+            likeCount:
+              type: integer
+              example: 43
+
+    BookmarkPostResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Post bookmarked successfully"
+        data:
+          type: object
+          required:
+            - isBookmarked
+          properties:
+            isBookmarked:
+              type: boolean
+              example: true
+
+    SharePostResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Post shared successfully"
+        data:
+          type: object
+          required:
+            - shareCount
+          properties:
+            shareCount:
+              type: integer
+              example: 16
+
+    FeedReportResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 201
+        message:
+          type: string
+          example: "Post report submitted successfully"
+        data:
+          type: object
+          required:
+            - id
+            - postId
+            - userId
+            - reason
+            - status
+            - createdAt
+          properties:
+            id:
+              type: string
+              example: "rep_spam_01"
+            postId:
+              type: string
+              example: "pst_merese_sunset_01"
+            userId:
+              type: string
+              example: "usr_traveler_123"
+            reason:
+              $ref: '#/components/schemas/ReportReasonEnum'
+            description:
+              type: string
+              nullable: true
+              example: "Spam content"
+            status:
+              $ref: '#/components/schemas/ReportStatusEnum'
+            createdAt:
+              type: string
+              format: date-time
+              example: "2026-08-27T09:00:00.000Z"
+
+    FeedCommentResponse:
+      type: object
+      required:
+        - id
+        - postId
+        - user
+        - content
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: "cmt_123"
+        postId:
+          type: string
+          example: "pst_merese_sunset_01"
+        user:
+          $ref: '#/components/schemas/FeedAuthorResponse'
+        content:
+          type: string
+          example: "Keren sekali fotonya! Jam berapa biasanya paling bagus ke sini?"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T09:15:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T09:15:00.000Z"
+
+    FeedCommentListResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Comments retrieved successfully"
+        data:
+          type: object
+          required:
+            - items
+            - pagination
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/FeedCommentResponse'
+            pagination:
+              $ref: '#/components/schemas/CursorPaginationMeta'
+
+    FeedCommentDetailResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 201
+        message:
+          type: string
+          example: "Comment added successfully"
+        data:
+          $ref: '#/components/schemas/FeedCommentResponse'
+
+    AdminReportListItem:
+      type: object
+      required:
+        - id
+        - postId
+        - post
+        - reporter
+        - reason
+        - status
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: "rep_spam_01"
+        postId:
+          type: string
+          example: "pst_merese_sunset_01"
+        post:
+          type: object
+          properties:
+            id:
+              type: string
+              example: "pst_merese_sunset_01"
+            title:
+              type: string
+              example: "Sunset Magis di Bukit Merese"
+            description:
+              type: string
+              example: "Konten..."
+            status:
+              type: string
+              example: "PUBLISHED"
+            author:
+              type: object
+              properties:
+                id:
+                  type: string
+                name:
+                  type: string
+                username:
+                  type: string
+        reporter:
+          type: object
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            username:
+              type: string
+        reason:
+          type: string
+          example: "SPAM"
+        description:
+          type: string
+          nullable: true
+          example: "Spam promosi"
+        status:
+          type: string
+          example: "PENDING"
+        adminNotes:
+          type: string
+          nullable: true
+          example: null
+        resolvedBy:
+          type: string
+          nullable: true
+          example: null
+        resolvedAt:
+          type: string
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T09:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T09:00:00.000Z"
+
+    AdminReportListResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Feed post reports retrieved successfully"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminReportListItem'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    AdminReportDetailResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Feed post report detail retrieved successfully"
+        data:
+          $ref: '#/components/schemas/AdminReportListItem'
+
+    StandardActionResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Operation completed successfully"
+        data:
+          type: object
+          nullable: true
+          example: null
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - errorCode
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Validation error occurred"
+        errorCode:
+          type: string
+          example: "VALIDATION_ERROR"
+        details:
+          type: array
+          items:
+            type: string
+          nullable: true
+          example: ["location: Either destinationId or custom location (name, latitude, longitude) must be provided"]

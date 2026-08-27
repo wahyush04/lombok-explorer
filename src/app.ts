@@ -160,7 +160,51 @@ export const createApp = (): Application => {
       );
     }
 
-    // 8c. Public OpenAPI Documentation (/api/docs)
+    const feedOpenApiPath = path.resolve(process.cwd(), 'openapi-feed.yaml');
+
+    // 8c. Feed & Community OpenAPI Documentation (/api/docs/feed & /api/docs/feeds)
+    if (fs.existsSync(feedOpenApiPath)) {
+      const feedFileContent = fs.readFileSync(feedOpenApiPath, 'utf8');
+      const feedSwaggerDoc = yaml.parse(feedFileContent);
+
+      const feedUiOptions: swaggerUi.SwaggerUiOptions = {
+        customSiteTitle: 'Lombok Explorer Feed & Community API Documentation',
+        customCss: `
+          .swagger-ui .topbar { display: none }
+          .swagger-ui .info { margin-bottom: 24px; }
+          .swagger-ui .scheme-container { background: #ecfdf5; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        `,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: 'none',
+          filter: true,
+          tryItOutEnabled: true,
+        },
+      };
+
+      app.get(['/api/docs/feed/json', '/api/docs/feeds/json'], (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.json(feedSwaggerDoc);
+      });
+      app.get(['/api/docs/feed/yaml', '/api/docs/feeds/yaml'], (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+        res.send(feedFileContent);
+      });
+
+      app.use(
+        ['/api/docs/feed', '/api/docs/feeds'],
+        swaggerUi.serveFiles(feedSwaggerDoc, feedUiOptions),
+        swaggerUi.setup(feedSwaggerDoc, feedUiOptions),
+      );
+      app.use(
+        ['/docs/feed', '/docs/feeds'],
+        swaggerUi.serveFiles(feedSwaggerDoc, feedUiOptions),
+        swaggerUi.setup(feedSwaggerDoc, feedUiOptions),
+      );
+    }
+
+    // 8d. Public OpenAPI Documentation (/api/docs)
     if (fs.existsSync(openApiPath)) {
       const fileContent = fs.readFileSync(openApiPath, 'utf8');
       const swaggerDocument = yaml.parse(fileContent);
@@ -223,6 +267,8 @@ export const createApp = (): Application => {
         version: config.app.version,
         environment: config.app.env,
         docs: '/api/docs',
+        authDocs: '/api/docs/auth',
+        feedDocs: '/api/docs/feed',
         adminDocs: '/api/docs/admin',
         docsJson: '/api/docs/json',
         docsYaml: '/api/docs/yaml',

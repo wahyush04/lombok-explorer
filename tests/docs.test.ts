@@ -162,6 +162,69 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(response.text).toContain('Lombok Explorer — Authentication & Identity API');
   });
 
+  it('GET /api/docs/feed/ should serve Swagger UI HTML for Feed API', async () => {
+    const response = await request(app).get('/api/docs/feed/');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('swagger-ui');
+    expect(response.text).toContain('Lombok Explorer Feed & Community API Documentation');
+  });
+
+  it('GET /docs/feed/ should also serve Swagger UI HTML (convenience alias)', async () => {
+    const response = await request(app).get('/docs/feed/');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('swagger-ui');
+  });
+
+  it('GET /api/docs/feed/json should serve parsed Feed OpenAPI specification JSON', async () => {
+    const response = await request(app).get('/api/docs/feed/json');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('openapi', '3.0.3');
+    expect(response.body.info).toHaveProperty('title', 'Lombok Explorer — Feeds & Community API');
+    expect(response.body).toHaveProperty('paths');
+    expect(response.body).toHaveProperty('components');
+
+    const paths = response.body.paths;
+    expect(paths).toHaveProperty('/feeds');
+    expect(paths).toHaveProperty('/feeds/destinations/search');
+    expect(paths).toHaveProperty('/feeds/bookmarks');
+    expect(paths).toHaveProperty('/feeds/users/{userId}');
+    expect(paths).toHaveProperty('/feeds/posts');
+    expect(paths).toHaveProperty('/feeds/posts/{id}');
+    expect(paths).toHaveProperty('/feeds/posts/{id}/like');
+    expect(paths).toHaveProperty('/feeds/posts/{id}/bookmark');
+    expect(paths).toHaveProperty('/feeds/posts/{id}/share');
+    expect(paths).toHaveProperty('/feeds/posts/{id}/report');
+    expect(paths).toHaveProperty('/feeds/posts/{id}/comments');
+    expect(paths).toHaveProperty('/feeds/comments/{commentId}');
+    expect(paths).toHaveProperty('/admin/feeds/reports');
+    expect(paths).toHaveProperty('/admin/feeds/reports/{id}');
+    expect(paths).toHaveProperty('/admin/feeds/posts/{id}/status');
+
+    const schemas = response.body.components.schemas;
+    expect(schemas).toHaveProperty('FeedPostResponse');
+    expect(schemas).toHaveProperty('FeedPostListResponse');
+    expect(schemas).toHaveProperty('FeedPostDetailResponse');
+    expect(schemas).toHaveProperty('CreatePostRequest');
+    expect(schemas).toHaveProperty('UpdatePostRequest');
+    expect(schemas).toHaveProperty('FeedCommentResponse');
+    expect(schemas).toHaveProperty('CreateCommentRequest');
+    expect(schemas).toHaveProperty('FeedReportResponse');
+    expect(schemas).toHaveProperty('CreateReportRequest');
+    expect(schemas).toHaveProperty('AdminReportListResponse');
+  });
+
+  it('GET /api/docs/feed/yaml should serve raw Feed OpenAPI YAML specification', async () => {
+    const response = await request(app).get('/api/docs/feed/yaml');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/yaml');
+    expect(response.text).toContain('openapi: 3.0.3');
+    expect(response.text).toContain('Lombok Explorer — Feeds & Community API');
+  });
+
   it('GET /api/docs/yaml should serve raw OpenAPI YAML specification', async () => {
     const response = await request(app).get('/api/docs/yaml');
 
