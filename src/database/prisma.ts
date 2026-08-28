@@ -9,6 +9,11 @@ declare global {
 export const prisma =
   global.__prisma ||
   new PrismaClient({
+    datasources: {
+      db: {
+        url: config.database.url,
+      },
+    },
     log: config.app.isDevelopment
       ? [
           { emit: 'event', level: 'query' },

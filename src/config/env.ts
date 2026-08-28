@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
+import fs from 'fs';
+
 dotenv.config();
 
 export const envSchema = z.object({
@@ -22,7 +24,15 @@ export const envSchema = z.object({
     .string({
       required_error: 'DATABASE_URL is a required environment variable',
     })
-    .min(1, 'DATABASE_URL cannot be empty'),
+    .min(1, 'DATABASE_URL cannot be empty')
+    .transform((url) => {
+      // If running on host (outside docker container) and url points to host.docker.internal, replace with localhost
+      const isDocker = fs.existsSync('/.dockerenv');
+      if (!isDocker && url.includes('host.docker.internal')) {
+        return url.replace('host.docker.internal', 'localhost');
+      }
+      return url;
+    }),
 
   JWT_ACCESS_SECRET: z
     .string({
@@ -85,6 +95,8 @@ export const envSchema = z.object({
   GOOGLE_PROJECT_ID: z.string().optional(),
 
   MAPBOX_ACCESS_TOKEN: z.string().optional().default(''),
+  MAPBOX_PUBLIC_TOKEN: z.string().optional().default(''),
+  MAPBOX_SECRET_TOKEN: z.string().optional().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -47,7 +47,9 @@ export const config = {
     projectId: env.GOOGLE_PROJECT_ID,
   },
   mapbox: {
-    accessToken: env.MAPBOX_ACCESS_TOKEN || '',
+    accessToken: env.MAPBOX_SECRET_TOKEN || env.MAPBOX_ACCESS_TOKEN || env.MAPBOX_PUBLIC_TOKEN || '',
+    publicToken: env.MAPBOX_PUBLIC_TOKEN || env.MAPBOX_ACCESS_TOKEN || '',
+    secretToken: env.MAPBOX_SECRET_TOKEN || '',
   },
 } as const;
 
