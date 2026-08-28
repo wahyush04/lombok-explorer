@@ -204,6 +204,50 @@ export const createApp = (): Application => {
       );
     }
 
+    const itineraryOpenApiPath = path.resolve(process.cwd(), 'openapi-itinerary.yaml');
+
+    // 8d. Itinerary / Trip OpenAPI Documentation (/api/docs/itinerary & /api/docs/itineraries)
+    if (fs.existsSync(itineraryOpenApiPath)) {
+      const itineraryFileContent = fs.readFileSync(itineraryOpenApiPath, 'utf8');
+      const itinerarySwaggerDoc = yaml.parse(itineraryFileContent);
+
+      const itineraryUiOptions: swaggerUi.SwaggerUiOptions = {
+        customSiteTitle: 'Lombok Explorer Itinerary & Trip API Documentation',
+        customCss: `
+          .swagger-ui .topbar { display: none }
+          .swagger-ui .info { margin-bottom: 24px; }
+          .swagger-ui .scheme-container { background: #eff6ff; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        `,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: 'none',
+          filter: true,
+          tryItOutEnabled: true,
+        },
+      };
+
+      app.get('/api/docs/itinerary/json', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.json(itinerarySwaggerDoc);
+      });
+      app.get('/api/docs/itinerary/yaml', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+        res.send(itineraryFileContent);
+      });
+
+      app.use(
+        ['/api/docs/itinerary', '/api/docs/itineraries'],
+        swaggerUi.serveFiles(itinerarySwaggerDoc, itineraryUiOptions),
+        swaggerUi.setup(itinerarySwaggerDoc, itineraryUiOptions),
+      );
+      app.use(
+        ['/docs/itinerary', '/docs/itineraries'],
+        swaggerUi.serveFiles(itinerarySwaggerDoc, itineraryUiOptions),
+        swaggerUi.setup(itinerarySwaggerDoc, itineraryUiOptions),
+      );
+    }
+
     // 8d. Public OpenAPI Documentation (/api/docs)
     if (fs.existsSync(openApiPath)) {
       const fileContent = fs.readFileSync(openApiPath, 'utf8');

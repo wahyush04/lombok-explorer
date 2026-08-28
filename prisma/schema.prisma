@@ -61,6 +61,14 @@ enum BudgetLevel {
   LUXURY
 }
 
+enum TransportationMode {
+  CAR
+  MOTORCYCLE
+  WALKING
+  CYCLING
+  PUBLIC_TRANSPORT
+}
+
 enum ExpenseCategory {
   TRANSPORT
   ACCOMMODATION
@@ -311,24 +319,31 @@ model Review {
 // ==========================================
 
 model Itinerary {
-  id                   String      @id @default(uuid())
-  userId               String?
-  user                 User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
-  title                String
-  description          String?     @db.Text
-  coverImageUrl        String?     @db.Text
-  totalDays            Int         @default(1)
-  totalEstimatedBudget Decimal     @default(0) @db.Decimal(12, 2)
-  travelStyle          TravelStyle @default(BEACH_RELAXATION)
-  budgetLevel          BudgetLevel @default(MID_RANGE)
-  pace                 String      @default("BALANCED") // RELAXED, BALANCED, INTENSE
-  isPublic             Boolean     @default(false)
-  isSaved              Boolean     @default(true)
-  startDate            DateTime?
-  endDate              DateTime?
-  createdAt            DateTime    @default(now())
-  updatedAt            DateTime    @updatedAt
-  deletedAt            DateTime?
+  id                     String             @id @default(uuid())
+  userId                 String?
+  user                   User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  title                  String
+  description            String?            @db.Text
+  coverImageUrl          String?            @db.Text
+  totalDays              Int                @default(1)
+  totalEstimatedBudget   Decimal            @default(0) @db.Decimal(12, 2)
+  travelStyle            TravelStyle        @default(BEACH_RELAXATION)
+  budgetLevel            BudgetLevel        @default(MID_RANGE)
+  pace                   String             @default("BALANCED") // RELAXED, BALANCED, INTENSE
+  transportationMode     TransportationMode @default(CAR)
+  startLocation          String?            @db.Text // JSON: { name, latitude, longitude, address }
+  endLocation            String?            @db.Text // JSON: { name, latitude, longitude, address }
+  totalDistanceKm        Float              @default(0)
+  totalTravelTimeMinutes Int                @default(0)
+  isCustom               Boolean            @default(false)
+  isPublic               Boolean            @default(false)
+  isSaved                Boolean            @default(true)
+  shareToken             String?            @unique
+  startDate              DateTime?
+  endDate                DateTime?
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  deletedAt              DateTime?
 
   // Relations
   days     ItineraryDay[]
@@ -337,19 +352,23 @@ model Itinerary {
   @@index([userId])
   @@index([travelStyle])
   @@index([budgetLevel])
+  @@index([shareToken])
   @@map("itineraries")
 }
 
 model ItineraryDay {
-  id          String    @id @default(uuid())
-  itineraryId String
-  itinerary   Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
-  dayNumber   Int
-  title       String
-  date        DateTime?
-  notes       String?   @db.Text
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  id                     String          @id @default(uuid())
+  itineraryId            String
+  itinerary              Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  dayNumber              Int
+  title                  String
+  date                   DateTime?
+  notes                  String?         @db.Text
+  totalDistanceKm        Float           @default(0)
+  totalTravelTimeMinutes Int             @default(0)
+  estimatedBudget        Decimal         @default(0) @db.Decimal(12, 2)
+  createdAt              DateTime        @default(now())
+  updatedAt              DateTime        @updatedAt
 
   // Relations
   items ItineraryItem[]
@@ -360,22 +379,29 @@ model ItineraryDay {
 }
 
 model ItineraryItem {
-  id                       String       @id @default(uuid())
-  itineraryDayId           String
-  itineraryDay             ItineraryDay @relation(fields: [itineraryDayId], references: [id], onDelete: Cascade)
-  destinationId            String?
-  destination              Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
-  orderIndex               Int
-  timeSlot                 String? // e.g. "08:30 - 10:30"
-  customTitle              String?
-  activityNotes            String?      @db.Text
-  estimatedDurationMinutes Int          @default(60)
-  estimatedCost            Decimal      @default(0) @db.Decimal(12, 2)
-  createdAt                DateTime     @default(now())
-  updatedAt                DateTime     @updatedAt
+  id                        String       @id @default(uuid())
+  itineraryDayId            String
+  itineraryDay              ItineraryDay @relation(fields: [itineraryDayId], references: [id], onDelete: Cascade)
+  destinationId             String?
+  destination               Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  customLocation            String?      @db.Text // JSON: { name, latitude, longitude, address }
+  customTitle               String?
+  orderIndex                Int
+  startTime                 String?      // e.g. "08:30"
+  endTime                   String?      // e.g. "10:30"
+  timeSlot                  String?      // e.g. "08:30 - 10:30"
+  activityNotes             String?      @db.Text
+  estimatedDurationMinutes  Int          @default(60)
+  estimatedCost             Decimal      @default(0) @db.Decimal(12, 2)
+  distanceFromPrevKm        Float        @default(0)
+  travelTimeFromPrevMinutes Int          @default(0)
+  isCompleted               Boolean      @default(false)
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
 
   @@index([itineraryDayId])
   @@index([destinationId])
+  @@index([orderIndex])
   @@map("itinerary_items")
 }
 

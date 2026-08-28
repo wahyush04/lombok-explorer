@@ -6,6 +6,7 @@ import { categoryRoutes } from '../../modules/categories/categories.routes';
 import { favoriteRoutes } from '../../modules/favorites/favorites.routes';
 import { reviewRoutes } from '../../modules/reviews/reviews.routes';
 import { itineraryRoutes } from '../../modules/itineraries/itineraries.routes';
+import { itinerariesController } from '../../modules/itineraries/itineraries.controller';
 import { recommendationRoutes } from '../../modules/recommendations/recommendations.routes';
 import { weatherRoutes } from '../../modules/weather/weather.routes';
 import { expenseRoutes } from '../../modules/expenses/expenses.routes';
@@ -38,6 +39,7 @@ router.use('/reviews', reviewRoutes);
 
 // 7. Itineraries & Smart Generator Module (Phase 13 & 14)
 router.use('/itineraries', itineraryRoutes);
+router.get('/shared/itineraries/:shareToken', itinerariesController.getSharedItinerary);
 
 // 8. Recommendation Engine (Phase 15)
 router.use('/recommendations', recommendationRoutes);

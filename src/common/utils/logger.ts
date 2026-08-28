@@ -1,6 +1,23 @@
 import pino from 'pino';
 import { config } from '../../config/config';
 
+let transportConfig: pino.TransportSingleOptions | undefined = undefined;
+if (config.app.isDevelopment) {
+  try {
+    require.resolve('pino-pretty');
+    transportConfig = {
+      target: 'pino-pretty',
+      options: {
+        colorize: true,
+        translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
+        ignore: 'pid,hostname',
+      },
+    };
+  } catch {
+    transportConfig = undefined;
+  }
+}
+
 export const logger = pino({
   level: config.logger.level,
   redact: {
@@ -23,16 +40,7 @@ export const logger = pino({
     ],
     censor: '[REDACTED]',
   },
-  transport: config.app.isDevelopment
-    ? {
-        target: 'pino-pretty',
-        options: {
-          colorize: true,
-          translateTime: 'SYS:yyyy-mm-dd HH:MM:ss',
-          ignore: 'pid,hostname',
-        },
-      }
-    : undefined,
+  transport: transportConfig,
   base: {
     service: config.app.name,
     version: config.app.version,

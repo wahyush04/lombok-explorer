@@ -46,6 +46,9 @@ export const config = {
     clientSecret: env.GOOGLE_CLIENT_SECRET,
     projectId: env.GOOGLE_PROJECT_ID,
   },
+  mapbox: {
+    accessToken: env.MAPBOX_ACCESS_TOKEN || '',
+  },
 } as const;
 
 export type AppConfig = typeof config;

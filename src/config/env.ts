@@ -83,6 +83,8 @@ export const envSchema = z.object({
   GOOGLE_CLIENT_ID: z.string().optional().default(''),
   GOOGLE_CLIENT_SECRET: z.string().optional(),
   GOOGLE_PROJECT_ID: z.string().optional(),
+
+  MAPBOX_ACCESS_TOKEN: z.string().optional().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;

@@ -1,0 +1,1390 @@
+openapi: 3.0.3
+info:
+  title: Lombok Explorer - Trip & Itinerary API Specification
+  description: |
+    API Contract khusus untuk modul **Trip & Itinerary Management**, Multi-Day Hierarchical Planning, Stop Activities, Drag & Drop Reordering, Mapbox Route Calculation & 2-Opt Optimization, serta Public Sharing.
+    
+    ### Hirarki Data:
+    - **Trip (Itinerary)**: Data master trip, jumlah hari, total budget, jarak, estimasi waktu perjalanan, moda transportasi, dan share link.
+    - **Day (ItineraryDay)**: Hari perjalanan (`Hari 1`, `Hari 2`, dst.) dengan total jarak harian, estimasi budget harian, dan daftar stop.
+    - **Stop / Activity (ItineraryItem)**: Titik perhentian pada hari tertentu, baik berupa destinasi katalog (`destinationId`) maupun lokasi bebas kustom (`customLocation`), dilengkapi urutan `orderIndex`, jam `startTime` - `endTime`, jarak/waktu dari titik sebelumnya, dan status `isCompleted`.
+    - **Route & Optimization**: Perhitungan otomatis jarak/waktu antar titik dan penyusunan urutan rute paling efisien via Mapbox Optimization API (dengan fallback 2-Opt TSP).
+  version: 1.0.0
+  contact:
+    name: Lombok Explorer Backend Engineering Team
+    url: https://github.com/wahyush04/lombok-explorer
+servers:
+  - url: http://127.0.0.1:3000
+    description: Local Development Server
+  - url: http://10.0.2.2:3000
+    description: Android Emulator Host
+  - url: https://api.lombokexplorer.com
+    description: Production Server
+
+tags:
+  - name: Itineraries
+    description: Manajemen data master Trip & Itinerary
+  - name: Itinerary Days
+    description: Manajemen multi-hari perjalanan (Tambah, Edit, Hapus Hari)
+  - name: Itinerary Activities
+    description: Manajemen stops / destinasi / aktivitas dan drag & drop reordering
+  - name: Itinerary Route & Optimization
+    description: Optimasi rute perjalanan via Mapbox / 2-Opt Local Search
+  - name: Itinerary Sharing
+    description: Pembuatan share link dan akses publik trip yang dibagikan
+
+paths:
+  /api/v1/itineraries:
+    get:
+      tags:
+        - Itineraries
+      summary: Mendapatkan daftar itinerary (User Trips atau Public Catalog)
+      description: Mengambil daftar trip milik user yang sedang login atau trip publik jika filter `isPublic=true`.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Halaman data
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Jumlah data per halaman
+        - in: query
+          name: travelStyle
+          schema:
+            $ref: '#/components/schemas/TravelStyle'
+          description: Filter gaya liburan
+        - in: query
+          name: budgetLevel
+          schema:
+            $ref: '#/components/schemas/BudgetLevel'
+          description: Filter tingkatan anggaran
+        - in: query
+          name: transportationMode
+          schema:
+            $ref: '#/components/schemas/TransportationMode'
+          description: Filter moda transportasi
+        - in: query
+          name: isPublic
+          schema:
+            type: boolean
+          description: Filter hanya trip publik
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Pencarian berdasarkan judul atau deskripsi trip
+      responses:
+        '200':
+          description: Berhasil mengambil daftar trip
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Itineraries retrieved successfully
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItineraryResponse'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+    post:
+      tags:
+        - Itineraries
+      summary: Membuat trip baru (+ initial days)
+      description: Membuat trip baru. Jika `daysCount` diberikan tanpa isi `days`, backend otomatis mengenerate `daysCount` hari kosong (`Hari 1`, `Hari 2`, dst.).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateItineraryRequest'
+      responses:
+        '201':
+          description: Trip berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Itinerary trip created successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /api/v1/itineraries/generate:
+    post:
+      tags:
+        - Itineraries
+      summary: Smart Generator Rekomendasi Itinerary Otomatis
+      description: Menghasilkan rekomendasi rencana perjalanan lengkap berdasarkan gaya liburan, tempo perjalanan, dan jumlah hari.
+      security:
+        - BearerAuth: []
+        - {}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - totalDays
+                - travelStyle
+                - startDate
+                - endDate
+              properties:
+                title:
+                  type: string
+                  example: 3 Hari Liburan Bahari Lombok
+                totalDays:
+                  type: integer
+                  minimum: 1
+                  maximum: 14
+                  example: 3
+                travelStyle:
+                  $ref: '#/components/schemas/TravelStyle'
+                budgetLevel:
+                  $ref: '#/components/schemas/BudgetLevel'
+                pace:
+                  type: string
+                  enum: [RELAXED, MODERATE, INTENSE]
+                  default: MODERATE
+                transportation:
+                  type: string
+                  enum: [CAR, MOTORCYCLE, PUBLIC_BOAT]
+                  default: CAR
+                travelersCount:
+                  type: integer
+                  default: 2
+                startDate:
+                  type: string
+                  format: date
+                  example: '2026-09-01'
+                endDate:
+                  type: string
+                  format: date
+                  example: '2026-09-03'
+                saveItinerary:
+                  type: boolean
+                  default: false
+      responses:
+        '200':
+          description: Itinerary otomatis berhasil digenerate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Smart itinerary generated successfully
+                  data:
+                    type: object
+                    properties:
+                      itinerary:
+                        $ref: '#/components/schemas/ItineraryResponse'
+                      summary:
+                        type: object
+
+  /api/v1/itineraries/{id}:
+    get:
+      tags:
+        - Itineraries
+      summary: Mengambil detail lengkap trip / itinerary
+      description: Mengambil informasi trip, daftar multi-hari, dan daftar aktivitas/stop per hari secara terurut beserta segmen rute.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Itinerary
+      responses:
+        '200':
+          description: Detail trip berhasil diambil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Itinerary detail retrieved successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    patch:
+      tags:
+        - Itineraries
+      summary: Mengubah informasi master trip
+      description: Mengubah judul, deskripsi, tanggal, moda transportasi, atau preferensi trip.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Itinerary
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItineraryRequest'
+      responses:
+        '200':
+          description: Trip berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Itinerary updated successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+    put:
+      tags:
+        - Itineraries
+      summary: Mengubah informasi master trip (PUT)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateItineraryRequest'
+      responses:
+        '200':
+          description: Trip berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Itinerary updated successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+    delete:
+      tags:
+        - Itineraries
+      summary: Menghapus trip
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Trip berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Itinerary deleted successfully
+
+  /api/v1/itineraries/{id}/duplicate:
+    post:
+      tags:
+        - Itineraries
+      summary: Menduplikasi / Meng-clone trip
+      description: Membuat salinan trip lengkap beserta hari dan seluruh aktivitas ke akun user saat ini.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '201':
+          description: Trip berhasil diduplikasi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Itinerary duplicated successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+  /api/v1/itineraries/{id}/share:
+    post:
+      tags:
+        - Itinerary Sharing
+      summary: Membuat Link Share Trip
+      description: Mengenerate `shareToken` unik dan mengembalikan URL share publik trip.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Link share berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Share link generated successfully
+                  data:
+                    type: object
+                    properties:
+                      shareToken:
+                        type: string
+                        example: a8f7b2c91d4e5f60
+                      shareUrl:
+                        type: string
+                        example: https://lombokexplorer.com/trips/share/a8f7b2c91d4e5f60
+
+  /api/v1/shared/itineraries/{shareToken}:
+    get:
+      tags:
+        - Itinerary Sharing
+      summary: Mengambil Trip yang Dishare (Publik tanpa Auth)
+      description: Endpoint publik untuk membuka trip yang dibagikan melalui share link.
+      parameters:
+        - in: path
+          name: shareToken
+          required: true
+          schema:
+            type: string
+          description: Token share trip
+      responses:
+        '200':
+          description: Trip berhasil dimuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Shared itinerary retrieved successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ----------------------------------------------------
+  # DAY MANAGEMENT
+  # ----------------------------------------------------
+  /api/v1/itineraries/{id}/days:
+    post:
+      tags:
+        - Itinerary Days
+      summary: Menambahkan hari baru ke trip (+ Tambah Hari)
+      description: Menambahkan hari di urutan terakhir trip (`Hari N+1`).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddDayRequest'
+      responses:
+        '201':
+          description: Hari berhasil ditambahkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Day added to itinerary successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+  /api/v1/itineraries/{id}/days/{dayId}:
+    patch:
+      tags:
+        - Itinerary Days
+      summary: Mengubah data hari (Judul, Catatan, Tanggal)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDayRequest'
+      responses:
+        '200':
+          description: Hari berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Day updated successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+    delete:
+      tags:
+        - Itinerary Days
+      summary: Menghapus hari (Hapus Hari)
+      description: Menghapus hari beserta seluruh perhentian di dalamnya, lalu secara otomatis mengurutkan ulang (re-indexing) nomor hari yang tersisa (`Hari 1`, `Hari 2`, ...).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Hari berhasil dihapus dan hari tersisa berhasil di-reindex
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Day deleted and re-indexed successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+  # ----------------------------------------------------
+  # ACTIVITY / STOP MANAGEMENT
+  # ----------------------------------------------------
+  /api/v1/itineraries/{id}/days/{dayId}/activities:
+    post:
+      tags:
+        - Itinerary Activities
+      summary: Menambahkan stop / aktivitas pada suatu hari (+ Tambah Destinasi)
+      description: Menambahkan perhentian wisata (berdasarkan `destinationId` katalog ataupun lokasi kustom `customLocation`). Backend otomatis menghitung jarak, waktu tempuh dari stop sebelumnya, dan jadwal waktu (`Asia/Makassar` WITA).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddActivityRequest'
+      responses:
+        '201':
+          description: Stop berhasil ditambahkan dan rute dihitung ulang
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Stop activity added successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+    put:
+      tags:
+        - Itinerary Activities
+      summary: Menyimpan Urutan Baru Stops (Drag & Drop Reorder)
+      description: Menerima urutan baru daftar `activityId` beserta `orderIndex` hasil interaksi drag & drop di Android. Backend otomatis memperbarui urutan dan menghitung ulang segmen rute serta estimasi jam.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderActivitiesRequest'
+      responses:
+        '200':
+          description: Urutan stops berhasil disimpan dan rute diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Stop activities reordered and route recalculation completed
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+  /api/v1/itineraries/{id}/days/{dayId}/activities/{activityId}:
+    patch:
+      tags:
+        - Itinerary Activities
+      summary: Mengedit stop atau toggle status checklist (isCompleted)
+      description: Mengubah estimasi durasi, budget, catatan, atau toggle checklist `isCompleted` (Persistent).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: activityId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateActivityRequest'
+      responses:
+        '200':
+          description: Stop berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Stop activity updated successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+    delete:
+      tags:
+        - Itinerary Activities
+      summary: Menghapus stop / destinasi dari hari
+      description: Menghapus stop, mengurutkan ulang orderIndex aktivitas yang tersisa, dan menghitung ulang segmen rute harian.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+        - in: path
+          name: activityId
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Stop berhasil dihapus dan rute dihitung ulang
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Stop activity deleted and route recalculation completed
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+  # ----------------------------------------------------
+  # ROUTE OPTIMIZATION
+  # ----------------------------------------------------
+  /api/v1/itineraries/{id}/optimize:
+    post:
+      tags:
+        - Itinerary Route & Optimization
+      summary: Mengoptimalkan Urutan Rute Perjalanan (Optimasi Rute)
+      description: Menggunakan Mapbox Optimization API (dan 2-Opt local search TSP) untuk mencari urutan rute dengan jarak dan waktu perjalanan paling minimum.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OptimizeItineraryRequest'
+      responses:
+        '200':
+          description: Optimasi rute berhasil dilakukan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Route optimization completed successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Masukkan access token JWT
+
+  schemas:
+    TravelStyle:
+      type: string
+      enum:
+        - NATURE_ADVENTURE
+        - BEACH_RELAXATION
+        - CULTURAL_HISTORICAL
+        - CULINARY
+        - LUXURY_RESORT
+        - BUDGET_BACKPACKER
+        - FAMILY_FRIENDLY
+        - WATER_SPORTS
+      example: BEACH_RELAXATION
+
+    BudgetLevel:
+      type: string
+      enum:
+        - BACKPACKER
+        - BUDGET
+        - MID_RANGE
+        - LUXURY
+      example: MID_RANGE
+
+    TransportationMode:
+      type: string
+      enum:
+        - CAR
+        - MOTORCYCLE
+        - WALKING
+        - CYCLING
+        - PUBLIC_TRANSPORT
+      example: CAR
+
+    CustomLocation:
+      type: object
+      required:
+        - name
+        - latitude
+        - longitude
+      properties:
+        name:
+          type: string
+          example: Hotel Senggigi Beach
+        latitude:
+          type: number
+          example: -8.498321
+        longitude:
+          type: number
+          example: 116.050412
+        address:
+          type: string
+          example: Jl. Raya Senggigi KM 8, Senggigi, Batu Layar
+
+    RouteSegment:
+      type: object
+      properties:
+        fromActivityId:
+          type: string
+        toActivityId:
+          type: string
+        distanceKm:
+          type: number
+          example: 14.5
+        travelTimeMinutes:
+          type: integer
+          example: 25
+
+    DestinationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          example: Pantai Tanjung Aan
+        slug:
+          type: string
+          example: pantai-tanjung-aan
+        coverImageUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=800
+        rating:
+          type: number
+          example: 4.8
+        region:
+          type: string
+          nullable: true
+          example: LOMBOK_TENGAH
+        latitude:
+          type: number
+          example: -8.9082
+        longitude:
+          type: number
+          example: 116.3195
+        category:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+              example: Pantai & Bahari
+            slug:
+              type: string
+              example: pantai-bahari
+
+    ItineraryActivityResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: act_123456
+        dayId:
+          type: string
+          example: day_123456
+        orderIndex:
+          type: integer
+          example: 0
+        timeSlot:
+          type: string
+          nullable: true
+          example: 08:30 - 10:00
+        startTime:
+          type: string
+          nullable: true
+          example: 08:30
+        endTime:
+          type: string
+          nullable: true
+          example: 10:00
+        destinationId:
+          type: string
+          nullable: true
+          example: dest_123456
+        destination:
+          $ref: '#/components/schemas/DestinationSummary'
+        destinationName:
+          type: string
+          example: Pantai Tanjung Aan
+        destinationCategory:
+          type: string
+          example: Pantai & Bahari
+        imageUrl:
+          type: string
+          nullable: true
+        customLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        customTitle:
+          type: string
+          nullable: true
+        activityNotes:
+          type: string
+          nullable: true
+          example: Foto di Bukit Merese saat ombak tenang
+        notes:
+          type: string
+          nullable: true
+        estimatedDurationMinutes:
+          type: integer
+          example: 90
+        estimatedCost:
+          type: number
+          example: 10000
+        distanceFromPrevKm:
+          type: number
+          example: 0
+        travelTimeFromPrevMinutes:
+          type: integer
+          example: 0
+        isCompleted:
+          type: boolean
+          example: false
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ItineraryDayResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: day_123456
+        itineraryId:
+          type: string
+          example: itin_123456
+        dayNumber:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: 'Hari 1: Eksplorasi Pantai Lombok Selatan'
+        date:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-09-01'
+        notes:
+          type: string
+          nullable: true
+          example: Siapkan sunscreen dan kacamata hitam
+        totalDistanceKm:
+          type: number
+          example: 42.8
+        totalTravelTimeMinutes:
+          type: integer
+          example: 65
+        estimatedBudget:
+          type: number
+          example: 150000
+        segments:
+          type: array
+          items:
+            $ref: '#/components/schemas/RouteSegment'
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryActivityResponse'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryActivityResponse'
+
+    ItineraryResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          example: itin_123456
+        userId:
+          type: string
+          nullable: true
+        title:
+          type: string
+          example: 3 Hari Liburan Bahari & Pantai Tropis
+        description:
+          type: string
+          nullable: true
+          example: Itinerary keliling Lombok Selatan dan Gili Trawangan
+        coverImageUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1200
+        daysCount:
+          type: integer
+          example: 3
+        totalDays:
+          type: integer
+          example: 3
+        estimatedBudget:
+          type: number
+          example: 1250000
+        totalEstimatedBudget:
+          type: number
+          example: 1250000
+        totalDistanceKm:
+          type: number
+          example: 128.4
+        totalTravelTimeMinutes:
+          type: integer
+          example: 210
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        transportationMode:
+          $ref: '#/components/schemas/TransportationMode'
+        startLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        endLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        pace:
+          type: string
+          example: MODERATE
+        isCustom:
+          type: boolean
+          example: true
+        isPublic:
+          type: boolean
+          example: false
+        isSaved:
+          type: boolean
+          example: true
+        shareToken:
+          type: string
+          nullable: true
+          example: a8f7b2c91d4e5f60
+        shareUrl:
+          type: string
+          nullable: true
+          example: https://lombokexplorer.com/trips/share/a8f7b2c91d4e5f60
+        startDate:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-09-01'
+        endDate:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-09-03'
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ItineraryDayResponse'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    CreateItineraryRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          example: Trip Eksplorasi Lombok
+        description:
+          type: string
+          example: Rencana liburan 3 hari ke pantai dan bukit
+        coverImageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1200
+        daysCount:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 1
+          example: 3
+        totalDays:
+          type: integer
+          example: 3
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        transportationMode:
+          $ref: '#/components/schemas/TransportationMode'
+        startLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        endLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        pace:
+          type: string
+          enum: [RELAXED, MODERATE, INTENSE]
+          default: MODERATE
+        isPublic:
+          type: boolean
+          default: false
+        startDate:
+          type: string
+          format: date
+          example: '2026-09-01'
+        endDate:
+          type: string
+          format: date
+          example: '2026-09-03'
+
+    UpdateItineraryRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        transportationMode:
+          $ref: '#/components/schemas/TransportationMode'
+        startLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        endLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        pace:
+          type: string
+          enum: [RELAXED, MODERATE, INTENSE]
+        isPublic:
+          type: boolean
+        isSaved:
+          type: boolean
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+
+    AddDayRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          example: 'Hari 4: Wisata Kuliner Mataram'
+        date:
+          type: string
+          format: date
+          example: '2026-09-04'
+        notes:
+          type: string
+          example: Beli oleh-oleh khas Lombok
+
+    UpdateDayRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        date:
+          type: string
+          format: date
+        notes:
+          type: string
+
+    AddActivityRequest:
+      type: object
+      properties:
+        destinationId:
+          type: string
+          description: ID Destinasi dari katalog wisata
+          example: dest_123456
+        customLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        customTitle:
+          type: string
+          example: Singgah di Resto Tanjung Ringgit
+        orderIndex:
+          type: integer
+          description: Posisi urutan stop (otomatis ditaruh di akhir jika tidak diisi)
+        startTime:
+          type: string
+          example: 09:00
+        endTime:
+          type: string
+          example: 10:30
+        activityNotes:
+          type: string
+          example: Sewa perahu keliling tanjung
+        notes:
+          type: string
+        estimatedDurationMinutes:
+          type: integer
+          default: 60
+          example: 90
+        estimatedCost:
+          type: number
+          default: 0
+          example: 25000
+
+    UpdateActivityRequest:
+      type: object
+      properties:
+        destinationId:
+          type: string
+        customLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        customTitle:
+          type: string
+        estimatedDurationMinutes:
+          type: integer
+        estimatedCost:
+          type: number
+        activityNotes:
+          type: string
+        notes:
+          type: string
+        startTime:
+          type: string
+        endTime:
+          type: string
+        isCompleted:
+          type: boolean
+          description: Toggle persistent status checklist stop
+          example: true
+
+    ReorderActivitiesRequest:
+      type: object
+      required:
+        - activities
+      properties:
+        activities:
+          type: array
+          description: Daftar aktivitas dengan urutan baru
+          items:
+            type: object
+            required:
+              - id
+              - orderIndex
+            properties:
+              id:
+                type: string
+                example: act_123
+              orderIndex:
+                type: integer
+                example: 0
+
+    OptimizeItineraryRequest:
+      type: object
+      properties:
+        dayId:
+          type: string
+          description: Optional jika hanya ingin mengoptimalkan 1 hari tertentu
+        scope:
+          type: string
+          enum: [DAY, FULL_TRIP]
+          default: FULL_TRIP
+
+    PaginationMeta:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 25
+        totalPages:
+          type: integer
+          example: 3
+
+  responses:
+    ValidationError:
+      description: Validation Error
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: VALIDATION_ERROR
+                  message:
+                    type: string
+                    example: Invalid input data
+                  details:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        field:
+                          type: string
+                        message:
+                          type: string
+
+    UnauthorizedError:
+      description: Unauthorized
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: AUTH_TOKEN_MISSING
+                  message:
+                    type: string
+                    example: Authentication token is required
+
+    NotFoundError:
+      description: Resource Not Found
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: boolean
+                example: false
+              error:
+                type: object
+                properties:
+                  code:
+                    type: string
+                    example: ITINERARY_NOT_FOUND
+                  message:
+                    type: string
+                    example: Itinerary not found

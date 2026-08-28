@@ -9,7 +9,6 @@ import {
 import {
   ItineraryActivityDto,
   ItineraryDayDto,
-  ItineraryDayInput,
   ItineraryDto,
 } from './dto/itinerary.dto';
 import { itinerariesRepository, ItinerariesRepository } from './itineraries.repository';
@@ -342,17 +341,27 @@ export class ItineraryGeneratorService {
 
           dayActivities.push({
             id: `act_gen_lunch_d${currentDayNumber}`,
+            dayId: `day_gen_${currentDayNumber}`,
             orderIndex: orderIndex++,
             timeSlot: `${lunchStart} - ${lunchEnd}`,
             startTime: lunchStart,
             endTime: lunchEnd,
             destinationId: null,
+            destination: null,
             destinationName: 'Istirahat & Makan Siang Kuliner Khas Lombok',
             destinationCategory: 'Kuliner & Relaksasi',
+            imageUrl: undefined,
+            customLocation: null,
             customTitle: 'Makan Siang Kuliner Khas Lombok (Ayam Taliwang / Nasi Balap)',
             activityNotes: 'Menikmati sajian otentik khas Lombok di resto/warung terdekat.',
+            notes: 'Menikmati sajian otentik khas Lombok di resto/warung terdekat.',
             estimatedDurationMinutes: lunchDuration,
             estimatedCost: lunchCost,
+            distanceFromPrevKm: 0,
+            travelTimeFromPrevMinutes: 0,
+            isCompleted: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
           });
 
           totalItineraryCost += lunchCost;
@@ -418,18 +427,36 @@ export class ItineraryGeneratorService {
 
         dayActivities.push({
           id: `act_gen_${chosen.id}_d${currentDayNumber}`,
+          dayId: `day_gen_${currentDayNumber}`,
           orderIndex: orderIndex++,
           timeSlot: `${startTimeStr} - ${endTimeStr}`,
           startTime: startTimeStr,
           endTime: endTimeStr,
           destinationId: chosen.id,
+          destination: {
+            id: chosen.id,
+            name: chosen.name,
+            slug: chosen.slug,
+            coverImageUrl: chosen.coverImageUrl,
+            rating: chosen.rating,
+            region: chosen.region,
+            latitude: chosen.latitude,
+            longitude: chosen.longitude,
+          },
           destinationName: chosen.name,
           destinationCategory: chosen.categoryName,
           imageUrl: chosen.coverImageUrl,
+          customLocation: null,
           customTitle: null,
           activityNotes: `Kunjungi ${chosen.name}. ${chosen.tags.length > 0 ? 'Highlight: ' + chosen.tags.slice(0, 3).join(', ') : ''}`,
+          notes: `Kunjungi ${chosen.name}.`,
           estimatedDurationMinutes: visitDuration,
           estimatedCost: stopCost,
+          distanceFromPrevKm: distKm,
+          travelTimeFromPrevMinutes: transitMins,
+          isCompleted: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
         });
 
         currentLat = chosen.latitude;
@@ -442,18 +469,40 @@ export class ItineraryGeneratorService {
         .join(' & ');
       const dayTitle = `Hari ${currentDayNumber}: Eksplorasi ${regionNames}`;
 
+      let dayDist = 0;
+      let dayDur = 0;
+      let dayBudget = 0;
+      for (const act of dayActivities) {
+        dayDist += act.distanceFromPrevKm;
+        dayDur += act.travelTimeFromPrevMinutes;
+        dayBudget += act.estimatedCost;
+      }
+
       generatedDays.push({
         id: `day_gen_${currentDayNumber}`,
+        itineraryId: `itin_generated_${Date.now()}`,
         dayNumber: currentDayNumber,
         title: dayTitle,
         date: dateStr,
         notes: `Rute optimal hari ke-${currentDayNumber} di kawasan ${regionNames}.`,
+        totalDistanceKm: Math.round(dayDist * 10) / 10,
+        totalTravelTimeMinutes: Math.round(dayDur),
+        estimatedBudget: dayBudget,
+        segments: [],
         activities: dayActivities,
+        items: dayActivities,
       });
     }
 
     const defaultTitle =
       dto.title || `${totalDays} Hari Liburan Seru di Lombok (${style.replace('_', ' ')})`;
+
+    let totalDistAll = 0;
+    let totalDurAll = 0;
+    for (const d of generatedDays) {
+      totalDistAll += d.totalDistanceKm;
+      totalDurAll += d.totalTravelTimeMinutes;
+    }
 
     const itineraryResult: ItineraryDto = {
       id: `itin_generated_${Date.now()}`,
@@ -463,35 +512,57 @@ export class ItineraryGeneratorService {
       coverImageUrl:
         generatedDays[0]?.activities[0]?.imageUrl ||
         'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1200',
+      daysCount: totalDays,
       totalDays,
+      estimatedBudget: totalItineraryCost,
       totalEstimatedBudget: totalItineraryCost,
+      totalDistanceKm: Math.round(totalDistAll * 10) / 10,
+      totalTravelTimeMinutes: Math.round(totalDurAll),
       travelStyle: style,
       budgetLevel: dto.budgetLevel || BudgetLevel.MID_RANGE,
+      transportationMode:
+        (transportation as string) === 'WALKING'
+          ? 'WALKING'
+          : (transportation as string) === 'MOTORCYCLE'
+            ? 'MOTORCYCLE'
+            : (transportation as string) === 'CYCLING'
+              ? 'CYCLING'
+              : 'CAR',
+      startLocation: null,
+      endLocation: null,
       pace,
+      isCustom: false,
       isPublic: false,
       isSaved: Boolean(dto.saveItinerary),
-      startDate: dto.startDate,
-      endDate: dto.endDate,
+      shareToken: null,
+      shareUrl: null,
+      startDate: dto.startDate || null,
+      endDate: dto.endDate || null,
       days: generatedDays,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     };
 
     // If requested to save and user is logged in, persist to database
     if (dto.saveItinerary && userId) {
-      const daysForDb: ItineraryDayInput[] = generatedDays.map((d) => ({
-        dayNumber: d.dayNumber,
+      const daysForDb = generatedDays.map((d) => ({
         title: d.title,
-        date: d.date,
+        date: d.date ? new Date(d.date) : null,
         notes: d.notes,
         items: d.activities.map((act) => ({
           destinationId: act.destinationId,
+          customLocation: null,
           customTitle: act.customTitle,
           orderIndex: act.orderIndex,
           timeSlot: act.timeSlot,
+          startTime: act.startTime,
+          endTime: act.endTime,
           activityNotes: act.activityNotes,
           estimatedDurationMinutes: act.estimatedDurationMinutes,
           estimatedCost: act.estimatedCost,
+          distanceFromPrevKm: act.distanceFromPrevKm,
+          travelTimeFromPrevMinutes: act.travelTimeFromPrevMinutes,
+          isCompleted: false,
         })),
       }));
 
@@ -505,10 +576,14 @@ export class ItineraryGeneratorService {
           totalEstimatedBudget: itineraryResult.totalEstimatedBudget,
           travelStyle: itineraryResult.travelStyle,
           budgetLevel: itineraryResult.budgetLevel,
+          transportationMode: itineraryResult.transportationMode,
+          startLocation: null,
+          endLocation: null,
           pace: itineraryResult.pace,
+          isCustom: false,
           isPublic: false,
-          startDate: new Date(dto.startDate),
-          endDate: new Date(dto.endDate),
+          startDate: dto.startDate ? new Date(dto.startDate) : null,
+          endDate: dto.endDate ? new Date(dto.endDate) : null,
         },
         daysForDb,
       );

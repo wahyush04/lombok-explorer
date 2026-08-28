@@ -225,6 +225,43 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(response.text).toContain('Lombok Explorer — Feeds & Community API');
   });
 
+  it('GET /api/docs/itinerary/ should serve Swagger UI HTML for Itinerary API', async () => {
+    const response = await request(app).get('/api/docs/itinerary/');
+
+    expect(response.status).toBe(200);
+    expect(response.text).toContain('swagger-ui');
+    expect(response.text).toContain('Lombok Explorer Itinerary & Trip API Documentation');
+  });
+
+  it('GET /api/docs/itinerary/json should serve parsed Itinerary OpenAPI specification JSON', async () => {
+    const response = await request(app).get('/api/docs/itinerary/json');
+
+    expect(response.status).toBe(200);
+    expect(response.body).toHaveProperty('openapi', '3.0.3');
+    expect(response.body.info).toHaveProperty('title', 'Lombok Explorer - Trip & Itinerary API Specification');
+    expect(response.body).toHaveProperty('paths');
+    expect(response.body).toHaveProperty('components');
+
+    const paths = response.body.paths;
+    expect(paths).toHaveProperty('/api/v1/itineraries');
+    expect(paths).toHaveProperty('/api/v1/itineraries/{id}');
+    expect(paths).toHaveProperty('/api/v1/itineraries/{id}/days');
+    expect(paths).toHaveProperty('/api/v1/itineraries/{id}/days/{dayId}');
+    expect(paths).toHaveProperty('/api/v1/itineraries/{id}/days/{dayId}/activities');
+    expect(paths).toHaveProperty('/api/v1/itineraries/{id}/optimize');
+    expect(paths).toHaveProperty('/api/v1/itineraries/{id}/share');
+    expect(paths).toHaveProperty('/api/v1/shared/itineraries/{shareToken}');
+  });
+
+  it('GET /api/docs/itinerary/yaml should serve raw Itinerary OpenAPI YAML specification', async () => {
+    const response = await request(app).get('/api/docs/itinerary/yaml');
+
+    expect(response.status).toBe(200);
+    expect(response.headers['content-type']).toContain('text/yaml');
+    expect(response.text).toContain('openapi: 3.0.3');
+    expect(response.text).toContain('Lombok Explorer - Trip & Itinerary API Specification');
+  });
+
   it('GET /api/docs/yaml should serve raw OpenAPI YAML specification', async () => {
     const response = await request(app).get('/api/docs/yaml');
 
