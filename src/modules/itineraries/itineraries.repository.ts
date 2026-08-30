@@ -591,6 +591,33 @@ export class ItinerariesRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  public async findActiveTripByUserId(userId: string) {
+    return prisma.itinerary.findFirst({
+      where: {
+        userId,
+        deletedAt: null,
+      },
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      include: {
+        days: {
+          orderBy: { dayNumber: 'asc' },
+          include: {
+            items: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                destination: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
 }
 
 export const itinerariesRepository = new ItinerariesRepository();

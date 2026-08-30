@@ -387,4 +387,142 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(fetchRes.status).toBe(404);
     });
   });
+
+  describe('11. Active Trip Summary for Android Home Screen Widget (/api/v1/itineraries/active)', () => {
+    let userTokenC = '';
+    let userTokenD = '';
+    let userCTripId = '';
+
+    beforeAll(async () => {
+      const suffix = `home_${Date.now().toString().slice(-6)}`;
+      
+      // Register new User C (has trip)
+      const resC = await request(app).post('/api/v1/auth/register').send({
+        username: `user_c_${suffix}`,
+        name: 'User C with Trip',
+        email: `userc_${suffix}@lombokexplorer.com`,
+        password: 'Password123!',
+      });
+      userTokenC = resC.body.data.accessToken;
+
+      // Register new User D (never creates trip)
+      const resD = await request(app).post('/api/v1/auth/register').send({
+        username: `user_d_${suffix}`,
+        name: 'New User D Zero Trips',
+        email: `userd_${suffix}@lombokexplorer.com`,
+        password: 'Password123!',
+      });
+      userTokenD = resD.body.data.accessToken;
+
+      // Create a private trip for User C
+      const tripRes = await request(app)
+        .post('/api/v1/itineraries')
+        .set('Authorization', `Bearer ${userTokenC}`)
+        .send({
+          title: '3 Hari Liburan Seru di Lombok (Copy)',
+          description: 'Eksplorasi Mandalika dan pantai selatan',
+          daysCount: 2,
+          transportationMode: 'CAR',
+        });
+      userCTripId = tripRes.body.data.id;
+      const day1 = tripRes.body.data.days[0].id;
+
+      // Update Day 1 title
+      await request(app)
+        .patch(`/api/v1/itineraries/${userCTripId}/days/${day1}`)
+        .set('Authorization', `Bearer ${userTokenC}`)
+        .send({
+          title: 'Mandalika Coastal Explorer',
+        });
+
+      // Add 2 stops to Day 1
+      await request(app)
+        .post(`/api/v1/itineraries/${userCTripId}/days/${day1}/activities`)
+        .set('Authorization', `Bearer ${userTokenC}`)
+        .send({
+          destinationId: destAanId,
+          estimatedDurationMinutes: 90,
+        });
+
+      await request(app)
+        .post(`/api/v1/itineraries/${userCTripId}/days/${day1}/activities`)
+        .set('Authorization', `Bearer ${userTokenC}`)
+        .send({
+          destinationId: destMereseId,
+          estimatedDurationMinutes: 60,
+        });
+    });
+
+    it('should return hasActiveTrip: false and trip: null for newly registered User D without trips', async () => {
+      const res = await request(app)
+        .get('/api/v1/itineraries/active')
+        .set('Authorization', `Bearer ${userTokenD}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.hasActiveTrip).toBe(false);
+      expect(res.body.data.trip).toBeNull();
+      expect(res.body.message).toContain('does not have any active trip');
+    });
+
+    it('should return hasActiveTrip: false and trip: null for unauthenticated guest requests', async () => {
+      const res = await request(app).get('/api/v1/itineraries/active');
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.hasActiveTrip).toBe(false);
+      expect(res.body.data.trip).toBeNull();
+    });
+
+    it('should return formatted active trip card matching Android UI design for User C', async () => {
+      const res = await request(app)
+        .get('/api/v1/itineraries/active')
+        .set('Authorization', `Bearer ${userTokenC}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.hasActiveTrip).toBe(true);
+      
+      const trip = res.body.data.trip;
+      expect(trip).toBeDefined();
+      expect(trip.id).toBe(userCTripId);
+      expect(trip.title).toBe('3 Hari Liburan Seru di Lombok (Copy)');
+      expect(trip.badgeText).toBe('Hari 1 dari 2 Hari');
+      expect(trip.totalDays).toBe(2);
+      expect(trip.currentDayNumber).toBe(1);
+      expect(trip.transportationMode).toBe('CAR');
+      expect(trip.distanceFormatted).toContain('km');
+      expect(trip.focus).toBeDefined();
+      expect(trip.focus.dayNumber).toBe(1);
+      expect(trip.focus.activityCount).toBe(2);
+      expect(trip.focus.focusText).toBe('Fokus: Hari 1: Mandalika Coastal Explorer (2 Destinasi)');
+      expect(trip.progress).toBeDefined();
+      expect(trip.progress.totalActivities).toBe(2);
+      expect(trip.progress.completedActivities).toBe(0);
+      expect(trip.progress.percentage).toBe(0);
+      expect(trip.progress.isCompleted).toBe(false);
+    });
+
+    it('should support /active-trip alias route identically', async () => {
+      const res = await request(app)
+        .get('/api/v1/itineraries/active-trip')
+        .set('Authorization', `Bearer ${userTokenC}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.hasActiveTrip).toBe(true);
+      expect(res.body.data.trip.id).toBe(userCTripId);
+    });
+
+    it('should maintain strict privacy and isolation between users', async () => {
+      // User D still gets null even though User C has a private trip
+      const resD = await request(app)
+        .get('/api/v1/itineraries/active')
+        .set('Authorization', `Bearer ${userTokenD}`);
+
+      expect(resD.status).toBe(200);
+      expect(resD.body.data.hasActiveTrip).toBe(false);
+      expect(resD.body.data.trip).toBeNull();
+    });
+  });
 });

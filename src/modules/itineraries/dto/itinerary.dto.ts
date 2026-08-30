@@ -252,3 +252,43 @@ export interface ItineraryDto {
   createdAt: string;
   updatedAt: string;
 }
+
+export interface ActiveTripFocusDto {
+  dayNumber: number;
+  dayTitle: string;
+  activityCount: number;
+  focusText: string;
+}
+
+export interface ActiveTripProgressDto {
+  totalActivities: number;
+  completedActivities: number;
+  percentage: number;
+  isCompleted: boolean;
+}
+
+export interface ActiveTripCardDto {
+  id: string;
+  title: string;
+  description: string | null;
+  coverImageUrl: string | null;
+  transportationMode: TransportationMode;
+  totalDays: number;
+  currentDayNumber: number;
+  badgeText: string;
+  totalDistanceKm: number;
+  distanceFormatted: string;
+  focus: ActiveTripFocusDto;
+  progress: ActiveTripProgressDto;
+  shareToken: string | null;
+  shareUrl: string | null;
+  startDate: string | null;
+  endDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ActiveTripResponseDto {
+  hasActiveTrip: boolean;
+  trip: ActiveTripCardDto | null;
+}

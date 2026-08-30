@@ -136,6 +136,28 @@ paths:
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
+  /api/v1/itineraries/active:
+    get:
+      tags:
+        - Itineraries
+      summary: Mengambil ringkasan rencana trip aktif untuk Home Android
+      description: |
+        Mengambil kartu ringkasan trip aktif pengguna yang sedang login untuk widget "RENCANA TRIP AKTIF" di halaman Beranda aplikasi Android.
+        
+        - **Multi-user Isolation**: Setiap pengguna hanya mengakses trip miliknya sendiri.
+        - **Pengguna Baru / Tanpa Trip**: Jika pengguna belum memiliki trip, mengembalikan status 200 dengan `hasActiveTrip: false` dan `trip: null`.
+        - **Format Sesuai UI**: Menyediakan badge (`Hari 1 dari 2 Hari`), metrik jarak (`0.9 km`), moda transportasi (`CAR`), subjudul fokus (`Fokus: Hari 1: Mandalika Coastal Explorer (2 Destinasi)`), dan progress checklist perjalanan.
+      security:
+        - BearerAuth: []
+        - {}
+      responses:
+        '200':
+          description: Berhasil mengambil data rencana trip aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveTripResponse'
+
   /api/v1/itineraries/generate:
     post:
       tags:
@@ -1318,6 +1340,118 @@ components:
         totalPages:
           type: integer
           example: 3
+
+    ActiveTripFocus:
+      type: object
+      properties:
+        dayNumber:
+          type: integer
+          example: 1
+        dayTitle:
+          type: string
+          example: 'Mandalika Coastal Explorer'
+        activityCount:
+          type: integer
+          example: 2
+        focusText:
+          type: string
+          example: 'Fokus: Hari 1: Mandalika Coastal Explorer (2 Destinasi)'
+
+    ActiveTripProgress:
+      type: object
+      properties:
+        totalActivities:
+          type: integer
+          example: 2
+        completedActivities:
+          type: integer
+          example: 0
+        percentage:
+          type: integer
+          example: 0
+        isCompleted:
+          type: boolean
+          example: false
+
+    ActiveTripCard:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '5314ca3e-178f-4e9d-8444-65cfaf50720c'
+        title:
+          type: string
+          example: '3 Hari Liburan Seru di Lombok (Copy)'
+        description:
+          type: string
+          nullable: true
+          example: 'Itinerary eksplorasi pesona pantai dan budaya Lombok'
+        coverImageUrl:
+          type: string
+          nullable: true
+          example: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62'
+        transportationMode:
+          $ref: '#/components/schemas/TransportationMode'
+        totalDays:
+          type: integer
+          example: 2
+        currentDayNumber:
+          type: integer
+          example: 1
+        badgeText:
+          type: string
+          example: 'Hari 1 dari 2 Hari'
+        totalDistanceKm:
+          type: number
+          example: 0.9
+        distanceFormatted:
+          type: string
+          example: '0.9 km'
+        focus:
+          $ref: '#/components/schemas/ActiveTripFocus'
+        progress:
+          $ref: '#/components/schemas/ActiveTripProgress'
+        shareToken:
+          type: string
+          nullable: true
+          example: 'abc123xyz'
+        shareUrl:
+          type: string
+          nullable: true
+          example: 'https://lombokexplorer.com/trips/share/abc123xyz'
+        startDate:
+          type: string
+          format: date-time
+          nullable: true
+        endDate:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ActiveTripResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: 'Active trip retrieved successfully'
+        data:
+          type: object
+          properties:
+            hasActiveTrip:
+              type: boolean
+              example: true
+            trip:
+              $ref: '#/components/schemas/ActiveTripCard'
+              nullable: true
 
   responses:
     ValidationError:

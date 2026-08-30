@@ -11,6 +11,7 @@ import { prisma } from '../../database/prisma';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors/app-error';
 import { itinerariesRepository, ItinerariesRepository } from './itineraries.repository';
 import {
+  ActiveTripResponseDto,
   AddActivityDto,
   AddDayDto,
   CreateItineraryDto,
@@ -894,6 +895,106 @@ export class ItinerariesService {
 
     const fresh = await this.repository.findById(itineraryId);
     return this.mapToDto(fresh as ItineraryWithRelations);
+  }
+
+  /**
+   * Retrieves the active trip card summary for the authenticated user's home screen widget.
+   * Ensures strict multi-tenant user isolation (users only see their own trips, new users have 0 trips).
+   */
+  public async getActiveTrip(userId?: string): Promise<ActiveTripResponseDto> {
+    if (!userId) {
+      return {
+        hasActiveTrip: false,
+        trip: null,
+      };
+    }
+
+    const itinerary = await this.repository.findActiveTripByUserId(userId);
+    if (!itinerary) {
+      return {
+        hasActiveTrip: false,
+        trip: null,
+      };
+    }
+
+    const days = itinerary.days || [];
+    const totalDays = itinerary.totalDays || days.length || 1;
+
+    // Determine current active day:
+    // 1. Pick the first incomplete day (having at least one item with !isCompleted)
+    // 2. Otherwise default to Day 1
+    const activeDay = days.find((d) => d.items.some((item) => !item.isCompleted)) || days[0];
+    const activeDayNumber = activeDay ? activeDay.dayNumber : 1;
+
+    let totalActivitiesCount = 0;
+    let completedActivitiesCount = 0;
+    let totalDist = 0;
+
+    for (const day of days) {
+      totalDist += Number(day.totalDistanceKm) || 0;
+      for (const item of day.items) {
+        totalActivitiesCount++;
+        if (item.isCompleted) {
+          completedActivitiesCount++;
+        }
+      }
+    }
+
+    const activeDayActivitiesCount = activeDay ? activeDay.items.length : 0;
+    const rawDayTitle = activeDay?.title || `Hari ${activeDayNumber}`;
+
+    // Clean focus day title for subtitle
+    let focusTitle = rawDayTitle;
+    if (/^hari\s+\d+\s*:\s*/i.test(focusTitle)) {
+      focusTitle = focusTitle.replace(/^hari\s+\d+\s*:\s*/i, '');
+    }
+    const focusText = `Fokus: Hari ${activeDayNumber}: ${focusTitle} (${activeDayActivitiesCount} Destinasi)`;
+
+    const totalDistKm = Math.round((Number(itinerary.totalDistanceKm) || totalDist) * 10) / 10;
+    const distanceFormatted = `${totalDistKm} km`;
+    const badgeText = `Hari ${activeDayNumber} dari ${totalDays} Hari`;
+    const shareToken = itinerary.shareToken || null;
+    const shareUrl = shareToken ? `https://lombokexplorer.com/trips/share/${shareToken}` : null;
+
+    const progressPercentage =
+      totalActivitiesCount > 0
+        ? Math.round((completedActivitiesCount / totalActivitiesCount) * 100)
+        : 0;
+
+    return {
+      hasActiveTrip: true,
+      trip: {
+        id: itinerary.id,
+        title: itinerary.title,
+        description: itinerary.description,
+        coverImageUrl: itinerary.coverImageUrl,
+        transportationMode: itinerary.transportationMode,
+        totalDays,
+        currentDayNumber: activeDayNumber,
+        badgeText,
+        totalDistanceKm: totalDistKm,
+        distanceFormatted,
+        focus: {
+          dayNumber: activeDayNumber,
+          dayTitle: rawDayTitle,
+          activityCount: activeDayActivitiesCount,
+          focusText,
+        },
+        progress: {
+          totalActivities: totalActivitiesCount,
+          completedActivities: completedActivitiesCount,
+          percentage: progressPercentage,
+          isCompleted:
+            totalActivitiesCount > 0 && completedActivitiesCount === totalActivitiesCount,
+        },
+        shareToken,
+        shareUrl,
+        startDate: itinerary.startDate ? itinerary.startDate.toISOString() : null,
+        endDate: itinerary.endDate ? itinerary.endDate.toISOString() : null,
+        createdAt: itinerary.createdAt.toISOString(),
+        updatedAt: itinerary.updatedAt.toISOString(),
+      },
+    };
   }
 }
 

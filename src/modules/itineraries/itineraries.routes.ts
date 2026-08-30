@@ -43,6 +43,19 @@ router.post(
   itinerariesController.generateItinerary,
 );
 
+// Active trip card summary for Android Home Screen
+router.get(
+  '/active',
+  optionalAuthenticate,
+  itinerariesController.getActiveTrip,
+);
+
+router.get(
+  '/active-trip',
+  optionalAuthenticate,
+  itinerariesController.getActiveTrip,
+);
+
 // ==========================================
 // 3. TRIP MASTER CRUD
 // ==========================================
