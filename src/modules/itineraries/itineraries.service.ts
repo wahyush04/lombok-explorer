@@ -377,9 +377,15 @@ export class ItinerariesService {
     const page = query.page || 1;
     const limit = query.limit || 10;
 
+    if (!userId) {
+      return {
+        data: [],
+        meta: { page, limit, total: 0, totalPages: 0 },
+      };
+    }
+
     const { items, total } = await this.repository.findMany({
       userId,
-      isPublic: query.isPublic,
       travelStyle: query.travelStyle,
       budgetLevel: query.budgetLevel,
       transportationMode: query.transportationMode,
@@ -388,7 +394,7 @@ export class ItinerariesService {
       limit,
     });
 
-    const totalPages = Math.ceil(total / limit) || 1;
+    const totalPages = Math.ceil(total / limit) || 0;
 
     return {
       data: items.map((item: ItineraryWithRelations) => this.mapToDto(item)),
@@ -420,7 +426,7 @@ export class ItinerariesService {
       throw new NotFoundError(`Itinerary '${id}' not found`, 'ITINERARY_NOT_FOUND');
     }
 
-    if (!itinerary.isPublic && itinerary.userId !== userId && userRole !== 'ADMIN') {
+    if (itinerary.userId !== userId && userRole !== 'ADMIN') {
       throw new ForbiddenError(
         'You do not have permission to view this private itinerary',
         'FORBIDDEN_RESOURCE',

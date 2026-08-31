@@ -34,15 +34,8 @@ export class ItinerariesRepository {
   public async findMany(filters: ItineraryFilterOptions) {
     const where: Prisma.ItineraryWhereInput = {
       deletedAt: null,
+      userId: filters.userId, // Strict user isolation
     };
-
-    if (filters.userId && filters.isPublic === undefined) {
-      where.OR = [{ userId: filters.userId }, { isPublic: true }];
-    } else if (filters.userId && filters.isPublic === false) {
-      where.userId = filters.userId;
-    } else if (filters.isPublic !== undefined) {
-      where.isPublic = filters.isPublic;
-    }
 
     if (filters.travelStyle) {
       where.travelStyle = filters.travelStyle;
@@ -199,6 +192,19 @@ export class ItinerariesRepository {
     daysInput: { title: string; date?: Date | null; notes?: string | null; items?: unknown[] }[],
   ) {
     return prisma.$transaction(async (tx) => {
+      // 1 user hanya bisa memiliki 1 trip plan active (archive previous active trips)
+      if (masterData.userId) {
+        await tx.itinerary.updateMany({
+          where: {
+            userId: masterData.userId,
+            deletedAt: null,
+          },
+          data: {
+            deletedAt: new Date(),
+          },
+        });
+      }
+
       const itinerary = await tx.itinerary.create({
         data: {
           userId: masterData.userId,
@@ -214,7 +220,7 @@ export class ItinerariesRepository {
           endLocation: masterData.endLocation,
           pace: masterData.pace,
           isCustom: masterData.isCustom,
-          isPublic: masterData.isPublic,
+          isPublic: false,
           startDate: masterData.startDate,
           endDate: masterData.endDate,
         },
@@ -824,6 +830,17 @@ export class ItinerariesRepository {
         : baseDate;
 
     return prisma.$transaction(async (tx) => {
+      // 1 user hanya bisa memiliki 1 trip plan active (archive previous active trips)
+      await tx.itinerary.updateMany({
+        where: {
+          userId,
+          deletedAt: null,
+        },
+        data: {
+          deletedAt: new Date(),
+        },
+      });
+
       const newItinerary = await tx.itinerary.create({
         data: {
           userId,

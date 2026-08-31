@@ -11,7 +11,10 @@ import {
 } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
-const prisma = new PrismaClient();
+const dbUrl = process.env.DATABASE_URL?.replace('host.docker.internal', 'localhost') || process.env.DATABASE_URL;
+const prisma = new PrismaClient({
+  datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
+});
 
 async function main(): Promise<void> {
   // eslint-disable-next-line no-console

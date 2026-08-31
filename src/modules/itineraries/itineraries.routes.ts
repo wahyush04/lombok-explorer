@@ -99,7 +99,7 @@ router.post(
   itinerariesController.createItinerary,
 );
 
-router.get('/:id', optionalAuthenticate, itinerariesController.getById);
+router.get('/:id', authenticate, itinerariesController.getById);
 
 router.patch(
   '/:id',

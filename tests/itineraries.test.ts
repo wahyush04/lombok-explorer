@@ -408,7 +408,9 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
 
-      const fetchRes = await request(app).get(`/api/v1/itineraries/${tripId}`);
+      const fetchRes = await request(app)
+        .get(`/api/v1/itineraries/${tripId}`)
+        .set('Authorization', `Bearer ${userTokenA}`);
       expect(fetchRes.status).toBe(404);
     });
   });
@@ -550,6 +552,52 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(resD.body.message).toBe('Active trip retrieved successfully');
       expect(resD.body.data.hasActiveTrip).toBe(false);
       expect(resD.body.data.trip).toBeNull();
+
+      // User D gets 0 items when listing personal itineraries
+      const listD = await request(app)
+        .get('/api/v1/itineraries')
+        .set('Authorization', `Bearer ${userTokenD}`);
+      expect(listD.status).toBe(200);
+      expect(listD.body.data.length).toBe(0);
+
+      // User D is forbidden from viewing User C's private trip directly
+      const forbiddenRes = await request(app)
+        .get(`/api/v1/itineraries/${userCTripId}`)
+        .set('Authorization', `Bearer ${userTokenD}`);
+      expect(forbiddenRes.status).toBe(403);
+      expect(forbiddenRes.body.errorCode).toBe('FORBIDDEN_RESOURCE');
+    });
+
+    it('should enforce exactly 1 active trip plan per user (archive previous trip when creating new one)', async () => {
+      // User C currently has 1 active trip
+      const listBefore = await request(app)
+        .get('/api/v1/itineraries')
+        .set('Authorization', `Bearer ${userTokenC}`);
+      expect(listBefore.body.data.length).toBe(1);
+
+      // User C creates a second trip
+      const createRes = await request(app)
+        .post('/api/v1/itineraries')
+        .set('Authorization', `Bearer ${userTokenC}`)
+        .send({
+          title: 'Trip Baru Mandalika 2026',
+          daysCount: 1,
+        });
+      expect(createRes.status).toBe(201);
+      const newTripId = createRes.body.data.id;
+
+      // User C STILL has exactly 1 active trip (previous trip was archived/soft-deleted)
+      const listAfter = await request(app)
+        .get('/api/v1/itineraries')
+        .set('Authorization', `Bearer ${userTokenC}`);
+      expect(listAfter.body.data.length).toBe(1);
+      expect(listAfter.body.data[0].id).toBe(newTripId);
+
+      // Active trip summary points to the new trip
+      const activeRes = await request(app)
+        .get('/api/v1/itineraries/active')
+        .set('Authorization', `Bearer ${userTokenC}`);
+      expect(activeRes.body.data.trip.id).toBe(newTripId);
     });
   });
 
@@ -588,7 +636,9 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
     });
 
     it('should verify route precedence: GET /non-existing-random-id returns 404 ITINERARY_NOT_FOUND', async () => {
-      const res = await request(app).get('/api/v1/itineraries/non-existing-random-id-99999');
+      const res = await request(app)
+        .get('/api/v1/itineraries/non-existing-random-id-99999')
+        .set('Authorization', `Bearer ${userTokenA}`);
       expect(res.status).toBe(404);
       expect(res.body.success).toBe(false);
       expect(res.body.errorCode).toBe('ITINERARY_NOT_FOUND');
