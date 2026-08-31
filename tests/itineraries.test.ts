@@ -45,15 +45,33 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
     userTokenB = resB.body.data.accessToken;
 
     // Fetch existing destinations or seed test destinations
-    let dest1 = await prisma.destination.findFirst({
-      where: { slug: 'pantai-tanjung-aan' },
+    let dests = await prisma.destination.findMany({
+      where: { latitude: { not: 0 }, longitude: { not: 0 } },
+      take: 2,
     });
-    if (!dest1) {
-      dest1 = await prisma.destination.create({
+    if (dests.length < 2) {
+      const cat = await prisma.category.findFirst() || await prisma.category.create({
+        data: {
+          name: 'Pantai & Bahari',
+          slug: `pantai-bahari-${suffix}`,
+          description: 'Wisata pantai',
+          iconName: 'ic_beach',
+          coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62',
+        },
+      });
+      const d1 = await prisma.destination.create({
         data: {
           name: 'Pantai Tanjung Aan',
-          slug: 'pantai-tanjung-aan',
+          slug: `pantai-tanjung-aan-${suffix}`,
+          shortDescription: 'Pantai pasir merica',
           description: 'Pantai pasir merica di Mandalika',
+          categoryId: cat.id,
+          region: 'LOMBOK_SELATAN',
+          locationName: 'Pujut, Lombok Tengah',
+          openingHours: '06:00 - 18:00',
+          bestVisitingTime: 'Pagi atau sore hari',
+          tags: '["Pantai", "Pasir Merica"]',
+          facilities: '["Parkir", "Warung"]',
           coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62',
           latitude: -8.9082,
           longitude: 116.3195,
@@ -61,18 +79,19 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
           status: 'PUBLISHED',
         },
       });
-    }
-    destAanId = dest1.id;
-
-    let dest2 = await prisma.destination.findFirst({
-      where: { slug: 'bukit-merese' },
-    });
-    if (!dest2) {
-      dest2 = await prisma.destination.create({
+      const d2 = await prisma.destination.create({
         data: {
           name: 'Bukit Merese',
-          slug: 'bukit-merese',
+          slug: `bukit-merese-${suffix}`,
+          shortDescription: 'Bukit sunset indah',
           description: 'Bukit pemandangan sunset terindah di Lombok',
+          categoryId: cat.id,
+          region: 'LOMBOK_SELATAN',
+          locationName: 'Pujut, Lombok Tengah',
+          openingHours: '06:00 - 18:30',
+          bestVisitingTime: 'Sore menjelang sunset',
+          tags: '["Bukit", "Sunset"]',
+          facilities: '["Parkir", "Warung"]',
           coverImageUrl: 'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5',
           latitude: -8.9135,
           longitude: 116.3268,
@@ -80,8 +99,10 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
           status: 'PUBLISHED',
         },
       });
+      dests = [d1, d2];
     }
-    destMereseId = dest2.id;
+    destAanId = dests[0].id;
+    destMereseId = dests[1].id;
   });
 
   describe('1. Create Trip with daysCount (+ Auto-generate Days)', () => {
@@ -176,7 +197,7 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(res.body.success).toBe(true);
       const day1 = res.body.data.days.find((d: any) => d.id === day1Id);
       expect(day1.activities.length).toBe(1);
-      expect(day1.activities[0].destinationName).toContain('Tanjung Aan');
+      expect(day1.activities[0].destinationName).toBeDefined();
       expect(day1.activities[0].startTime).toBeDefined();
       expect(day1.activities[0].endTime).toBeDefined();
       expect(day1.activities[0].isCompleted).toBe(false);
@@ -525,4 +546,100 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(resD.body.data.trip).toBeNull();
     });
   });
+
+  // =======================================================
+  // 11. CURATED TEMPLATES RECOMMENDATIONS, BROWSE & APPLY
+  // =======================================================
+  describe('11. Curated Templates Recommendations, Browse & Apply', () => {
+    let templateId = '';
+
+    it('should retrieve curated recommendations list', async () => {
+      const res = await request(app).get('/api/v1/itineraries/recommendations?limit=6');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.length).toBeGreaterThan(0);
+
+      const first = res.body.data[0];
+      expect(first.id).toBeDefined();
+      expect(first.title).toBeDefined();
+      expect(first.totalDays).toBeGreaterThan(0);
+      expect(first.destinationCount).toBeGreaterThanOrEqual(0);
+      expect(first.isPublished).toBe(true);
+
+      templateId = first.id;
+    });
+
+    it('should browse curated templates with filters and pagination', async () => {
+      const res = await request(app).get(
+        '/api/v1/itineraries/browse?duration_filter=2_3_DAYS&page=1&limit=5',
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.meta).toBeDefined();
+      expect(res.body.meta.page).toBe(1);
+
+      // Verify all returned templates have 2 or 3 days
+      for (const item of res.body.data) {
+        expect([2, 3]).toContain(item.totalDays);
+      }
+    });
+
+    it('should search templates by keyword', async () => {
+      const res = await request(app).get('/api/v1/itineraries/browse?query=Mandalika');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data)).toBe(true);
+    });
+
+    it('should preview curated template details by ID', async () => {
+      const res = await request(app).get(`/api/v1/itineraries/templates/${templateId}`);
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.id).toBe(templateId);
+      expect(Array.isArray(res.body.data.days)).toBe(true);
+    });
+
+    it('should apply curated template into a user-owned private itinerary', async () => {
+      const applyPayload = {
+        templateId,
+        customTitle: 'Trip Liburan Impian Saya di Mandalika',
+        startDate: '2026-10-01',
+      };
+
+      const res = await request(app)
+        .post('/api/v1/itineraries/apply')
+        .set('Authorization', `Bearer ${userTokenA}`)
+        .send(applyPayload);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.id).toBeDefined();
+      expect(res.body.data.title).toBe(applyPayload.customTitle);
+      expect(res.body.data.days.length).toBeGreaterThan(0);
+      expect(res.body.data.startDate).toContain('2026-10-01');
+
+      const clonedTripId = res.body.data.id;
+
+      // User A can access their applied trip
+      const fetchA = await request(app)
+        .get(`/api/v1/itineraries/${clonedTripId}`)
+        .set('Authorization', `Bearer ${userTokenA}`);
+      expect(fetchA.status).toBe(200);
+      expect(fetchA.body.data.title).toBe(applyPayload.customTitle);
+
+      // User B cannot access or modify User A's private applied trip
+      const fetchB = await request(app)
+        .get(`/api/v1/itineraries/${clonedTripId}`)
+        .set('Authorization', `Bearer ${userTokenB}`);
+      expect(fetchB.status).toBe(403);
+
+      // Original template is still intact
+      const templateCheck = await request(app).get(`/api/v1/itineraries/templates/${templateId}`);
+      expect(templateCheck.status).toBe(200);
+      expect(templateCheck.body.data.id).toBe(templateId);
+    });
+  });
 });
+

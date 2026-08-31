@@ -51,6 +51,7 @@ export const CreateItineraryDtoSchema = z.object({
   isPublic: z.boolean().default(false),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  totalEstimatedBudget: z.coerce.number().min(0).optional(),
   days: z.array(ItineraryDayInputSchema).optional(),
 });
 
@@ -68,6 +69,7 @@ export const UpdateItineraryDtoSchema = z.object({
   isSaved: z.boolean().optional(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  totalEstimatedBudget: z.coerce.number().min(0).optional(),
   days: z.array(ItineraryDayInputSchema).optional(),
 });
 
@@ -153,6 +155,34 @@ export const ItineraryQuerySchema = z.object({
   search: z.string().trim().optional(),
 });
 
+export const RecommendationsQuerySchema = z.object({
+  travel_style: z.nativeEnum(TravelStyle).optional(),
+  travelStyle: z.nativeEnum(TravelStyle).optional(),
+  duration_days: z.coerce.number().int().min(1).max(30).optional(),
+  durationDays: z.coerce.number().int().min(1).max(30).optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(6),
+});
+
+export const BrowseItineraryQuerySchema = z.object({
+  query: z.string().trim().optional(),
+  q: z.string().trim().optional(),
+  search: z.string().trim().optional(),
+  duration_filter: z.enum(['ALL', '1_DAY', '2_3_DAYS', '4_PLUS_DAYS']).default('ALL'),
+  durationFilter: z.enum(['ALL', '1_DAY', '2_3_DAYS', '4_PLUS_DAYS']).optional(),
+  travel_style: z.nativeEnum(TravelStyle).optional(),
+  travelStyle: z.nativeEnum(TravelStyle).optional(),
+  budget_level: z.nativeEnum(BudgetLevel).optional(),
+  budgetLevel: z.nativeEnum(BudgetLevel).optional(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(50).default(10),
+});
+
+export const ApplyTemplateDtoSchema = z.object({
+  templateId: z.string({ required_error: 'Template ID is required' }).min(1, 'Template ID is required'),
+  customTitle: z.string().trim().min(2, 'Custom title must be at least 2 characters').max(200).optional(),
+  startDate: z.string().optional().nullable(),
+});
+
 export type CustomLocation = z.infer<typeof CustomLocationInputSchema>;
 export type CreateItineraryDto = z.infer<typeof CreateItineraryDtoSchema>;
 export type UpdateItineraryDto = z.infer<typeof UpdateItineraryDtoSchema>;
@@ -163,6 +193,9 @@ export type UpdateActivityDto = z.infer<typeof UpdateActivityDtoSchema>;
 export type ReorderActivitiesDto = z.infer<typeof ReorderActivitiesDtoSchema>;
 export type OptimizeItineraryDto = z.infer<typeof OptimizeItineraryDtoSchema>;
 export type ItineraryQuery = z.infer<typeof ItineraryQuerySchema>;
+export type RecommendationsQuery = z.infer<typeof RecommendationsQuerySchema>;
+export type BrowseItineraryQuery = z.infer<typeof BrowseItineraryQuerySchema>;
+export type ApplyTemplateDto = z.infer<typeof ApplyTemplateDtoSchema>;
 export type ItineraryDayInput = z.infer<typeof ItineraryDayInputSchema>;
 export type ItineraryItemInput = z.infer<typeof ItineraryItemInputSchema>;
 
@@ -292,3 +325,64 @@ export interface ActiveTripResponseDto {
   hasActiveTrip: boolean;
   trip: ActiveTripCardDto | null;
 }
+
+export interface TemplateActivityDto {
+  id: string;
+  templateDayId: string;
+  orderIndex: number;
+  startTime: string | null;
+  endTime: string | null;
+  activityNotes: string | null;
+  estimatedDurationMinutes: number;
+  estimatedCost: number;
+  distanceFromPrevKm: number;
+  travelTimeFromPrevMinutes: number;
+  destination: {
+    id: string;
+    name: string;
+    slug: string;
+    coverImageUrl: string;
+    latitude: number;
+    longitude: number;
+    rating: number;
+    category?: { id: string; name: string; slug: string };
+  } | null;
+  customLocation?: CustomLocation | null;
+  customTitle?: string | null;
+}
+
+export interface TemplateDayDto {
+  id: string;
+  templateId: string;
+  dayNumber: number;
+  title: string;
+  notes: string | null;
+  totalDistanceKm: number;
+  totalDurationMinutes: number;
+  estimatedBudget: number;
+  activities: TemplateActivityDto[];
+}
+
+export interface ItineraryTemplateDto {
+  id: string;
+  title: string;
+  description: string | null;
+  coverImageUrl: string | null;
+  totalDays: number;
+  travelStyle: TravelStyle;
+  budgetLevel: BudgetLevel;
+  transportationMode: TransportationMode;
+  transportPaceNote: string | null;
+  totalEstimatedBudget: number;
+  totalDistanceKm: number;
+  totalDurationMinutes: number;
+  destinationCount: number;
+  routeSummary?: string;
+  isPublished: boolean;
+  isFeatured: boolean;
+  sortOrder: number;
+  days?: TemplateDayDto[];
+  createdAt: string;
+  updatedAt: string;
+}
+

@@ -14,13 +14,17 @@ import {
   ActiveTripResponseDto,
   AddActivityDto,
   AddDayDto,
+  ApplyTemplateDto,
+  BrowseItineraryQuery,
   CreateItineraryDto,
   CustomLocation,
   ItineraryActivityDto,
   ItineraryDayDto,
   ItineraryDto,
   ItineraryQuery,
+  ItineraryTemplateDto,
   OptimizeItineraryDto,
+  RecommendationsQuery,
   ReorderActivitiesDto,
   RouteSegmentDto,
   UpdateActivityDto,
@@ -174,7 +178,7 @@ export class ItinerariesService {
             title: day.title,
             date: day.date ? new Date(day.date).toISOString().split('T')[0] ?? null : null,
             notes: day.notes,
-            totalDistanceKm: Math.round(dayDist * 10) / 10,
+            totalDistanceKm: Math.round(dayDist * 100) / 100,
             totalTravelTimeMinutes: Math.round(dayDur),
             estimatedBudget: dayBudget,
             segments,
@@ -321,7 +325,7 @@ export class ItinerariesService {
     }
 
     await this.repository.updateDayTotals(dayId, {
-      totalDistanceKm: Math.round(dayDist * 10) / 10,
+      totalDistanceKm: Math.round(dayDist * 100) / 100,
       totalTravelTimeMinutes: Math.round(dayDur),
       estimatedBudget: dayBudget,
     });
@@ -341,10 +345,12 @@ export class ItinerariesService {
         }
       }
 
+      const finalBudget = Math.max(Number(itinerary.totalEstimatedBudget) || 0, itinBudget);
+
       await this.repository.updateItineraryTotals(itinerary.id, {
-        totalDistanceKm: Math.round(itinDist * 10) / 10,
+        totalDistanceKm: Math.round(itinDist * 100) / 100,
         totalTravelTimeMinutes: Math.round(itinDur),
-        totalEstimatedBudget: itinBudget,
+        totalEstimatedBudget: finalBudget,
       });
     }
   }
@@ -431,6 +437,21 @@ export class ItinerariesService {
     const startLocationStr = dto.startLocation ? JSON.stringify(dto.startLocation) : null;
     const endLocationStr = dto.endLocation ? JSON.stringify(dto.endLocation) : null;
 
+    const initialBudget =
+      dto.totalEstimatedBudget !== undefined
+        ? Number(dto.totalEstimatedBudget)
+        : initialDays.reduce(
+            (acc, d) =>
+              acc +
+              (d.items
+                ? (d.items as any[]).reduce(
+                    (s: number, it: any) => s + (Number(it.estimatedCost) || 0),
+                    0,
+                  )
+                : 0),
+            0,
+          );
+
     const created = await this.repository.createWithTransaction(
       {
         userId,
@@ -438,7 +459,7 @@ export class ItinerariesService {
         description: dto.description,
         coverImageUrl: dto.coverImageUrl,
         totalDays: initialDays.length,
-        totalEstimatedBudget: 0,
+        totalEstimatedBudget: initialBudget,
         travelStyle: dto.travelStyle,
         budgetLevel: dto.budgetLevel,
         transportationMode: dto.transportationMode,
@@ -511,6 +532,9 @@ export class ItinerariesService {
       isSaved: dto.isSaved,
       startDate,
       endDate,
+      ...(dto.totalEstimatedBudget !== undefined && {
+        totalEstimatedBudget: Number(dto.totalEstimatedBudget),
+      }),
     });
 
     const updated = await this.repository.findById(id);
@@ -996,6 +1020,153 @@ export class ItinerariesService {
       },
     };
   }
+
+  public async getRecommendations(query: RecommendationsQuery): Promise<ItineraryTemplateDto[]> {
+    const templates = await this.repository.findRecommendations(query);
+    return templates.map((t: any) => this.mapTemplateToDto(t));
+  }
+
+  public async browseTemplates(
+    query: BrowseItineraryQuery,
+  ): Promise<{ data: ItineraryTemplateDto[]; meta: PaginationMeta }> {
+    const { items, total } = await this.repository.findBrowseTemplates(query);
+    const limit = query.limit || 10;
+    const page = query.page || 1;
+    const totalPages = Math.ceil(total / limit) || 1;
+
+    return {
+      data: items.map((t: any) => this.mapTemplateToDto(t)),
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    };
+  }
+
+  public async getTemplateById(id: string): Promise<ItineraryTemplateDto> {
+    const template = await this.repository.findTemplateById(id);
+    if (!template || !template.isPublished) {
+      throw new NotFoundError(
+        `Curated itinerary template with ID '${id}' not found`,
+        'TEMPLATE_NOT_FOUND',
+      );
+    }
+    return this.mapTemplateToDto(template);
+  }
+
+  public async applyTemplate(body: ApplyTemplateDto, userId: string): Promise<ItineraryDto> {
+    if (!userId) {
+      throw new ValidationError('User authentication is required to apply an itinerary template');
+    }
+
+    const template = await this.repository.findTemplateById(body.templateId);
+    if (!template || !template.isPublished) {
+      throw new NotFoundError(
+        `Curated itinerary template with ID '${body.templateId}' not found or is not published`,
+        'TEMPLATE_NOT_FOUND',
+      );
+    }
+
+    const cloned = await this.repository.cloneTemplateToUserItinerary(
+      template as any,
+      userId,
+      body.customTitle,
+      body.startDate || undefined,
+    );
+
+    return this.mapToDto(cloned as unknown as ItineraryWithRelations);
+  }
+
+  private mapTemplateToDto(template: any): ItineraryTemplateDto {
+    const days = template.days || [];
+    let totalDestCount = 0;
+    const destNames: string[] = [];
+
+    const mappedDays = days.map((day: any) => {
+      const activities = day.activities || [];
+      totalDestCount += activities.length;
+
+      const mappedActivities = activities.map((act: any) => {
+        const destName = act.destination?.name || act.customTitle || 'Aktivitas';
+        if (destNames.length < 3) {
+          destNames.push(destName);
+        }
+
+        return {
+          id: act.id,
+          templateDayId: act.templateDayId,
+          orderIndex: act.orderIndex,
+          startTime: act.startTime,
+          endTime: act.endTime,
+          activityNotes: act.activityNotes,
+          estimatedDurationMinutes: act.estimatedDurationMinutes,
+          estimatedCost: Number(act.estimatedCost) || 0,
+          distanceFromPrevKm: act.distanceFromPrevKm,
+          travelTimeFromPrevMinutes: act.travelTimeFromPrevMinutes,
+          destination: act.destination
+            ? {
+                id: act.destination.id,
+                name: act.destination.name,
+                slug: act.destination.slug,
+                coverImageUrl: act.destination.coverImageUrl,
+                latitude: act.destination.latitude,
+                longitude: act.destination.longitude,
+                rating: act.destination.rating,
+                category: act.destination.category
+                  ? {
+                      id: act.destination.category.id,
+                      name: act.destination.category.name,
+                      slug: act.destination.category.slug,
+                    }
+                  : undefined,
+              }
+            : null,
+          customLocation: act.customLocation ? this.parseLocation(act.customLocation) : null,
+          customTitle: act.customTitle,
+        };
+      });
+
+      return {
+        id: day.id,
+        templateId: day.templateId,
+        dayNumber: day.dayNumber,
+        title: day.title,
+        notes: day.notes,
+        totalDistanceKm: day.totalDistanceKm,
+        totalDurationMinutes: day.totalDurationMinutes,
+        estimatedBudget: Number(day.estimatedBudget) || 0,
+        activities: mappedActivities,
+      };
+    });
+
+    const routeSummary = destNames.length > 0 ? destNames.join(' • ') : undefined;
+
+    return {
+      id: template.id,
+      title: template.title,
+      description: template.description,
+      coverImageUrl: template.coverImageUrl,
+      totalDays: template.totalDays,
+      travelStyle: template.travelStyle,
+      budgetLevel: template.budgetLevel,
+      transportationMode: template.transportationMode,
+      transportPaceNote: template.transportPaceNote,
+      totalEstimatedBudget: Number(template.totalEstimatedBudget) || 0,
+      totalDistanceKm: template.totalDistanceKm,
+      totalDurationMinutes: template.totalDurationMinutes,
+      destinationCount: totalDestCount,
+      routeSummary,
+      isPublished: template.isPublished,
+      isFeatured: template.isFeatured,
+      sortOrder: template.sortOrder,
+      days: mappedDays,
+      createdAt: template.createdAt ? (template.createdAt instanceof Date ? template.createdAt.toISOString() : String(template.createdAt)) : new Date().toISOString(),
+      updatedAt: template.updatedAt ? (template.updatedAt instanceof Date ? template.updatedAt.toISOString() : String(template.updatedAt)) : new Date().toISOString(),
+    };
+  }
 }
 
 export const itinerariesService = new ItinerariesService();
+

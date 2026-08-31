@@ -4,6 +4,7 @@ import {
   DifficultyLevel,
   TravelStyle,
   BudgetLevel,
+  TransportationMode,
   UserRole,
   ExpenseCategory,
   ChecklistCategory,
@@ -30,6 +31,9 @@ async function main(): Promise<void> {
   await prisma.checklist.deleteMany({});
   await prisma.travelJournal.deleteMany({});
   await prisma.expense.deleteMany({});
+  await prisma.templateActivity.deleteMany({});
+  await prisma.templateDay.deleteMany({});
+  await prisma.itineraryTemplate.deleteMany({});
   await prisma.recommendationDestination.deleteMany({});
   await prisma.recommendation.deleteMany({});
   await prisma.itineraryItem.deleteMany({});
@@ -1783,6 +1787,367 @@ async function main(): Promise<void> {
           { destinationId: 'dest_tiu_kelep', orderIndex: 0 },
           { destinationId: 'dest_bukit_pergasingan', orderIndex: 1 },
           { destinationId: 'dest_mangku_sakti', orderIndex: 2 },
+        ],
+      },
+    },
+  });
+
+  // =========================================================================
+  // 10B. SEED CURATED ITINERARY TEMPLATES (MULTI-DAY HIERARCHICAL)
+  // =========================================================================
+  await prisma.itineraryTemplate.create({
+    data: {
+      id: 'rec_mandalika_3d',
+      title: '3 Hari Liburan Seru di Mandalika & Pantai Selatan',
+      description:
+        'Itinerary kurasi pesona pantai pasir putih, bukit sunset legendaris, dan kekayaan budaya tenun Sasak di Lombok Selatan.',
+      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=800',
+      totalDays: 3,
+      travelStyle: TravelStyle.BEACH_RELAXATION,
+      budgetLevel: BudgetLevel.MID_RANGE,
+      transportationMode: TransportationMode.CAR,
+      transportPaceNote: 'Mobil Sewa / Motor • Santai & Menyenangkan',
+      totalEstimatedBudget: 1350000,
+      totalDistanceKm: 42.5,
+      totalDurationMinutes: 120,
+      isPublished: true,
+      isFeatured: true,
+      sortOrder: 1,
+      days: {
+        create: [
+          {
+            dayNumber: 1,
+            title: 'Mandalika Coastal Explorer',
+            notes: 'Siapkan sunscreen dan kacamata hitam untuk eksplorasi pantai selatan.',
+            totalDistanceKm: 8.6,
+            totalDurationMinutes: 20,
+            estimatedBudget: 450000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_tanjung_aan',
+                  orderIndex: 0,
+                  startTime: '08:30',
+                  endTime: '10:30',
+                  estimatedDurationMinutes: 120,
+                  estimatedCost: 10000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Menikmati pantai pasir merica dan air laut toska jernih.',
+                },
+                {
+                  destinationId: 'dest_bukit_merese',
+                  orderIndex: 1,
+                  startTime: '11:00',
+                  endTime: '13:00',
+                  estimatedDurationMinutes: 120,
+                  estimatedCost: 10000,
+                  distanceFromPrevKm: 1.4,
+                  travelTimeFromPrevMinutes: 5,
+                  activityNotes: 'Trekking bukit hijau dengan panorama Samudra Hindia 360 derajat.',
+                },
+                {
+                  destinationId: 'dest_pantai_kuta_lombok',
+                  orderIndex: 2,
+                  startTime: '15:30',
+                  endTime: '18:00',
+                  estimatedDurationMinutes: 150,
+                  estimatedCost: 10000,
+                  distanceFromPrevKm: 7.2,
+                  travelTimeFromPrevMinutes: 15,
+                  activityNotes: 'Sunset santai di promenade Kuta Mandalika.',
+                },
+              ],
+            },
+          },
+          {
+            dayNumber: 2,
+            title: 'Teluk Selong Belanak & Surfing Mawi',
+            notes: 'Cocok untuk belajar surfing santai dan berburu sunset eksotis.',
+            totalDistanceKm: 18.2,
+            totalDurationMinutes: 45,
+            estimatedBudget: 500000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_selong_belanak',
+                  orderIndex: 0,
+                  startTime: '09:00',
+                  endTime: '12:00',
+                  estimatedDurationMinutes: 180,
+                  estimatedCost: 15000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Pantai landai berpasir halus surganya peselancar pemula.',
+                },
+                {
+                  destinationId: 'dest_pantai_mawun',
+                  orderIndex: 1,
+                  startTime: '13:00',
+                  endTime: '15:00',
+                  estimatedDurationMinutes: 120,
+                  estimatedCost: 10000,
+                  distanceFromPrevKm: 8.5,
+                  travelTimeFromPrevMinutes: 20,
+                  activityNotes: 'Teluk berbentuk tapal kuda berair tenang untuk berenang.',
+                },
+                {
+                  destinationId: 'dest_pantai_mawi',
+                  orderIndex: 2,
+                  startTime: '15:30',
+                  endTime: '18:30',
+                  estimatedDurationMinutes: 180,
+                  estimatedCost: 10000,
+                  distanceFromPrevKm: 9.7,
+                  travelTimeFromPrevMinutes: 25,
+                  activityNotes: 'Spot sunset karang megah favorit peselancar dunia.',
+                },
+              ],
+            },
+          },
+          {
+            dayNumber: 3,
+            title: 'Warisan Budaya Sasak & Tenun Tradisional',
+            notes: 'Mengenal kearifan lokal suku Sasak dan berbelanja kain tenun otentik.',
+            totalDistanceKm: 15.7,
+            totalDurationMinutes: 35,
+            estimatedBudget: 400000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_desa_sade',
+                  orderIndex: 0,
+                  startTime: '09:00',
+                  endTime: '11:30',
+                  estimatedDurationMinutes: 150,
+                  estimatedCost: 25000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Rumah adat Bale Tani dan tarian adat suku Sasak.',
+                },
+                {
+                  destinationId: 'dest_desa_sukarara',
+                  orderIndex: 1,
+                  startTime: '13:00',
+                  endTime: '15:30',
+                  estimatedDurationMinutes: 150,
+                  estimatedCost: 20000,
+                  distanceFromPrevKm: 15.7,
+                  travelTimeFromPrevMinutes: 35,
+                  activityNotes: 'Mencoba menenun kain songket khas Lombok bersama pengrajin lokal.',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.itineraryTemplate.create({
+    data: {
+      id: 'rec_gili_3d',
+      title: '3 Hari Surga Bawah Laut & Snorkeling 3 Gili',
+      description:
+        'Paket perjalanan bahari lengkap mengarungi Gili Trawangan, patung bawah laut Gili Meno, dan ketenangan pasir putih Gili Air.',
+      coverImageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=800',
+      totalDays: 3,
+      travelStyle: TravelStyle.BEACH_RELAXATION,
+      budgetLevel: BudgetLevel.MID_RANGE,
+      transportationMode: TransportationMode.MOTORCYCLE,
+      transportPaceNote: 'Speedboat / Sepeda • Wisata Bahari & Snorkeling',
+      totalEstimatedBudget: 1750000,
+      totalDistanceKm: 22.0,
+      totalDurationMinutes: 80,
+      isPublished: true,
+      isFeatured: true,
+      sortOrder: 2,
+      days: {
+        create: [
+          {
+            dayNumber: 1,
+            title: 'Eksplorasi Gili Trawangan & Sunset Point',
+            notes: 'Sewa sepeda untuk keliling pulau tanpa polusi kendaraan bermotor.',
+            totalDistanceKm: 7.5,
+            totalDurationMinutes: 25,
+            estimatedBudget: 600000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_gili_trawangan',
+                  orderIndex: 0,
+                  startTime: '09:00',
+                  endTime: '13:00',
+                  estimatedDurationMinutes: 240,
+                  estimatedCost: 50000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Menikmati pantai pasir putih dan kafe tepi pantai.',
+                },
+                {
+                  destinationId: 'dest_shark_point_gili',
+                  orderIndex: 1,
+                  startTime: '14:30',
+                  endTime: '17:30',
+                  estimatedDurationMinutes: 180,
+                  estimatedCost: 150000,
+                  distanceFromPrevKm: 2.5,
+                  travelTimeFromPrevMinutes: 10,
+                  activityNotes: 'Snorkeling dan diving melihat reef shark dan terumbu karang.',
+                },
+              ],
+            },
+          },
+          {
+            dayNumber: 2,
+            title: 'Snorkeling Patung Bawah Laut Gili Meno & Penyu',
+            notes: 'Berenang bersama penyu hijau liar di konservasi terumbu karang.',
+            totalDistanceKm: 6.0,
+            totalDurationMinutes: 25,
+            estimatedBudget: 650000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_gili_meno',
+                  orderIndex: 0,
+                  startTime: '08:30',
+                  endTime: '12:30',
+                  estimatedDurationMinutes: 240,
+                  estimatedCost: 75000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Spot patung bawah laut "The Nest" karya Jason deCaires Taylor.',
+                },
+              ],
+            },
+          },
+          {
+            dayNumber: 3,
+            title: 'Santai di Pantai Pasir Putih Gili Air',
+            notes: 'Suasana pulau yang tenang dan damai untuk relaksasi akhir liburan.',
+            totalDistanceKm: 5.5,
+            totalDurationMinutes: 20,
+            estimatedBudget: 500000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_gili_air',
+                  orderIndex: 0,
+                  startTime: '09:00',
+                  endTime: '13:00',
+                  estimatedDurationMinutes: 240,
+                  estimatedCost: 50000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Bersantai menikmati ayunan laut dan kuliner segar kelapa muda.',
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  await prisma.itineraryTemplate.create({
+    data: {
+      id: 'rec_sembalun_2d',
+      title: '2 Hari Petualangan Lereng Rinjani & Lembah Sembalun',
+      description:
+        'Rasakan udara pegunungan yang sejuk, panorama petak sawah warna-warni Sembalun, dan gemuruh air terjun Tiu Kelep.',
+      coverImageUrl: 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1000',
+      totalDays: 2,
+      travelStyle: TravelStyle.NATURE_ADVENTURE,
+      budgetLevel: BudgetLevel.MID_RANGE,
+      transportationMode: TransportationMode.CAR,
+      transportPaceNote: 'Mobil Sewa • Udara Sejuk & Lanskap Pegunungan',
+      totalEstimatedBudget: 900000,
+      totalDistanceKm: 58.0,
+      totalDurationMinutes: 120,
+      isPublished: true,
+      isFeatured: true,
+      sortOrder: 3,
+      days: {
+        create: [
+          {
+            dayNumber: 1,
+            title: 'Panorama Bukit Pergasingan & Kebun Sembalun',
+            notes: 'Bawa jaket hangat karena suhu malam hari bisa mencapai 15°C.',
+            totalDistanceKm: 25.0,
+            totalDurationMinutes: 50,
+            estimatedBudget: 450000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_bukit_pergasingan',
+                  orderIndex: 0,
+                  startTime: '08:00',
+                  endTime: '12:00',
+                  estimatedDurationMinutes: 240,
+                  estimatedCost: 20000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Pemandangan spektakuler Gunung Rinjani dan hamparan sawah kotak.',
+                },
+                {
+                  destinationId: 'dest_kebun_strawberry_sembalun',
+                  orderIndex: 1,
+                  startTime: '13:30',
+                  endTime: '15:30',
+                  estimatedDurationMinutes: 120,
+                  estimatedCost: 35000,
+                  distanceFromPrevKm: 4.2,
+                  travelTimeFromPrevMinutes: 10,
+                  activityNotes: 'Petik buah strawberry segar langsung dari kebun agrowisata.',
+                },
+                {
+                  destinationId: 'dest_bukit_selong',
+                  orderIndex: 2,
+                  startTime: '16:00',
+                  endTime: '18:00',
+                  estimatedDurationMinutes: 120,
+                  estimatedCost: 15000,
+                  distanceFromPrevKm: 3.8,
+                  travelTimeFromPrevMinutes: 10,
+                  activityNotes: 'Spot foto rumah adat Sasak Beleq berlatar perbukitan hijau.',
+                },
+              ],
+            },
+          },
+          {
+            dayNumber: 2,
+            title: 'Kesejukan Air Terjun Tiu Kelep & Sendang Gile',
+            notes: 'Gunakan sandal gunung/alas kaki anti slip untuk susur sungai.',
+            totalDistanceKm: 33.0,
+            totalDurationMinutes: 70,
+            estimatedBudget: 450000,
+            activities: {
+              create: [
+                {
+                  destinationId: 'dest_sendang_gile',
+                  orderIndex: 0,
+                  startTime: '08:30',
+                  endTime: '10:30',
+                  estimatedDurationMinutes: 120,
+                  estimatedCost: 20000,
+                  distanceFromPrevKm: 0,
+                  travelTimeFromPrevMinutes: 0,
+                  activityNotes: 'Air terjun bertingkat megah di gerbang masuk pendakian Senaru.',
+                },
+                {
+                  destinationId: 'dest_tiu_kelep',
+                  orderIndex: 1,
+                  startTime: '11:00',
+                  endTime: '14:00',
+                  estimatedDurationMinutes: 180,
+                  estimatedCost: 20000,
+                  distanceFromPrevKm: 1.2,
+                  travelTimeFromPrevMinutes: 30,
+                  activityNotes: 'Air terjun mistis dengan kolam alami yang konon membuat awet muda.',
+                },
+              ],
+            },
+          },
         ],
       },
     },

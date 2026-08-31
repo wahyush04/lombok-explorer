@@ -32,6 +32,31 @@ export class ItinerariesController {
     return ResponseUtil.sendPaginated(res, data, meta, 'Itineraries retrieved successfully');
   });
 
+  public getRecommendations = asyncHandler(async (req: Request, res: Response) => {
+    const query = req.query as unknown as import('./dto/itinerary.dto').RecommendationsQuery;
+    const data = await this.service.getRecommendations(query);
+    return ResponseUtil.sendSuccess(res, data, 'Success fetching recommendations');
+  });
+
+  public browseTemplates = asyncHandler(async (req: Request, res: Response) => {
+    const query = req.query as unknown as import('./dto/itinerary.dto').BrowseItineraryQuery;
+    const { data, meta } = await this.service.browseTemplates(query);
+    return ResponseUtil.sendPaginated(res, data, meta, 'Curated trip templates retrieved successfully');
+  });
+
+  public getTemplateById = asyncHandler(async (req: Request, res: Response) => {
+    const id = String(req.params.id);
+    const data = await this.service.getTemplateById(id);
+    return ResponseUtil.sendSuccess(res, data, 'Curated trip template retrieved successfully');
+  });
+
+  public applyTemplate = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const body = req.body as import('./dto/itinerary.dto').ApplyTemplateDto;
+    const data = await this.service.applyTemplate(body, userId);
+    return ResponseUtil.sendCreated(res, data, 'Template itinerary applied successfully');
+  });
+
   public getActiveTrip = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const result = await this.service.getActiveTrip(userId);

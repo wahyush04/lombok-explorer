@@ -22,8 +22,10 @@ servers:
     description: Production Server
 
 tags:
+  - name: Curated Itineraries
+    description: Penelusuran dan rekomendasi template itinerary kurasi admin untuk mobile
   - name: Itineraries
-    description: Manajemen data master Trip & Itinerary
+    description: Manajemen data master Trip & Itinerary pengguna
   - name: Itinerary Days
     description: Manajemen multi-hari perjalanan (Tambah, Edit, Hapus Hari)
   - name: Itinerary Activities
@@ -32,8 +34,360 @@ tags:
     description: Optimasi rute perjalanan via Mapbox / 2-Opt Local Search
   - name: Itinerary Sharing
     description: Pembuatan share link dan akses publik trip yang dibagikan
+  - name: Admin Itinerary Templates
+    description: Manajemen template itinerary kurasi (Khusus Admin)
 
 paths:
+  # ==========================================
+  # 0. CURATED TEMPLATES (RECOMMENDATIONS & BROWSE)
+  # ==========================================
+  /api/v1/itineraries/recommendations:
+    get:
+      tags:
+        - Curated Itineraries
+      summary: Rekomendasi itinerary terkurasi (Mobile Home & Recommendations)
+      description: Mengambil daftar template rekomendasi itinerary terpopuler yang telah dikurasi oleh admin.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: travel_style
+          schema:
+            $ref: '#/components/schemas/TravelStyle'
+          description: Filter gaya liburan (opsional)
+        - in: query
+          name: duration_days
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+          description: Filter durasi hari spesifik (opsional)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 6
+          description: Batas jumlah rekomendasi yang dikembalikan
+      responses:
+        '200':
+          description: Berhasil mengambil rekomendasi itinerary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Success fetching recommendations
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItineraryTemplateCard'
+
+  /api/v1/itineraries/browse:
+    get:
+      tags:
+        - Curated Itineraries
+      summary: Eksplorasi katalog template itinerary (Browse & Search)
+      description: Menampilkan daftar template itinerary terpublikasi dengan dukungan pencarian teks, filter durasi (1 Hari, 2-3 Hari, 4+ Hari), gaya liburan, dan paginasi.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: query
+          schema:
+            type: string
+          description: Kata kunci pencarian nama trip, deskripsi, atau destinasi
+        - in: query
+          name: duration_filter
+          schema:
+            type: string
+            enum: [ALL, 1_DAY, 2_3_DAYS, 4_PLUS_DAYS]
+            default: ALL
+          description: Filter kelompok durasi hari
+        - in: query
+          name: travel_style
+          schema:
+            $ref: '#/components/schemas/TravelStyle'
+          description: Filter gaya liburan
+        - in: query
+          name: budget_level
+          schema:
+            $ref: '#/components/schemas/BudgetLevel'
+          description: Filter estimasi anggaran
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Nomor halaman
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Jumlah item per halaman
+      responses:
+        '200':
+          description: Berhasil mengambil daftar template itinerary
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Curated trip templates retrieved successfully
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItineraryTemplateCard'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+
+  /api/v1/itineraries/templates/{id}:
+    get:
+      tags:
+        - Curated Itineraries
+      summary: Detail template itinerary terkurasi (Preview & Lihat Rute)
+      description: Mengambil detail lengkap template perjalanan kurasi admin beserta urutan hari dan perhentian aktivitas untuk pratinjau rute sebelum diterapkan.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID template itinerary
+      responses:
+        '200':
+          description: Detail template berhasil ditemukan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Curated trip template retrieved successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryTemplateDetail'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /api/v1/itineraries/apply:
+    post:
+      tags:
+        - Curated Itineraries
+      summary: Terapkan template ke trip pribadi user (Gunakan Rute Ini)
+      description: |
+        Menyalin (*cloning*) seluruh susunan template kurasi admin ke dalam itinerary pribadi milik pengguna yang sedang login secara atomik.
+        Tanggal setiap hari perjalanan secara otomatis dihitung berdasarkan `startDate` yang dipilih.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ApplyTemplateRequest'
+      responses:
+        '201':
+          description: Template berhasil diterapkan menjadi trip pribadi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Template itinerary applied successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  # ==========================================
+  # ADMIN TEMPLATES CRUD
+  # ==========================================
+  /api/v1/admin/itinerary-templates:
+    get:
+      tags:
+        - Admin Itinerary Templates
+      summary: (Admin) Daftar seluruh template itinerary
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: travel_style
+          schema:
+            $ref: '#/components/schemas/TravelStyle'
+        - in: query
+          name: is_published
+          schema:
+            type: boolean
+        - in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Daftar template kurasi untuk admin
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ItineraryTemplateDetail'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+    post:
+      tags:
+        - Admin Itinerary Templates
+      summary: (Admin) Buat template itinerary kurasi baru
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCreateTemplateRequest'
+      responses:
+        '201':
+          description: Template berhasil dibuat
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ItineraryTemplateDetail'
+
+  /api/v1/admin/itinerary-templates/{id}:
+    get:
+      tags:
+        - Admin Itinerary Templates
+      summary: (Admin) Detail template itinerary kurasi
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Detail template kurasi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ItineraryTemplateDetail'
+    patch:
+      tags:
+        - Admin Itinerary Templates
+      summary: (Admin) Update template itinerary kurasi
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUpdateTemplateRequest'
+      responses:
+        '200':
+          description: Template berhasil diupdate
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  data:
+                    $ref: '#/components/schemas/ItineraryTemplateDetail'
+    delete:
+      tags:
+        - Admin Itinerary Templates
+      summary: (Admin) Hapus template itinerary kurasi (Soft Delete)
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Template berhasil dihapus
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Curated template deleted successfully
+
+  # ==========================================
+  # USER TRIPS CRUD
+  # ==========================================
   /api/v1/itineraries:
     get:
       tags:
@@ -1452,6 +1806,247 @@ components:
             trip:
               $ref: '#/components/schemas/ActiveTripCard'
               nullable: true
+
+    ItineraryTemplateCard:
+      type: object
+      properties:
+        id:
+          type: string
+          example: rec_mandalika_3d
+        title:
+          type: string
+          example: 3 Hari Jelajah Mandalika & Pantai Eksotis
+        description:
+          type: string
+          nullable: true
+          example: Liburan santai menyusuri pantai berpasir putih dan sirkuit internasional
+        coverImageUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        totalDays:
+          type: integer
+          example: 3
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        transportationMode:
+          $ref: '#/components/schemas/TransportationMode'
+        transportPaceNote:
+          type: string
+          nullable: true
+          example: Mobil Sewa • Santai & Menyenangkan
+        totalEstimatedBudget:
+          type: number
+          example: 1850000
+        totalDistanceKm:
+          type: number
+          example: 85.5
+        totalDurationMinutes:
+          type: integer
+          example: 180
+        destinationCount:
+          type: integer
+          example: 6
+        routeSummary:
+          type: string
+          example: Tanjung Aan • Bukit Merese • Sirkuit Mandalika
+        isPublished:
+          type: boolean
+          example: true
+        isFeatured:
+          type: boolean
+          example: true
+        sortOrder:
+          type: integer
+          example: 1
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ItineraryTemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/ItineraryTemplateCard'
+        - type: object
+          properties:
+            days:
+              type: array
+              items:
+                $ref: '#/components/schemas/TemplateDay'
+
+    TemplateDay:
+      type: object
+      properties:
+        id:
+          type: string
+          example: 5e6f7g8h-1234
+        templateId:
+          type: string
+          example: rec_mandalika_3d
+        dayNumber:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: 'Hari 1: Mandalika Coastal Explorer'
+        notes:
+          type: string
+          nullable: true
+        totalDistanceKm:
+          type: number
+          example: 22.5
+        totalDurationMinutes:
+          type: integer
+          example: 45
+        estimatedBudget:
+          type: number
+          example: 350000
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/TemplateActivity'
+
+    TemplateActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          example: act_123_456
+        templateDayId:
+          type: string
+        orderIndex:
+          type: integer
+          example: 0
+        startTime:
+          type: string
+          nullable: true
+          example: '08:30'
+        endTime:
+          type: string
+          nullable: true
+          example: '11:00'
+        activityNotes:
+          type: string
+          nullable: true
+          example: Menikmati keindahan pantai dan bukit
+        estimatedDurationMinutes:
+          type: integer
+          example: 150
+        estimatedCost:
+          type: number
+          example: 10000
+        distanceFromPrevKm:
+          type: number
+          example: 0
+        travelTimeFromPrevMinutes:
+          type: integer
+          example: 0
+        destination:
+          type: object
+          nullable: true
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+            slug:
+              type: string
+            coverImageUrl:
+              type: string
+            latitude:
+              type: number
+            longitude:
+              type: number
+            rating:
+              type: number
+
+    ApplyTemplateRequest:
+      type: object
+      required:
+        - templateId
+      properties:
+        templateId:
+          type: string
+          example: rec_mandalika_3d
+          description: ID template kurasi yang akan disalin
+        customTitle:
+          type: string
+          example: Trip Liburan Mandalika Saya
+          description: Judul kustom trip pribadi (opsional)
+        startDate:
+          type: string
+          format: date
+          example: '2026-09-01'
+          description: Tanggal mulai perjalanan (YYYY-MM-DD) untuk memproyeksikan tanggal harian
+
+    AdminCreateTemplateRequest:
+      type: object
+      required:
+        - title
+        - totalDays
+      properties:
+        title:
+          type: string
+          example: 3 Hari Eksotisme Sembalun & Rinjani
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        totalDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        transportationMode:
+          $ref: '#/components/schemas/TransportationMode'
+        transportPaceNote:
+          type: string
+        totalEstimatedBudget:
+          type: number
+        isPublished:
+          type: boolean
+          default: false
+        isFeatured:
+          type: boolean
+          default: false
+        sortOrder:
+          type: integer
+          default: 0
+
+    AdminUpdateTemplateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+        description:
+          type: string
+        coverImageUrl:
+          type: string
+        totalDays:
+          type: integer
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+        budgetLevel:
+          $ref: '#/components/schemas/BudgetLevel'
+        transportationMode:
+          $ref: '#/components/schemas/TransportationMode'
+        transportPaceNote:
+          type: string
+        totalEstimatedBudget:
+          type: number
+        isPublished:
+          type: boolean
+        isFeatured:
+          type: boolean
+        sortOrder:
+          type: integer
 
   responses:
     ValidationError:

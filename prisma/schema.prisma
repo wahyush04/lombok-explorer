@@ -245,6 +245,7 @@ model Destination {
   reviews                    Review[]
   favorites                  Favorite[]
   itineraryItems             ItineraryItem[]
+  templateActivities         TemplateActivity[]
   recommendationDestinations RecommendationDestination[]
   posts                      Post[]
   postLocations              PostLocation[]
@@ -315,13 +316,96 @@ model Review {
 }
 
 // ==========================================
-// ITINERARY PLANNER
+// ITINERARY TEMPLATES (CURATED / ADMIN)
+// ==========================================
+
+model ItineraryTemplate {
+  id                     String             @id @default(uuid())
+  title                  String
+  description            String?            @db.Text
+  coverImageUrl          String?            @db.Text
+  totalDays              Int                @default(1)
+  travelStyle            TravelStyle        @default(BEACH_RELAXATION)
+  budgetLevel            BudgetLevel        @default(MID_RANGE)
+  transportationMode     TransportationMode @default(CAR)
+  transportPaceNote      String?            // e.g. "Mobil Sewa / Motor • Santai & Menyenangkan"
+  totalEstimatedBudget   Decimal            @default(0) @db.Decimal(12, 2)
+  totalDistanceKm        Float              @default(0)
+  totalDurationMinutes   Int                @default(0)
+  isPublished            Boolean            @default(true)
+  isFeatured             Boolean            @default(false)
+  sortOrder              Int                @default(0)
+  createdAt              DateTime           @default(now())
+  updatedAt              DateTime           @updatedAt
+  deletedAt              DateTime?
+
+  // Relations
+  days                   TemplateDay[]
+  itineraries            Itinerary[]
+
+  @@index([isPublished])
+  @@index([isFeatured, sortOrder])
+  @@index([travelStyle])
+  @@index([totalDays])
+  @@map("itinerary_templates")
+}
+
+model TemplateDay {
+  id                   String            @id @default(uuid())
+  templateId           String
+  template             ItineraryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  dayNumber            Int
+  title                String
+  notes                String?           @db.Text
+  totalDistanceKm      Float             @default(0)
+  totalDurationMinutes Int               @default(0)
+  estimatedBudget      Decimal           @default(0) @db.Decimal(12, 2)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
+
+  // Relations
+  activities           TemplateActivity[]
+
+  @@unique([templateId, dayNumber])
+  @@index([templateId])
+  @@map("template_days")
+}
+
+model TemplateActivity {
+  id                        String       @id @default(uuid())
+  templateDayId             String
+  templateDay               TemplateDay  @relation(fields: [templateDayId], references: [id], onDelete: Cascade)
+  destinationId             String?
+  destination               Destination? @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  customLocation            String?      @db.Text // JSON: { name, latitude, longitude, address }
+  customTitle               String?
+  orderIndex                Int
+  startTime                 String?      // e.g. "08:30"
+  endTime                   String?      // e.g. "10:30"
+  activityNotes             String?      @db.Text
+  estimatedDurationMinutes  Int          @default(60)
+  estimatedCost             Decimal      @default(0) @db.Decimal(12, 2)
+  distanceFromPrevKm        Float        @default(0)
+  travelTimeFromPrevMinutes Int          @default(0)
+  createdAt                 DateTime     @default(now())
+  updatedAt                 DateTime     @updatedAt
+
+  @@index([templateDayId])
+  @@index([destinationId])
+  @@index([orderIndex])
+  @@map("template_activities")
+}
+
+// ==========================================
+// USER ITINERARIES (PRIVATE & USER-OWNED)
 // ==========================================
 
 model Itinerary {
   id                     String             @id @default(uuid())
   userId                 String?
   user                   User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
+  templateId             String?
+  template               ItineraryTemplate? @relation(fields: [templateId], references: [id], onDelete: SetNull)
   title                  String
   description            String?            @db.Text
   coverImageUrl          String?            @db.Text
@@ -350,6 +434,7 @@ model Itinerary {
   expenses Expense[]
 
   @@index([userId])
+  @@index([templateId])
   @@index([travelStyle])
   @@index([budgetLevel])
   @@index([shareToken])

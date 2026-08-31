@@ -232,11 +232,11 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
         return this.buildResultFromOrder(localOrder, coordinates, matrix.distancesKm, matrix.durationsMinutes);
       }
 
-      // Sort original indices by their waypoint_index in the optimized trip
-      const sortedWaypoints = [...data.waypoints].sort(
-        (a, b) => a.waypoint_index - b.waypoint_index,
-      );
-      const orderedIndices = sortedWaypoints.map((w) => data.waypoints!.indexOf(w));
+      // Map waypoints back to input coordinate indices in optimized visit order
+      const orderedIndices = data.waypoints
+        .map((wp, origIdx) => ({ origIdx, visitOrder: wp.waypoint_index }))
+        .sort((a, b) => a.visitOrder - b.visitOrder)
+        .map((item) => item.origIdx);
 
       return this.buildResultFromOrder(orderedIndices, coordinates, matrix.distancesKm, matrix.durationsMinutes);
     } catch (error) {

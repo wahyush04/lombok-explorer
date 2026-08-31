@@ -7,9 +7,12 @@ import { expensiveAiLimiter } from '../../common/middleware/rate-limit.middlewar
 import {
   AddActivityDtoSchema,
   AddDayDtoSchema,
+  ApplyTemplateDtoSchema,
+  BrowseItineraryQuerySchema,
   CreateItineraryDtoSchema,
   ItineraryQuerySchema,
   OptimizeItineraryDtoSchema,
+  RecommendationsQuerySchema,
   ReorderActivitiesDtoSchema,
   UpdateActivityDtoSchema,
   UpdateDayDtoSchema,
@@ -26,7 +29,37 @@ const router = Router();
 router.get('/shared/:shareToken', itinerariesController.getSharedItinerary);
 
 // ==========================================
-// 2. LIST & SMART GENERATOR
+// 2. CURATED TEMPLATES & RECOMMENDATIONS
+// ==========================================
+router.get(
+  '/recommendations',
+  optionalAuthenticate,
+  validate({ query: RecommendationsQuerySchema }),
+  itinerariesController.getRecommendations,
+);
+
+router.get(
+  '/browse',
+  optionalAuthenticate,
+  validate({ query: BrowseItineraryQuerySchema }),
+  itinerariesController.browseTemplates,
+);
+
+router.get(
+  '/templates/:id',
+  optionalAuthenticate,
+  itinerariesController.getTemplateById,
+);
+
+router.post(
+  '/apply',
+  authenticate,
+  validate({ body: ApplyTemplateDtoSchema }),
+  itinerariesController.applyTemplate,
+);
+
+// ==========================================
+// 3. LIST & SMART GENERATOR
 // ==========================================
 router.get(
   '/',
@@ -57,7 +90,7 @@ router.get(
 );
 
 // ==========================================
-// 3. TRIP MASTER CRUD
+// 4. TRIP MASTER CRUD
 // ==========================================
 router.post(
   '/',

@@ -12,6 +12,24 @@ export interface ItineraryFilterOptions {
   limit: number;
 }
 
+export type TemplateWithRelations = Prisma.ItineraryTemplateGetPayload<{
+  include: {
+    days: {
+      include: {
+        activities: {
+          include: {
+            destination: {
+              include: {
+                category: true;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}>;
+
 export class ItinerariesRepository {
   public async findMany(filters: ItineraryFilterOptions) {
     const where: Prisma.ItineraryWhereInput = {
@@ -618,6 +636,266 @@ export class ItinerariesRepository {
       },
     });
   }
+
+  public async findRecommendations(filter: {
+    travel_style?: TravelStyle;
+    travelStyle?: TravelStyle;
+    duration_days?: number;
+    durationDays?: number;
+    limit?: number;
+  }) {
+    const travelStyle = filter.travel_style || filter.travelStyle;
+    const durationDays = filter.duration_days || filter.durationDays;
+    const limit = filter.limit || 6;
+
+    const where: Prisma.ItineraryTemplateWhereInput = {
+      isPublished: true,
+      deletedAt: null,
+      ...(travelStyle && { travelStyle }),
+      ...(durationDays && { totalDays: durationDays }),
+    };
+
+    return prisma.itineraryTemplate.findMany({
+      where,
+      take: limit,
+      orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
+      include: {
+        days: {
+          orderBy: { dayNumber: 'asc' },
+          include: {
+            activities: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                destination: {
+                  select: {
+                    id: true,
+                    name: true,
+                    slug: true,
+                    coverImageUrl: true,
+                    latitude: true,
+                    longitude: true,
+                    rating: true,
+                    category: { select: { id: true, name: true, slug: true } },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  public async findBrowseTemplates(filter: {
+    query?: string;
+    q?: string;
+    search?: string;
+    duration_filter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS';
+    durationFilter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS';
+    travel_style?: TravelStyle;
+    travelStyle?: TravelStyle;
+    budget_level?: BudgetLevel;
+    budgetLevel?: BudgetLevel;
+    page?: number;
+    limit?: number;
+  }) {
+    const page = filter.page || 1;
+    const limit = filter.limit || 10;
+    const skip = (page - 1) * limit;
+    const search = filter.query || filter.q || filter.search;
+    const durationFilter = filter.duration_filter || filter.durationFilter || 'ALL';
+    const travelStyle = filter.travel_style || filter.travelStyle;
+    const budgetLevel = filter.budget_level || filter.budgetLevel;
+
+    const where: Prisma.ItineraryTemplateWhereInput = {
+      isPublished: true,
+      deletedAt: null,
+      ...(travelStyle && { travelStyle }),
+      ...(budgetLevel && { budgetLevel }),
+    };
+
+    if (durationFilter === '1_DAY') {
+      where.totalDays = 1;
+    } else if (durationFilter === '2_3_DAYS') {
+      where.totalDays = { in: [2, 3] };
+    } else if (durationFilter === '4_PLUS_DAYS') {
+      where.totalDays = { gte: 4 };
+    }
+
+    if (search && search.trim().length > 0) {
+      const term = search.trim();
+      where.OR = [
+        { title: { contains: term, mode: 'insensitive' } },
+        { description: { contains: term, mode: 'insensitive' } },
+        {
+          days: {
+            some: {
+              activities: {
+                some: {
+                  OR: [
+                    { customTitle: { contains: term, mode: 'insensitive' } },
+                    { destination: { name: { contains: term, mode: 'insensitive' } } },
+                    { destination: { description: { contains: term, mode: 'insensitive' } } },
+                  ],
+                },
+              },
+            },
+          },
+        },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.itineraryTemplate.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
+        include: {
+          days: {
+            orderBy: { dayNumber: 'asc' },
+            include: {
+              activities: {
+                orderBy: { orderIndex: 'asc' },
+                include: {
+                  destination: {
+                    select: {
+                      id: true,
+                      name: true,
+                      slug: true,
+                      coverImageUrl: true,
+                      latitude: true,
+                      longitude: true,
+                      rating: true,
+                      category: { select: { id: true, name: true, slug: true } },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      }),
+      prisma.itineraryTemplate.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
+  public async findTemplateById(id: string) {
+    return prisma.itineraryTemplate.findFirst({
+      where: { id, deletedAt: null },
+      include: {
+        days: {
+          orderBy: { dayNumber: 'asc' },
+          include: {
+            activities: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                destination: {
+                  include: {
+                    category: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+  }
+
+  public async cloneTemplateToUserItinerary(
+    template: TemplateWithRelations,
+    userId: string,
+    customTitle?: string,
+    startDate?: string,
+  ) {
+    const baseDate = startDate ? new Date(startDate) : null;
+    const endDate =
+      baseDate && template.totalDays > 1
+        ? new Date(baseDate.getTime() + (template.totalDays - 1) * 24 * 60 * 60 * 1000)
+        : baseDate;
+
+    return prisma.$transaction(async (tx) => {
+      const newItinerary = await tx.itinerary.create({
+        data: {
+          userId,
+          templateId: template.id,
+          title: customTitle || template.title,
+          description: template.description,
+          coverImageUrl: template.coverImageUrl,
+          totalDays: template.totalDays,
+          totalEstimatedBudget: template.totalEstimatedBudget,
+          travelStyle: template.travelStyle,
+          budgetLevel: template.budgetLevel,
+          transportationMode: template.transportationMode,
+          totalDistanceKm: template.totalDistanceKm,
+          totalTravelTimeMinutes: template.totalDurationMinutes,
+          isCustom: false,
+          isPublic: false,
+          isSaved: true,
+          startDate: baseDate,
+          endDate,
+          days: {
+            create: template.days.map((day) => {
+              const dayDate = baseDate
+                ? new Date(baseDate.getTime() + (day.dayNumber - 1) * 24 * 60 * 60 * 1000)
+                : null;
+
+              return {
+                dayNumber: day.dayNumber,
+                title: day.title,
+                date: dayDate,
+                notes: day.notes,
+                totalDistanceKm: day.totalDistanceKm,
+                totalTravelTimeMinutes: day.totalDurationMinutes,
+                estimatedBudget: day.estimatedBudget,
+                items: {
+                  create: day.activities.map((act) => ({
+                    destinationId: act.destinationId,
+                    customLocation: act.customLocation,
+                    customTitle: act.customTitle,
+                    orderIndex: act.orderIndex,
+                    startTime: act.startTime,
+                    endTime: act.endTime,
+                    timeSlot:
+                      act.startTime && act.endTime ? `${act.startTime} - ${act.endTime}` : null,
+                    activityNotes: act.activityNotes,
+                    estimatedDurationMinutes: act.estimatedDurationMinutes,
+                    estimatedCost: act.estimatedCost,
+                    distanceFromPrevKm: act.distanceFromPrevKm,
+                    travelTimeFromPrevMinutes: act.travelTimeFromPrevMinutes,
+                    isCompleted: false,
+                  })),
+                },
+              };
+            }),
+          },
+        },
+        include: {
+          days: {
+            orderBy: { dayNumber: 'asc' },
+            include: {
+              items: {
+                orderBy: { orderIndex: 'asc' },
+                include: {
+                  destination: {
+                    include: {
+                      category: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      return newItinerary;
+    });
+  }
 }
 
 export const itinerariesRepository = new ItinerariesRepository();
+

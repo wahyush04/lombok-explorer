@@ -42,7 +42,8 @@ export class MapboxMatrixService implements IMapboxMatrixService {
         Math.sin(dLon / 2) *
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return Math.round(R * c * 10) / 10;
+    const dist = R * c;
+    return dist > 0 ? Math.max(0.1, Math.round(dist * 100) / 100) : 0;
   }
 
   /**
@@ -172,7 +173,8 @@ export class MapboxMatrixService implements IMapboxMatrixService {
           const rawDur = data.durations[i]?.[j];
 
           if (typeof rawDist === 'number') {
-            distRow.push(Math.round((rawDist / 1000) * 10) / 10);
+            const km = rawDist / 1000;
+            distRow.push(km > 0 ? Math.max(0.1, Math.round(km * 100) / 100) : 0);
           } else {
             const fallbackDist = this.calculateHaversineKm(
               coordinates[i]!.latitude,
@@ -184,7 +186,8 @@ export class MapboxMatrixService implements IMapboxMatrixService {
           }
 
           if (typeof rawDur === 'number') {
-            durRow.push(Math.max(i === j ? 0 : 1, Math.round(rawDur / 60)));
+            const mins = rawDur / 60;
+            durRow.push(mins > 0 ? Math.max(1, Math.round(mins)) : 0);
           } else {
             const fallbackDur = this.estimateDurationMinutes(distRow[j] || 0, mode);
             durRow.push(fallbackDur);
