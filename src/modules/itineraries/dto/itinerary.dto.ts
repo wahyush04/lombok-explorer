@@ -163,12 +163,23 @@ export const RecommendationsQuerySchema = z.object({
   limit: z.coerce.number().int().min(1).max(50).default(6),
 });
 
+export const DurationFilterEnum = z.enum([
+  'ALL',
+  '1_DAY',
+  '2_3_DAYS',
+  '4_PLUS_DAYS',
+  '1_3_DAYS',
+  '4_7_DAYS',
+  'MORE_7_DAYS',
+]);
+export type DurationFilterType = z.infer<typeof DurationFilterEnum>;
+
 export const BrowseItineraryQuerySchema = z.object({
   query: z.string().trim().optional(),
   q: z.string().trim().optional(),
   search: z.string().trim().optional(),
-  duration_filter: z.enum(['ALL', '1_DAY', '2_3_DAYS', '4_PLUS_DAYS']).default('ALL'),
-  durationFilter: z.enum(['ALL', '1_DAY', '2_3_DAYS', '4_PLUS_DAYS']).optional(),
+  duration_filter: DurationFilterEnum.default('ALL'),
+  durationFilter: DurationFilterEnum.optional(),
   travel_style: z.nativeEnum(TravelStyle).optional(),
   travelStyle: z.nativeEnum(TravelStyle).optional(),
   budget_level: z.nativeEnum(BudgetLevel).optional(),

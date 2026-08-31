@@ -550,13 +550,14 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
   // =======================================================
   // 11. CURATED TEMPLATES RECOMMENDATIONS, BROWSE & APPLY
   // =======================================================
-  describe('11. Curated Templates Recommendations, Browse & Apply', () => {
+  describe('11. Curated Templates Recommendations, Browse & Apply (Anti-Collision & Android Refinements)', () => {
     let templateId = '';
 
-    it('should retrieve curated recommendations list', async () => {
+    it('should retrieve curated recommendations list with correct message and ordering', async () => {
       const res = await request(app).get('/api/v1/itineraries/recommendations?limit=6');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Recommended trip plans retrieved successfully');
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBeGreaterThan(0);
 
@@ -570,13 +571,30 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       templateId = first.id;
     });
 
-    it('should browse curated templates with filters and structured pagination metadata', async () => {
+    it('should verify route precedence: GET /browse is never captured by GET /:id', async () => {
+      const res = await request(app).get('/api/v1/itineraries/browse');
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.message).toBe('Curated trip plans retrieved successfully');
+      expect(res.body.data).toBeDefined();
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.pagination).toBeDefined();
+    });
+
+    it('should verify route precedence: GET /non-existing-random-id returns 404 ITINERARY_NOT_FOUND', async () => {
+      const res = await request(app).get('/api/v1/itineraries/non-existing-random-id-99999');
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('ITINERARY_NOT_FOUND');
+    });
+
+    it('should browse curated templates with duration_filter=1_3_DAYS and pagination', async () => {
       const res = await request(app).get(
-        '/api/v1/itineraries/browse?duration_filter=2_3_DAYS&page=1&limit=2',
+        '/api/v1/itineraries/browse?duration_filter=1_3_DAYS&page=1&limit=2',
       );
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.message).toBe('Success fetching itineraries');
+      expect(res.body.message).toBe('Curated trip plans retrieved successfully');
       expect(res.body.data).toBeDefined();
       expect(Array.isArray(res.body.data.items)).toBe(true);
       expect(res.body.data.pagination).toBeDefined();
@@ -586,10 +604,33 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(typeof res.body.data.pagination.totalPages).toBe('number');
       expect(typeof res.body.data.pagination.hasNext).toBe('boolean');
 
-      // Verify all returned templates have 2 or 3 days
       for (const item of res.body.data.items) {
-        expect([2, 3]).toContain(item.totalDays);
+        expect(item.totalDays).toBeGreaterThanOrEqual(1);
+        expect(item.totalDays).toBeLessThanOrEqual(3);
       }
+    });
+
+    it('should browse curated templates with duration_filter=4_7_DAYS', async () => {
+      const res = await request(app).get(
+        '/api/v1/itineraries/browse?duration_filter=4_7_DAYS&page=1&limit=5',
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data).toBeDefined();
+      for (const item of res.body.data.items) {
+        expect(item.totalDays).toBeGreaterThanOrEqual(4);
+        expect(item.totalDays).toBeLessThanOrEqual(7);
+      }
+    });
+
+    it('should handle combined filters: query + duration + travelStyle + budgetLevel', async () => {
+      const res = await request(app).get(
+        '/api/v1/itineraries/browse?query=Pantai&duration_filter=1_3_DAYS&travel_style=BEACH_RELAXATION&budget_level=MID_RANGE',
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.pagination).toBeDefined();
     });
 
     it('should handle browse edge case with empty results and zero totalPages', async () => {
@@ -606,16 +647,6 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
         totalPages: 0,
         hasNext: false,
       });
-    });
-
-    it('should search templates by keyword and travel style', async () => {
-      const res = await request(app).get(
-        '/api/v1/itineraries/browse?query=Mandalika&travel_style=BEACH_RELAXATION',
-      );
-      expect(res.status).toBe(200);
-      expect(res.body.success).toBe(true);
-      expect(Array.isArray(res.body.data.items)).toBe(true);
-      expect(res.body.data.pagination).toBeDefined();
     });
 
     it('should preview curated template details by ID', async () => {

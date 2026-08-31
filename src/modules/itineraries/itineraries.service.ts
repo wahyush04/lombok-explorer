@@ -401,6 +401,20 @@ export class ItinerariesService {
     userId?: string,
     userRole?: string,
   ): Promise<ItineraryDto> {
+    const reservedWords = [
+      'browse',
+      'recommendations',
+      'active',
+      'active-trip',
+      'apply',
+      'generate',
+      'templates',
+      'shared',
+    ];
+    if (reservedWords.includes(id.toLowerCase())) {
+      throw new NotFoundError(`Itinerary '${id}' not found`, 'ITINERARY_NOT_FOUND');
+    }
+
     const itinerary = await this.repository.findById(id);
     if (!itinerary) {
       throw new NotFoundError(`Itinerary '${id}' not found`, 'ITINERARY_NOT_FOUND');

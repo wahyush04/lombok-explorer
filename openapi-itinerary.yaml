@@ -82,7 +82,7 @@ paths:
                     example: true
                   message:
                     type: string
-                    example: Success fetching recommendations
+                    example: Recommended trip plans retrieved successfully
                   data:
                     type: array
                     items:
@@ -93,7 +93,7 @@ paths:
       tags:
         - Curated Itineraries
       summary: Eksplorasi katalog template itinerary (Browse & Search)
-      description: Menampilkan daftar template itinerary terpublikasi dengan dukungan pencarian teks, filter durasi (1 Hari, 2-3 Hari, 4+ Hari), gaya liburan, dan paginasi.
+      description: Menampilkan daftar template itinerary terpublikasi dengan dukungan pencarian teks, filter durasi (1-3 Hari, 4-7 Hari, >7 Hari), gaya liburan, dan paginasi.
       security:
         - BearerAuth: []
         - {}
@@ -107,7 +107,7 @@ paths:
           name: duration_filter
           schema:
             type: string
-            enum: [ALL, 1_DAY, 2_3_DAYS, 4_PLUS_DAYS]
+            enum: [ALL, 1_3_DAYS, 4_7_DAYS, MORE_7_DAYS, 1_DAY, 2_3_DAYS, 4_PLUS_DAYS]
             default: ALL
           description: Filter kelompok durasi hari
         - in: query
@@ -145,7 +145,7 @@ paths:
                     example: true
                   message:
                     type: string
-                    example: Success fetching itineraries
+                    example: Curated trip plans retrieved successfully
                   data:
                     type: object
                     properties:

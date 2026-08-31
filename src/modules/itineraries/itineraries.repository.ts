@@ -690,8 +690,8 @@ export class ItinerariesRepository {
     query?: string;
     q?: string;
     search?: string;
-    duration_filter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS';
-    durationFilter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS';
+    duration_filter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
+    durationFilter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
     travel_style?: TravelStyle;
     travelStyle?: TravelStyle;
     budget_level?: BudgetLevel;
@@ -714,7 +714,13 @@ export class ItinerariesRepository {
       ...(budgetLevel && { budgetLevel }),
     };
 
-    if (durationFilter === '1_DAY') {
+    if (durationFilter === '1_3_DAYS') {
+      where.totalDays = { gte: 1, lte: 3 };
+    } else if (durationFilter === '4_7_DAYS') {
+      where.totalDays = { gte: 4, lte: 7 };
+    } else if (durationFilter === 'MORE_7_DAYS') {
+      where.totalDays = { gt: 7 };
+    } else if (durationFilter === '1_DAY') {
       where.totalDays = 1;
     } else if (durationFilter === '2_3_DAYS') {
       where.totalDays = { in: [2, 3] };

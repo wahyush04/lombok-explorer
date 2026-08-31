@@ -35,13 +35,13 @@ export class ItinerariesController {
   public getRecommendations = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as import('./dto/itinerary.dto').RecommendationsQuery;
     const data = await this.service.getRecommendations(query);
-    return ResponseUtil.sendSuccess(res, data, 'Success fetching recommendations');
+    return ResponseUtil.sendSuccess(res, data, 'Recommended trip plans retrieved successfully');
   });
 
   public browseTemplates = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as import('./dto/itinerary.dto').BrowseItineraryQuery;
     const result = await this.service.browseTemplates(query);
-    return ResponseUtil.sendSuccess(res, result, 'Success fetching itineraries');
+    return ResponseUtil.sendSuccess(res, result, 'Curated trip plans retrieved successfully');
   });
 
   public getTemplateById = asyncHandler(async (req: Request, res: Response) => {
