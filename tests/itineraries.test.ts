@@ -44,65 +44,58 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
     const resB = await request(app).post('/api/v1/auth/register').send(userB);
     userTokenB = resB.body.data.accessToken;
 
-    // Fetch existing destinations or seed test destinations
-    let dests = await prisma.destination.findMany({
-      where: { latitude: { not: 0 }, longitude: { not: 0 } },
-      take: 2,
+    // Create test destinations
+    const cat = (await prisma.category.findFirst()) || (await prisma.category.create({
+      data: {
+        name: 'Pantai & Bahari',
+        slug: `pantai-bahari-${suffix}`,
+        description: 'Wisata pantai',
+        iconName: 'ic_beach',
+        coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62',
+      },
+    }));
+    const d1 = await prisma.destination.create({
+      data: {
+        name: 'Pantai Tanjung Aan',
+        slug: `pantai-tanjung-aan-${suffix}`,
+        shortDescription: 'Pantai pasir merica',
+        description: 'Pantai pasir merica di Mandalika',
+        categoryId: cat.id,
+        region: 'LOMBOK_SELATAN',
+        locationName: 'Pujut, Lombok Tengah',
+        openingHours: '06:00 - 18:00',
+        bestVisitingTime: 'Pagi atau sore hari',
+        tags: '["Pantai", "Pasir Merica"]',
+        facilities: '["Parkir", "Warung"]',
+        coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62',
+        latitude: -8.9082,
+        longitude: 116.3195,
+        rating: 4.8,
+        status: 'PUBLISHED',
+      },
     });
-    if (dests.length < 2) {
-      const cat = await prisma.category.findFirst() || await prisma.category.create({
-        data: {
-          name: 'Pantai & Bahari',
-          slug: `pantai-bahari-${suffix}`,
-          description: 'Wisata pantai',
-          iconName: 'ic_beach',
-          coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62',
-        },
-      });
-      const d1 = await prisma.destination.create({
-        data: {
-          name: 'Pantai Tanjung Aan',
-          slug: `pantai-tanjung-aan-${suffix}`,
-          shortDescription: 'Pantai pasir merica',
-          description: 'Pantai pasir merica di Mandalika',
-          categoryId: cat.id,
-          region: 'LOMBOK_SELATAN',
-          locationName: 'Pujut, Lombok Tengah',
-          openingHours: '06:00 - 18:00',
-          bestVisitingTime: 'Pagi atau sore hari',
-          tags: '["Pantai", "Pasir Merica"]',
-          facilities: '["Parkir", "Warung"]',
-          coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62',
-          latitude: -8.9082,
-          longitude: 116.3195,
-          rating: 4.8,
-          status: 'PUBLISHED',
-        },
-      });
-      const d2 = await prisma.destination.create({
-        data: {
-          name: 'Bukit Merese',
-          slug: `bukit-merese-${suffix}`,
-          shortDescription: 'Bukit sunset indah',
-          description: 'Bukit pemandangan sunset terindah di Lombok',
-          categoryId: cat.id,
-          region: 'LOMBOK_SELATAN',
-          locationName: 'Pujut, Lombok Tengah',
-          openingHours: '06:00 - 18:30',
-          bestVisitingTime: 'Sore menjelang sunset',
-          tags: '["Bukit", "Sunset"]',
-          facilities: '["Parkir", "Warung"]',
-          coverImageUrl: 'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5',
-          latitude: -8.9135,
-          longitude: 116.3268,
-          rating: 4.9,
-          status: 'PUBLISHED',
-        },
-      });
-      dests = [d1, d2];
-    }
-    destAanId = dests[0].id;
-    destMereseId = dests[1].id;
+    const d2 = await prisma.destination.create({
+      data: {
+        name: 'Bukit Merese',
+        slug: `bukit-merese-${suffix}`,
+        shortDescription: 'Bukit sunset indah',
+        description: 'Bukit pemandangan sunset terindah di Lombok',
+        categoryId: cat.id,
+        region: 'LOMBOK_SELATAN',
+        locationName: 'Pujut, Lombok Tengah',
+        openingHours: '06:00 - 18:30',
+        bestVisitingTime: 'Sore menjelang sunset',
+        tags: '["Bukit", "Sunset"]',
+        facilities: '["Parkir", "Warung"]',
+        coverImageUrl: 'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5',
+        latitude: -8.9135,
+        longitude: 116.3268,
+        rating: 4.9,
+        status: 'PUBLISHED',
+      },
+    });
+    destAanId = d1.id;
+    destMereseId = d2.id;
   });
 
   describe('1. Create Trip with daysCount (+ Auto-generate Days)', () => {
@@ -136,9 +129,20 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.title).toBe(payload.title);
       expect(res.body.data.daysCount).toBe(2);
+      expect(res.body.data.totalDistanceKm).toBe(0);
+      expect(res.body.data.totalDurationMinutes).toBe(0);
+      expect(res.body.data.startDate).toBe('2026-09-01');
+      expect(res.body.data.endDate).toBe('2026-09-02');
       expect(res.body.data.days.length).toBe(2);
       expect(res.body.data.days[0].title).toBe('Hari 1');
+      expect(res.body.data.days[0].date).toBe('2026-09-01');
+      expect(res.body.data.days[0].activities).toEqual([]);
+      expect(res.body.data.days[0].items).toEqual([]);
+      expect(res.body.data.days[0].totalDistanceKm).toBe(0);
+      expect(res.body.data.days[0].totalDurationMinutes).toBe(0);
       expect(res.body.data.days[1].title).toBe('Hari 2');
+      expect(res.body.data.days[1].date).toBe('2026-09-02');
+      expect(res.body.data.days[1].activities).toEqual([]);
       expect(res.body.data.transportationMode).toBe('CAR');
 
       tripId = res.body.data.id;
@@ -483,7 +487,7 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.hasActiveTrip).toBe(false);
       expect(res.body.data.trip).toBeNull();
-      expect(res.body.message).toContain('does not have any active trip');
+      expect(res.body.message).toBe('Active trip retrieved successfully');
     });
 
     it('should return hasActiveTrip: false and trip: null for unauthenticated guest requests', async () => {
@@ -542,6 +546,8 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
         .set('Authorization', `Bearer ${userTokenD}`);
 
       expect(resD.status).toBe(200);
+      expect(resD.body.success).toBe(true);
+      expect(resD.body.message).toBe('Active trip retrieved successfully');
       expect(resD.body.data.hasActiveTrip).toBe(false);
       expect(resD.body.data.trip).toBeNull();
     });

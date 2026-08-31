@@ -60,10 +60,7 @@ export class ItinerariesController {
   public getActiveTrip = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     const result = await this.service.getActiveTrip(userId);
-    const message = result.hasActiveTrip
-      ? 'Active trip retrieved successfully'
-      : 'User does not have any active trip';
-    return ResponseUtil.sendSuccess(res, result, message);
+    return ResponseUtil.sendSuccess(res, result, 'Active trip retrieved successfully');
   });
 
   public getById = asyncHandler(async (req: Request, res: Response) => {

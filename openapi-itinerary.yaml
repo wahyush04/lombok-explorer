@@ -1813,12 +1813,14 @@ components:
           example: 'https://lombokexplorer.com/trips/share/abc123xyz'
         startDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
+          example: '2026-09-01'
         endDate:
           type: string
-          format: date-time
+          format: date
           nullable: true
+          example: '2026-09-03'
         createdAt:
           type: string
           format: date-time

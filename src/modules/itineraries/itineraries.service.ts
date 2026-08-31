@@ -454,9 +454,14 @@ export class ItinerariesService {
       }));
     } else {
       for (let i = 1; i <= daysCount; i++) {
+        let dayDate: Date | null = null;
+        if (startDate) {
+          dayDate = new Date(startDate.getTime());
+          dayDate.setDate(dayDate.getDate() + (i - 1));
+        }
         initialDays.push({
           title: `Hari ${i}`,
-          date: null,
+          date: dayDate,
           notes: null,
           items: [],
         });
