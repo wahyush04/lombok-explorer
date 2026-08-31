@@ -570,27 +570,52 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       templateId = first.id;
     });
 
-    it('should browse curated templates with filters and pagination', async () => {
+    it('should browse curated templates with filters and structured pagination metadata', async () => {
       const res = await request(app).get(
-        '/api/v1/itineraries/browse?duration_filter=2_3_DAYS&page=1&limit=5',
+        '/api/v1/itineraries/browse?duration_filter=2_3_DAYS&page=1&limit=2',
       );
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(Array.isArray(res.body.data)).toBe(true);
-      expect(res.body.meta).toBeDefined();
-      expect(res.body.meta.page).toBe(1);
+      expect(res.body.message).toBe('Success fetching itineraries');
+      expect(res.body.data).toBeDefined();
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.pagination).toBeDefined();
+      expect(res.body.data.pagination.page).toBe(1);
+      expect(res.body.data.pagination.limit).toBe(2);
+      expect(typeof res.body.data.pagination.totalItems).toBe('number');
+      expect(typeof res.body.data.pagination.totalPages).toBe('number');
+      expect(typeof res.body.data.pagination.hasNext).toBe('boolean');
 
       // Verify all returned templates have 2 or 3 days
-      for (const item of res.body.data) {
+      for (const item of res.body.data.items) {
         expect([2, 3]).toContain(item.totalDays);
       }
     });
 
-    it('should search templates by keyword', async () => {
-      const res = await request(app).get('/api/v1/itineraries/browse?query=Mandalika');
+    it('should handle browse edge case with empty results and zero totalPages', async () => {
+      const res = await request(app).get(
+        '/api/v1/itineraries/browse?query=non_existent_destination_xyz123',
+      );
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(Array.isArray(res.body.data)).toBe(true);
+      expect(res.body.data.items).toEqual([]);
+      expect(res.body.data.pagination).toEqual({
+        page: 1,
+        limit: 10,
+        totalItems: 0,
+        totalPages: 0,
+        hasNext: false,
+      });
+    });
+
+    it('should search templates by keyword and travel style', async () => {
+      const res = await request(app).get(
+        '/api/v1/itineraries/browse?query=Mandalika&travel_style=BEACH_RELAXATION',
+      );
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(Array.isArray(res.body.data.items)).toBe(true);
+      expect(res.body.data.pagination).toBeDefined();
     });
 
     it('should preview curated template details by ID', async () => {
@@ -599,9 +624,29 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(res.body.success).toBe(true);
       expect(res.body.data.id).toBe(templateId);
       expect(Array.isArray(res.body.data.days)).toBe(true);
+      if (res.body.data.days.length > 0 && res.body.data.days[0].activities.length > 0) {
+        const act = res.body.data.days[0].activities[0];
+        expect(act.travelDurationMinutes).toBeDefined();
+        if (act.destination) {
+          expect(act.destination.id).toBeDefined();
+          expect(act.destination.name).toBeDefined();
+        }
+      }
     });
 
-    it('should apply curated template into a user-owned private itinerary', async () => {
+    it('should reject applying non-existent template with 404', async () => {
+      const res = await request(app)
+        .post('/api/v1/itineraries/apply')
+        .set('Authorization', `Bearer ${userTokenA}`)
+        .send({
+          templateId: 'invalid_template_id_99999',
+        });
+
+      expect(res.status).toBe(404);
+      expect(res.body.success).toBe(false);
+    });
+
+    it('should apply curated template and return complete timeline ready for Android UI without extra GET', async () => {
       const applyPayload = {
         templateId,
         customTitle: 'Trip Liburan Impian Saya di Mandalika',
@@ -615,12 +660,51 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.id).toBeDefined();
-      expect(res.body.data.title).toBe(applyPayload.customTitle);
-      expect(res.body.data.days.length).toBeGreaterThan(0);
-      expect(res.body.data.startDate).toContain('2026-10-01');
+      expect(res.body.message).toBe('Template itinerary applied successfully');
 
-      const clonedTripId = res.body.data.id;
+      const data = res.body.data;
+      expect(data.id).toBeDefined();
+      expect(data.title).toBe(applyPayload.customTitle);
+      expect(data.totalDays).toBeGreaterThan(0);
+      expect(data.travelStyle).toBeDefined();
+      expect(data.budgetLevel).toBeDefined();
+      expect(data.transportationMode).toBeDefined();
+      expect(data.totalEstimatedBudget).toBeGreaterThanOrEqual(0);
+      expect(data.totalDistanceKm).toBeGreaterThanOrEqual(0);
+      expect(data.totalDurationMinutes).toBeGreaterThanOrEqual(0);
+      expect(data.startDate).toContain('2026-10-01');
+
+      // Verify Complete Days & Activities structure is returned directly
+      expect(Array.isArray(data.days)).toBe(true);
+      expect(data.days.length).toBeGreaterThan(0);
+
+      const day1 = data.days[0];
+      expect(day1.id).toBeDefined();
+      expect(day1.dayNumber).toBe(1);
+      expect(day1.title).toBeDefined();
+      expect(day1.totalDurationMinutes).toBeDefined();
+      expect(day1.totalDistanceKm).toBeDefined();
+      expect(Array.isArray(day1.activities)).toBe(true);
+
+      if (day1.activities.length > 0) {
+        const act = day1.activities[0];
+        expect(act.id).toBeDefined();
+        expect(act.orderIndex).toBeDefined();
+        expect(act.timeSlot).toBeDefined();
+        expect(act.estimatedDurationMinutes).toBeDefined();
+        expect(act.travelDurationMinutes).toBeDefined();
+        expect(act.isCompleted).toBe(false);
+
+        // Destination consistency
+        if (act.destinationId) {
+          expect(act.destination).toBeDefined();
+          expect(act.destination.id).toBe(act.destinationId);
+          expect(act.destination.name).toBeDefined();
+          expect(act.destinationName).toBeDefined();
+        }
+      }
+
+      const clonedTripId = data.id;
 
       // User A can access their applied trip
       const fetchA = await request(app)

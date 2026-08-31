@@ -40,8 +40,8 @@ export class ItinerariesController {
 
   public browseTemplates = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as import('./dto/itinerary.dto').BrowseItineraryQuery;
-    const { data, meta } = await this.service.browseTemplates(query);
-    return ResponseUtil.sendPaginated(res, data, meta, 'Curated trip templates retrieved successfully');
+    const result = await this.service.browseTemplates(query);
+    return ResponseUtil.sendSuccess(res, result, 'Success fetching itineraries');
   });
 
   public getTemplateById = asyncHandler(async (req: Request, res: Response) => {

@@ -206,6 +206,33 @@ export interface RouteSegmentDto {
   travelTimeMinutes: number;
 }
 
+export interface DestinationSummaryDto {
+  id: string;
+  name: string;
+  slug?: string;
+  category?: string | { id: string; name: string; slug: string } | null;
+  categoryName?: string | null;
+  imageUrl?: string | null;
+  coverImageUrl?: string | null;
+  rating?: number;
+  region?: string | null;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface PaginationMetadataDto {
+  page: number;
+  limit: number;
+  totalItems: number;
+  totalPages: number;
+  hasNext: boolean;
+}
+
+export interface BrowseTemplatesResponseDto {
+  items: ItineraryTemplateDto[];
+  pagination: PaginationMetadataDto;
+}
+
 export interface ItineraryActivityDto {
   id: string;
   dayId: string;
@@ -214,20 +241,11 @@ export interface ItineraryActivityDto {
   startTime: string | null;
   endTime: string | null;
   destinationId: string | null;
-  destination: {
-    id: string;
-    name: string;
-    slug: string;
-    category?: { id: string; name: string; slug: string } | null;
-    coverImageUrl?: string | null;
-    rating: number;
-    region?: string | null;
-    latitude?: number;
-    longitude?: number;
-  } | null;
+  destination: DestinationSummaryDto | null;
   destinationName?: string;
   destinationCategory?: string;
-  imageUrl?: string;
+  imageUrl?: string | null;
+  coverImageUrl?: string | null;
   customLocation: CustomLocation | null;
   customTitle: string | null;
   activityNotes: string | null;
@@ -235,6 +253,7 @@ export interface ItineraryActivityDto {
   estimatedDurationMinutes: number;
   estimatedCost: number;
   distanceFromPrevKm: number;
+  travelDurationMinutes: number;
   travelTimeFromPrevMinutes: number;
   isCompleted: boolean;
   createdAt: string;
@@ -249,6 +268,7 @@ export interface ItineraryDayDto {
   date: string | null;
   notes: string | null;
   totalDistanceKm: number;
+  totalDurationMinutes: number;
   totalTravelTimeMinutes: number;
   estimatedBudget: number;
   segments: RouteSegmentDto[];
@@ -267,6 +287,7 @@ export interface ItineraryDto {
   estimatedBudget: number;
   totalEstimatedBudget: number;
   totalDistanceKm: number;
+  totalDurationMinutes: number;
   totalTravelTimeMinutes: number;
   travelStyle: TravelStyle;
   budgetLevel: BudgetLevel;
@@ -332,21 +353,18 @@ export interface TemplateActivityDto {
   orderIndex: number;
   startTime: string | null;
   endTime: string | null;
+  timeSlot?: string | null;
   activityNotes: string | null;
   estimatedDurationMinutes: number;
   estimatedCost: number;
   distanceFromPrevKm: number;
+  travelDurationMinutes: number;
   travelTimeFromPrevMinutes: number;
-  destination: {
-    id: string;
-    name: string;
-    slug: string;
-    coverImageUrl: string;
-    latitude: number;
-    longitude: number;
-    rating: number;
-    category?: { id: string; name: string; slug: string };
-  } | null;
+  destinationId?: string | null;
+  destinationName?: string;
+  destinationCategory?: string;
+  imageUrl?: string | null;
+  destination: DestinationSummaryDto | null;
   customLocation?: CustomLocation | null;
   customTitle?: string | null;
 }
@@ -359,6 +377,7 @@ export interface TemplateDayDto {
   notes: string | null;
   totalDistanceKm: number;
   totalDurationMinutes: number;
+  totalTravelTimeMinutes?: number;
   estimatedBudget: number;
   activities: TemplateActivityDto[];
 }
@@ -376,6 +395,7 @@ export interface ItineraryTemplateDto {
   totalEstimatedBudget: number;
   totalDistanceKm: number;
   totalDurationMinutes: number;
+  totalTravelTimeMinutes?: number;
   destinationCount: number;
   routeSummary?: string;
   isPublished: boolean;

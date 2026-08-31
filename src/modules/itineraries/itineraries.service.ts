@@ -16,8 +16,10 @@ import {
   AddDayDto,
   ApplyTemplateDto,
   BrowseItineraryQuery,
+  BrowseTemplatesResponseDto,
   CreateItineraryDto,
   CustomLocation,
+  DestinationSummaryDto,
   ItineraryActivityDto,
   ItineraryDayDto,
   ItineraryDto,
@@ -27,6 +29,7 @@ import {
   RecommendationsQuery,
   ReorderActivitiesDto,
   RouteSegmentDto,
+  TemplateActivityDto,
   UpdateActivityDto,
   UpdateDayDto,
   UpdateItineraryDto,
@@ -123,6 +126,32 @@ export class ItinerariesService {
               });
             }
 
+            const categoryObj = item.destination?.category
+              ? {
+                  id: item.destination.category.id,
+                  name: item.destination.category.name,
+                  slug: item.destination.category.slug,
+                }
+              : null;
+            const categoryName = item.destination?.category?.name || 'Aktivitas Wisata';
+            const imgUrl = item.destination?.coverImageUrl || null;
+
+            const destinationSummary: DestinationSummaryDto | null = item.destination
+              ? {
+                  id: item.destination.id,
+                  name: item.destination.name,
+                  slug: item.destination.slug,
+                  category: categoryObj,
+                  categoryName: categoryName,
+                  imageUrl: imgUrl,
+                  coverImageUrl: imgUrl,
+                  rating: item.destination.rating,
+                  region: item.destination.region || null,
+                  latitude: item.destination.latitude,
+                  longitude: item.destination.longitude,
+                }
+              : null;
+
             return {
               id: item.id,
               dayId: item.itineraryDayId,
@@ -131,28 +160,11 @@ export class ItinerariesService {
               startTime,
               endTime,
               destinationId: item.destinationId,
-              destination: item.destination
-                ? {
-                    id: item.destination.id,
-                    name: item.destination.name,
-                    slug: item.destination.slug,
-                    coverImageUrl: item.destination.coverImageUrl || null,
-                    rating: item.destination.rating,
-                    region: item.destination.region || null,
-                    latitude: item.destination.latitude,
-                    longitude: item.destination.longitude,
-                    category: item.destination.category
-                      ? {
-                          id: item.destination.category.id,
-                          name: item.destination.category.name,
-                          slug: item.destination.category.slug,
-                        }
-                      : null,
-                  }
-                : null,
+              destination: destinationSummary,
               destinationName: item.destination?.name || customLoc?.name || item.customTitle || 'Aktivitas Trip',
-              destinationCategory: item.destination?.category?.name || 'Aktivitas Wisata',
-              imageUrl: item.destination?.coverImageUrl || undefined,
+              destinationCategory: categoryName,
+              imageUrl: imgUrl,
+              coverImageUrl: imgUrl,
               customLocation: customLoc,
               customTitle: item.customTitle,
               activityNotes: item.activityNotes,
@@ -160,6 +172,7 @@ export class ItinerariesService {
               estimatedDurationMinutes: item.estimatedDurationMinutes,
               estimatedCost: cost,
               distanceFromPrevKm: dist,
+              travelDurationMinutes: dur,
               travelTimeFromPrevMinutes: dur,
               isCompleted: Boolean(item.isCompleted),
               createdAt: item.createdAt.toISOString(),
@@ -179,6 +192,7 @@ export class ItinerariesService {
             date: day.date ? new Date(day.date).toISOString().split('T')[0] ?? null : null,
             notes: day.notes,
             totalDistanceKm: Math.round(dayDist * 100) / 100,
+            totalDurationMinutes: Math.round(dayDur),
             totalTravelTimeMinutes: Math.round(dayDur),
             estimatedBudget: dayBudget,
             segments,
@@ -202,6 +216,7 @@ export class ItinerariesService {
       estimatedBudget: totalBudget || Number(itinerary.totalEstimatedBudget) || 0,
       totalEstimatedBudget: totalBudget || Number(itinerary.totalEstimatedBudget) || 0,
       totalDistanceKm: Math.round(totalDist * 10) / 10 || Number(itinerary.totalDistanceKm) || 0,
+      totalDurationMinutes: Math.round(totalDur) || Number(itinerary.totalTravelTimeMinutes) || 0,
       totalTravelTimeMinutes: Math.round(totalDur) || Number(itinerary.totalTravelTimeMinutes) || 0,
       travelStyle: itinerary.travelStyle,
       budgetLevel: itinerary.budgetLevel,
@@ -1028,19 +1043,33 @@ export class ItinerariesService {
 
   public async browseTemplates(
     query: BrowseItineraryQuery,
-  ): Promise<{ data: ItineraryTemplateDto[]; meta: PaginationMeta }> {
-    const { items, total } = await this.repository.findBrowseTemplates(query);
-    const limit = query.limit || 10;
-    const page = query.page || 1;
-    const totalPages = Math.ceil(total / limit) || 1;
+  ): Promise<BrowseTemplatesResponseDto> {
+    const rawPage = Number(query.page);
+    const rawLimit = Number(query.limit);
+
+    const page = !isNaN(rawPage) && rawPage > 0 ? Math.floor(rawPage) : 1;
+    const limit = !isNaN(rawLimit) && rawLimit > 0 ? Math.min(100, Math.floor(rawLimit)) : 10;
+
+    const { items, total } = await this.repository.findBrowseTemplates({
+      ...query,
+      page,
+      limit,
+    });
+
+    const totalPages = total === 0 ? 0 : Math.ceil(total / limit);
+    const hasNext = page < totalPages;
+
+    const returnedItems =
+      page > totalPages && total > 0 ? [] : items.map((t: any) => this.mapTemplateToDto(t));
 
     return {
-      data: items.map((t: any) => this.mapTemplateToDto(t)),
-      meta: {
+      items: returnedItems,
+      pagination: {
         page,
         limit,
-        total,
+        totalItems: total,
         totalPages,
+        hasNext,
       },
     };
   }
@@ -1088,11 +1117,38 @@ export class ItinerariesService {
       const activities = day.activities || [];
       totalDestCount += activities.length;
 
-      const mappedActivities = activities.map((act: any) => {
+      const mappedActivities: TemplateActivityDto[] = activities.map((act: any) => {
         const destName = act.destination?.name || act.customTitle || 'Aktivitas';
         if (destNames.length < 3) {
           destNames.push(destName);
         }
+
+        const categoryObj = act.destination?.category
+          ? {
+              id: act.destination.category.id,
+              name: act.destination.category.name,
+              slug: act.destination.category.slug,
+            }
+          : null;
+        const categoryName = act.destination?.category?.name || 'Aktivitas Wisata';
+        const imgUrl = act.destination?.coverImageUrl || null;
+
+        const destSummary: DestinationSummaryDto | null = act.destination
+          ? {
+              id: act.destination.id,
+              name: act.destination.name,
+              slug: act.destination.slug,
+              coverImageUrl: imgUrl,
+              imageUrl: imgUrl,
+              latitude: act.destination.latitude,
+              longitude: act.destination.longitude,
+              rating: act.destination.rating,
+              category: categoryObj,
+              categoryName: categoryName,
+            }
+          : null;
+
+        const dur = Number(act.travelTimeFromPrevMinutes) || 0;
 
         return {
           id: act.id,
@@ -1100,29 +1156,19 @@ export class ItinerariesService {
           orderIndex: act.orderIndex,
           startTime: act.startTime,
           endTime: act.endTime,
+          timeSlot:
+            act.startTime && act.endTime ? `${act.startTime} - ${act.endTime}` : act.timeSlot || null,
           activityNotes: act.activityNotes,
           estimatedDurationMinutes: act.estimatedDurationMinutes,
           estimatedCost: Number(act.estimatedCost) || 0,
-          distanceFromPrevKm: act.distanceFromPrevKm,
-          travelTimeFromPrevMinutes: act.travelTimeFromPrevMinutes,
-          destination: act.destination
-            ? {
-                id: act.destination.id,
-                name: act.destination.name,
-                slug: act.destination.slug,
-                coverImageUrl: act.destination.coverImageUrl,
-                latitude: act.destination.latitude,
-                longitude: act.destination.longitude,
-                rating: act.destination.rating,
-                category: act.destination.category
-                  ? {
-                      id: act.destination.category.id,
-                      name: act.destination.category.name,
-                      slug: act.destination.category.slug,
-                    }
-                  : undefined,
-              }
-            : null,
+          distanceFromPrevKm: Number(act.distanceFromPrevKm) || 0,
+          travelDurationMinutes: dur,
+          travelTimeFromPrevMinutes: dur,
+          destinationId: act.destinationId || (act.destination ? act.destination.id : null),
+          destinationName: destName,
+          destinationCategory: categoryName,
+          imageUrl: imgUrl,
+          destination: destSummary,
           customLocation: act.customLocation ? this.parseLocation(act.customLocation) : null,
           customTitle: act.customTitle,
         };
@@ -1136,6 +1182,7 @@ export class ItinerariesService {
         notes: day.notes,
         totalDistanceKm: day.totalDistanceKm,
         totalDurationMinutes: day.totalDurationMinutes,
+        totalTravelTimeMinutes: day.totalDurationMinutes,
         estimatedBudget: Number(day.estimatedBudget) || 0,
         activities: mappedActivities,
       };
@@ -1156,6 +1203,7 @@ export class ItinerariesService {
       totalEstimatedBudget: Number(template.totalEstimatedBudget) || 0,
       totalDistanceKm: template.totalDistanceKm,
       totalDurationMinutes: template.totalDurationMinutes,
+      totalTravelTimeMinutes: template.totalDurationMinutes,
       destinationCount: totalDestCount,
       routeSummary,
       isPublished: template.isPublished,

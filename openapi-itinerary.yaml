@@ -145,13 +145,16 @@ paths:
                     example: true
                   message:
                     type: string
-                    example: Curated trip templates retrieved successfully
+                    example: Success fetching itineraries
                   data:
-                    type: array
-                    items:
-                      $ref: '#/components/schemas/ItineraryTemplateCard'
-                  meta:
-                    $ref: '#/components/schemas/PaginationMeta'
+                    type: object
+                    properties:
+                      items:
+                        type: array
+                        items:
+                          $ref: '#/components/schemas/ItineraryTemplateCard'
+                      pagination:
+                        $ref: '#/components/schemas/PaginationMetadata'
 
   /api/v1/itineraries/templates/{id}:
     get:
@@ -1216,6 +1219,25 @@ components:
           type: string
           example: Jl. Raya Senggigi KM 8, Senggigi, Batu Layar
 
+    PaginationMetadata:
+      type: object
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        totalItems:
+          type: integer
+          example: 24
+        totalPages:
+          type: integer
+          example: 3
+        hasNext:
+          type: boolean
+          example: true
+
     RouteSegment:
       type: object
       properties:
@@ -1242,6 +1264,10 @@ components:
           type: string
           example: pantai-tanjung-aan
         coverImageUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=800
+        imageUrl:
           type: string
           nullable: true
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=800
@@ -1310,6 +1336,9 @@ components:
         imageUrl:
           type: string
           nullable: true
+        coverImageUrl:
+          type: string
+          nullable: true
         customLocation:
           $ref: '#/components/schemas/CustomLocation'
         customTitle:
@@ -1330,6 +1359,9 @@ components:
           example: 10000
         distanceFromPrevKm:
           type: number
+          example: 0
+        travelDurationMinutes:
+          type: integer
           example: 0
         travelTimeFromPrevMinutes:
           type: integer
@@ -1371,6 +1403,9 @@ components:
         totalDistanceKm:
           type: number
           example: 42.8
+        totalDurationMinutes:
+          type: integer
+          example: 65
         totalTravelTimeMinutes:
           type: integer
           example: 65
@@ -1425,6 +1460,9 @@ components:
         totalDistanceKm:
           type: number
           example: 128.4
+        totalDurationMinutes:
+          type: integer
+          example: 210
         totalTravelTimeMinutes:
           type: integer
           example: 210
@@ -1942,27 +1980,24 @@ components:
         distanceFromPrevKm:
           type: number
           example: 0
+        travelDurationMinutes:
+          type: integer
+          example: 0
         travelTimeFromPrevMinutes:
           type: integer
           example: 0
-        destination:
-          type: object
+        destinationId:
+          type: string
           nullable: true
-          properties:
-            id:
-              type: string
-            name:
-              type: string
-            slug:
-              type: string
-            coverImageUrl:
-              type: string
-            latitude:
-              type: number
-            longitude:
-              type: number
-            rating:
-              type: number
+        destinationName:
+          type: string
+        destinationCategory:
+          type: string
+        imageUrl:
+          type: string
+          nullable: true
+        destination:
+          $ref: '#/components/schemas/DestinationSummary'
 
     ApplyTemplateRequest:
       type: object
