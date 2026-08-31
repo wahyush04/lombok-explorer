@@ -66,8 +66,21 @@ export class AuthService {
       },
     );
 
-    // Calculate approx expiresIn in seconds for 15m default
-    const expiresIn = 15 * 60;
+    // Calculate expiresIn in seconds (e.g. 1h -> 3600, 15m -> 900)
+    let expiresIn = 3600;
+    if (typeof config.jwt.accessExpiresIn === 'string') {
+      const match = config.jwt.accessExpiresIn.match(/^(\d+)([smhd])$/);
+      if (match && match[1] && match[2]) {
+        const val = parseInt(match[1], 10);
+        const unit = match[2];
+        if (unit === 's') expiresIn = val;
+        else if (unit === 'm') expiresIn = val * 60;
+        else if (unit === 'h') expiresIn = val * 3600;
+        else if (unit === 'd') expiresIn = val * 86400;
+      }
+    } else if (typeof config.jwt.accessExpiresIn === 'number') {
+      expiresIn = config.jwt.accessExpiresIn;
+    }
 
     return {
       accessToken,

@@ -39,7 +39,7 @@ export const envSchema = z.object({
       required_error: 'JWT_ACCESS_SECRET is a required environment variable',
     })
     .min(16, 'JWT_ACCESS_SECRET must be at least 16 characters long for security'),
-  JWT_ACCESS_EXPIRES_IN: z.string().default('15m'),
+  JWT_ACCESS_EXPIRES_IN: z.string().default('1h'),
 
   JWT_REFRESH_SECRET: z
     .string({
