@@ -16,6 +16,88 @@ const prisma = new PrismaClient({
   datasources: dbUrl ? { db: { url: dbUrl } } : undefined,
 });
 
+
+// =========================================================================
+// CLOUDINARY CENTRALIZED MEDIA ASSETS (Sourced from assets/image/example)
+// =========================================================================
+const CLOUDINARY_MEDIA = {
+  sasak_culture: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267655/lombok-explorer/examples/istockphoto-525625699-1024x1024.jpg',
+    publicId: 'lombok-explorer/examples/istockphoto-525625699-1024x1024',
+  },
+  pantai_kuta: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267657/lombok-explorer/examples/pexels-ari-setiawan-2156420701-38061830.jpg',
+    publicId: 'lombok-explorer/examples/pexels-ari-setiawan-2156420701-38061830',
+  },
+  bukit_merese: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267659/lombok-explorer/examples/pexels-bagas-putra-2162789112-38490382.jpg',
+    publicId: 'lombok-explorer/examples/pexels-bagas-putra-2162789112-38490382',
+  },
+  gili_trawangan: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267661/lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550278.jpg',
+    publicId: 'lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550278',
+  },
+  snorkeling_penyu: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267664/lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550288.jpg',
+    publicId: 'lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550288',
+  },
+  gunung_rinjani: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267667/lombok-explorer/examples/pexels-patuur-35604706.jpg',
+    publicId: 'lombok-explorer/examples/pexels-patuur-35604706',
+  },
+  air_terjun: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267669/lombok-explorer/examples/pexels-rama-dhan-862484-6683876.jpg',
+    publicId: 'lombok-explorer/examples/pexels-rama-dhan-862484-6683876',
+  },
+  kuliner_sasak: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267671/lombok-explorer/examples/pexels-roman-odintsov-4870657.jpg',
+    publicId: 'lombok-explorer/examples/pexels-roman-odintsov-4870657',
+  },
+  desa_sukarara: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267673/lombok-explorer/examples/pexels-shabran-niami-1789590-37059960.jpg',
+    publicId: 'lombok-explorer/examples/pexels-shabran-niami-1789590-37059960',
+  },
+  surfing_ombak: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267676/lombok-explorer/examples/pexels-tryputroutomo-13338242.jpg',
+    publicId: 'lombok-explorer/examples/pexels-tryputroutomo-13338242',
+  },
+  sunset_senggigi: {
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267679/lombok-explorer/examples/pexels-vincent-ma-janssen-2823154.jpg',
+    publicId: 'lombok-explorer/examples/pexels-vincent-ma-janssen-2823154',
+  },
+};
+
+function getMediaForCategory(slug: string) {
+  switch (slug) {
+    case 'beach': return CLOUDINARY_MEDIA.pantai_kuta;
+    case 'waterfall': return CLOUDINARY_MEDIA.air_terjun;
+    case 'mountain': return CLOUDINARY_MEDIA.gunung_rinjani;
+    case 'hill': return CLOUDINARY_MEDIA.bukit_merese;
+    case 'gili': return CLOUDINARY_MEDIA.gili_trawangan;
+    case 'culture': return CLOUDINARY_MEDIA.sasak_culture;
+    case 'village': return CLOUDINARY_MEDIA.desa_sukarara;
+    case 'culinary': return CLOUDINARY_MEDIA.kuliner_sasak;
+    case 'surfing': return CLOUDINARY_MEDIA.surfing_ombak;
+    case 'snorkeling': return CLOUDINARY_MEDIA.snorkeling_penyu;
+    case 'diving': return CLOUDINARY_MEDIA.snorkeling_penyu;
+    case 'sunset': return CLOUDINARY_MEDIA.sunset_senggigi;
+    default: return CLOUDINARY_MEDIA.bukit_merese;
+  }
+}
+
+function getMediaForDestination(catId: string, destId: string) {
+  if (destId.includes('rinjani') || destId.includes('pergasingan')) return CLOUDINARY_MEDIA.gunung_rinjani;
+  if (destId.includes('waterfall') || destId.includes('kelep') || destId.includes('sendang') || destId.includes('benang')) return CLOUDINARY_MEDIA.air_terjun;
+  if (destId.includes('gili')) return CLOUDINARY_MEDIA.gili_trawangan;
+  if (destId.includes('snorkeling') || destId.includes('diving') || destId.includes('turtle')) return CLOUDINARY_MEDIA.snorkeling_penyu;
+  if (destId.includes('merese') || destId.includes('malimbu') || destId.includes('seger')) return CLOUDINARY_MEDIA.bukit_merese;
+  if (destId.includes('sade') || destId.includes('sukarara') || destId.includes('banyumulek')) return CLOUDINARY_MEDIA.desa_sukarara;
+  if (destId.includes('surf') || destId.includes('mawi') || destId.includes('desert')) return CLOUDINARY_MEDIA.surfing_ombak;
+  if (destId.includes('sunset') || destId.includes('senggigi')) return CLOUDINARY_MEDIA.sunset_senggigi;
+  if (destId.includes('kuta') || destId.includes('aan') || destId.includes('mawun') || destId.includes('selong')) return CLOUDINARY_MEDIA.pantai_kuta;
+  return getMediaForCategory(catId.replace('cat_', ''));
+}
+
 async function main(): Promise<void> {
   // eslint-disable-next-line no-console
   console.log('🌱 Starting comprehensive Lombok Explorer database seeding (Phase 4)...');
@@ -64,7 +146,8 @@ async function main(): Promise<void> {
       username: 'bima_arya',
       password: passwordHash,
       name: 'Bima Arya Pratama',
-      avatarUrl: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200',
+      avatarUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      avatarPublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       role: UserRole.USER,
       travelStyle: TravelStyle.BEACH_RELAXATION,
       preferredRegion: LombokRegion.LOMBOK_SELATAN,
@@ -80,7 +163,8 @@ async function main(): Promise<void> {
       username: 'super_admin',
       password: passwordHash,
       name: 'Super Admin Lombok Explorer',
-      avatarUrl: 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?q=80&w=200',
+      avatarUrl: CLOUDINARY_MEDIA.bukit_merese.url,
+      avatarPublicId: CLOUDINARY_MEDIA.bukit_merese.publicId,
       role: UserRole.ADMIN,
       isEmailVerified: true,
     },
@@ -100,7 +184,8 @@ async function main(): Promise<void> {
         username: 'dev_admin',
         password: devAdminHash,
         name: devAdminName,
-        avatarUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?q=80&w=200',
+        avatarUrl: CLOUDINARY_MEDIA.sunset_senggigi.url,
+        avatarPublicId: CLOUDINARY_MEDIA.sunset_senggigi.publicId,
         role: UserRole.ADMIN,
         isEmailVerified: true,
       },
@@ -124,7 +209,8 @@ async function main(): Promise<void> {
       username: 'hendra_rinjani',
       password: passwordHash,
       name: 'Lalu Hendra Rinjani',
-      avatarUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=200',
+      avatarUrl: CLOUDINARY_MEDIA.gunung_rinjani.url,
+      avatarPublicId: CLOUDINARY_MEDIA.gunung_rinjani.publicId,
       role: UserRole.USER,
       travelStyle: TravelStyle.NATURE_ADVENTURE,
       preferredRegion: LombokRegion.LOMBOK_UTARA,
@@ -142,7 +228,8 @@ async function main(): Promise<void> {
       name: 'Pantai & Pesisir',
       description: 'Eksplorasi pantai pasir putih, teluk toska tersembunyi, dan pasir merica khas Lombok.',
       iconName: 'beach_access',
-      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_waterfall',
@@ -150,7 +237,8 @@ async function main(): Promise<void> {
       name: 'Air Terjun Alami',
       description: 'Kesejukan air terjun alami dan tirai air abadi di kaki Gunung Rinjani dan hutan tropis.',
       iconName: 'water_drop',
-      coverImageUrl: 'https://images.unsplash.com/photo-1546484475-7f7bd55792da?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_mountain',
@@ -158,7 +246,8 @@ async function main(): Promise<void> {
       name: 'Gunung & Puncak',
       description: 'Pendakian megah puncak Rinjani, Danau Segara Anak, dan petualangan vulkanik geopark dunia.',
       iconName: 'terrain',
-      coverImageUrl: 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_hill',
@@ -166,7 +255,8 @@ async function main(): Promise<void> {
       name: 'Bukit & Savana',
       description: 'Perbukitan savana hijau eksotis dengan pemandangan bentang laut dan lembah pertanian.',
       iconName: 'landscape',
-      coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_gili',
@@ -174,7 +264,8 @@ async function main(): Promise<void> {
       name: 'Wisata Kepulauan Gili',
       description: 'Trio Gili dan gili-gili perawan di Sekotong yang tenang tanpa kendaraan bermotor.',
       iconName: 'sailing',
-      coverImageUrl: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_culture',
@@ -182,7 +273,8 @@ async function main(): Promise<void> {
       name: 'Budaya & Adat Sasak',
       description: 'Warisan leluhur suku Sasak, masjid kuno, tradisi Bau Nyale, dan kearifan lokal NTB.',
       iconName: 'museum',
-      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_village',
@@ -190,7 +282,8 @@ async function main(): Promise<void> {
       name: 'Desa Wisata & Kerajinan',
       description: 'Desa tenun songket ikat tradisional Sukarara, kerajinan gerabah Banyumulek, dan kriya lokal.',
       iconName: 'cottage',
-      coverImageUrl: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_culinary',
@@ -198,7 +291,8 @@ async function main(): Promise<void> {
       name: 'Kuliner Tradisional',
       description: 'Sajian pedas aromatik khas Sasak: Ayam Taliwang, Plecing Kangkung, Sate Bulayak, dan Nasi Balap.',
       iconName: 'restaurant',
-      coverImageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_surfing',
@@ -206,7 +300,8 @@ async function main(): Promise<void> {
       name: 'Spot Selancar Ombak',
       description: 'Spot surfing kelas dunia di pesisir selatan Lombok dari pemula hingga ombak reef break profesional.',
       iconName: 'surfing',
-      coverImageUrl: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_snorkeling',
@@ -214,7 +309,8 @@ async function main(): Promise<void> {
       name: 'Snorkeling & Bawah Laut',
       description: 'Berenang bersama penyu liar, patung bawah laut Nest Gili Meno, dan terumbu karang warna-warni.',
       iconName: 'scuba_diving',
-      coverImageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_diving',
@@ -222,7 +318,8 @@ async function main(): Promise<void> {
       name: 'Spot Menyelam / Scuba Diving',
       description: 'Pusat selam sertifikasi PADI, shark point, manta point, dan wall diving karang laut dalam.',
       iconName: 'pool',
-      coverImageUrl: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_sunset',
@@ -230,7 +327,8 @@ async function main(): Promise<void> {
       name: 'Spot Sunset & Golden Hour',
       description: 'Titik terbaik menikmati matahari terbenam magis berlatar Samudra Hindia dan siluet Gunung Agung Bali.',
       iconName: 'wb_twilight',
-      coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
       id: 'cat_adventure',
@@ -238,12 +336,20 @@ async function main(): Promise<void> {
       name: 'Petualangan Alam & Caving',
       description: 'Eksplorasi gua kelelawar alami, susur tebing karang laut, dan offroad lereng pegunungan.',
       iconName: 'explore',
-      coverImageUrl: 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
   ];
 
   for (const cat of categoriesData) {
-    await prisma.category.create({ data: cat });
+    const media = getMediaForCategory(cat.slug);
+    await prisma.category.create({
+      data: {
+        ...cat,
+        coverImageUrl: media.url,
+        coverImagePublicId: media.publicId,
+      },
+    });
   }
 
   // =========================================================================
@@ -273,7 +379,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (08:00) atau menjelang Sunset (16:30)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Pasir Merica', 'Sunset Spot', 'Berenang', 'Mandalika', 'Fotografi']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Area Parkir', 'Warung Kelapa Muda', 'Toilet & Bilas', 'Sewa Gazebo', 'Spot Foto Ayunan']),
       tips: JSON.stringify(['Kombinasikan dengan pendakian Bukit Merese di sebelahnya saat menjelang matahari terbenam.']),
       isFeatured: true,
@@ -301,7 +408,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Sore hari menjelang Golden Hour (16:30 - 18:15 WITA)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Sunset Spot', 'Savana Pesisir', 'Panorama 360', 'Fotografi', 'Romantis']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Area Parkir', 'Warung Minuman', 'Jasa Fotografer Lokal']),
       tips: JSON.stringify(['Gunakan alas kaki nyaman untuk mendaki bukit sekitar 10 menit dari parkiran.']),
       isFeatured: true,
@@ -329,7 +437,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Bulan April hingga November (Musim Kemarau)',
       difficulty: DifficultyLevel.EXTREME,
       tags: JSON.stringify(['Trekking Ekstrem', 'UNESCO Geopark', 'Segara Anak', 'Sunrise Puncak', 'Pemandian Air Panas']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Pos Pemeriksaan e-Rinjani', 'Jasa Porter & Guide Bersertifikat', 'Shelter Evakuasi', 'Toilet Pos']),
       tips: JSON.stringify(['Wajib memesan tiket melalui aplikasi e-Rinjani dan didampingi guide resmi.']),
       isFeatured: true,
@@ -357,7 +466,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (08:00 - 11:00 WITA)',
       difficulty: DifficultyLevel.MODERATE,
       tags: JSON.stringify(['Jungle Trekking', 'Tirai Air', 'Segar', 'Geopark Rinjani']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1546484475-7f7bd55792da?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Guide Lokal', 'Sewa Sandal Trekking', 'Warung Makan', 'Toilet & Mushola']),
       tips: JSON.stringify(['Gunakan dry bag dan pakaian yang siap basah karena percikan air sangat deras.']),
       isFeatured: true,
@@ -385,7 +495,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hingga siang hari',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Akses Mudah', 'Ramah Keluarga', 'Segar', 'Senaru']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Tangga Beton', 'Warung Kopi & Makanan Ringan', 'Gazebo Istirahat', 'Toilet']),
       tips: JSON.stringify(['Tiket masuk Sendang Gile sudah terusan untuk menuju Tiu Kelep.']),
       isFeatured: false,
@@ -413,7 +524,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Sepanjang hari (Snorkeling pagi 09:00, Sunset 17:30)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Snorkeling Penyu', 'Bebas Polusi', 'Sunset Bar', 'Sewa Sepeda', 'Night Market']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Sewa Sepeda & Cidomo', 'Pusat Diving PADI', 'Restoran & Beach Club', 'Klinik 24 Jam', 'ATM']),
       tips: JSON.stringify(['Sewa sepeda untuk mengelilingi pulau santai dalam waktu 1.5 jam.']),
       isFeatured: true,
@@ -441,7 +553,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (08:30 - 11:30) saat arus laut tenang',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Patung Bawah Laut Nest', 'Penangkaran Penyu', 'Romantis', 'Snorkeling Kristal', 'Honeymoon']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Pusat Konservasi Penyu', 'Warung Tepi Pantai', 'Sewa Masker Snorkeling', 'Penginapan Eco-Resort']),
       tips: JSON.stringify(['Datanglah lebih pagi ke patung bawah laut sebelum rombongan boat tour tiba.']),
       isFeatured: true,
@@ -469,7 +582,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi dan sore hari',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Yoga Spot', 'Ikan Badut', 'Santai', 'Kafe Tepi Pantai', 'Snorkeling']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Studio Yoga', 'Pusat Selam', 'Kafe Vegan & Seafood', 'Sewa Sepeda']),
       tips: JSON.stringify(['Nikmati sunrise di sisi timur dan berjalan santai ke sisi barat untuk sunset di hari yang sama.']),
       isFeatured: false,
@@ -497,7 +611,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Siang menjelang sore (14:00 - 16:30)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Budaya Sasak', 'Tenun Songket', 'Rumah Adat Bale Tani', 'Edukasi Budaya']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Pemandu Adat Sade', 'Pusat Kain Tenun Asli', 'Toilet', 'Area Parkir']),
       tips: JSON.stringify(['Gunakan pemandu lokal warga desa untuk mendengarkan kisah filosofi arsitektur Bale Sasak.']),
       isFeatured: true,
@@ -525,7 +640,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi atau siang hari (09:00 - 15:00)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Tenun Songket', 'Pakaian Adat Sasak', 'Kerajinan Tangan', 'Spot Foto Budaya']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Penyewaan Baju Adat Gratis (Donasi)', 'Showroom Kain Tenun', 'Area Parkir Luas']),
       tips: JSON.stringify(['Jangan lewatkan kesempatan berfoto mengenakan busana adat lengkap Sasak di depan lumbung padi.']),
       isFeatured: false,
@@ -553,7 +669,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (08:00 - 11:00) untuk surfing atau Sore hari untuk sunset kerbau melintas',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Surfing Pemula', 'Pasir Halus', 'Sunset Kerbau', 'Berenang', 'Mandalika']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Sekolah Surfing & Sewa Papan', 'Warung Makan & Ikan Bakar', 'Toilet & Kamar Bilas', 'Sewa Sunbed']),
       tips: JSON.stringify(['Saksikan parade kawanan kerbau peternak yang melintasi pesisir pantai setiap sore sekitar pukul 17:00.']),
       isFeatured: true,
@@ -581,7 +698,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi menjelang siang (09:00 - 12:00)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Teluk Tapal Kuda', 'Air Toska', 'Santai', 'Fotografi']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Gazebo Santai', 'Warung Kelapa Muda', 'Toilet', 'Area Parkir']),
       tips: JSON.stringify(['Arus di bagian tengah teluk cukup kuat, disarankan berenang di area tepi yang tenang.']),
       isFeatured: false,
@@ -609,7 +727,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Musim kemarau (Mei - Oktober) saat gelombang pasang ombak konsisten',
       difficulty: DifficultyLevel.CHALLENGING,
       tags: JSON.stringify(['Pro Surfing', 'Reef Break', 'Ombak Kelas Dunia', 'Pemandangan Tebing']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Warung Surfer', 'Area Parkir Motor & Mobil', 'Spot Nonton Ombak']),
       tips: JSON.stringify(['Akses jalan berbatu, disarankan menggunakan motor trail atau mobil berpenggerak kuat.']),
       isFeatured: false,
@@ -637,7 +756,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Subuh (04:30) untuk Sunrise atau Camping semalam',
       difficulty: DifficultyLevel.MODERATE,
       tags: JSON.stringify(['Sunrise Sembalun', 'Petak Sawah', 'Camping Ground', 'Fotografi Lanskap']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Pos Registrasi Pendakian', 'Penyewaan Alat Camping', 'Guide Lokal', 'Parkir Aman']),
       tips: JSON.stringify(['Suhu udara di puncak bisa mencapai 10-15°C pada malam hari, siapkan jaket tebal windproof.']),
       isFeatured: true,
@@ -665,7 +785,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (06:30 - 08:30) saat kabut tipis menyelimuti lembah',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Gardu Pandang', 'Fotogenik', 'Lembah Sembalun', 'Ramah Keluarga']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Spot Foto Kayu Bintang', 'Warung Kopi Sembalun', 'Toilet', 'Area Parkir']),
       tips: JSON.stringify(['Singgahlah ke situs rumah adat kuno Desa Beleq di kaki bukit sebelum naik.']),
       isFeatured: false,
@@ -693,7 +814,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pukul 08:00 - 11:30 atau 14:00 - 16:30 saat pantulan sinar matahari optimal',
       difficulty: DifficultyLevel.MODERATE,
       tags: JSON.stringify(['Pasir Pink', 'Snorkeling', 'Tebing Karang', 'Eksotis', 'Lombok Timur']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Perahu Sewa Snorkeling ke Gili Petelu', 'Warung Seafood Ikan Bakar', 'Toilet', 'Gazebo']),
       tips: JSON.stringify(['Sewa perahu lokal untuk snorkeling ke Gili Petelu dan melihat spot pasir timbul di dekatnya.']),
       isFeatured: true,
@@ -721,7 +843,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari untuk sunrise atau Sore hari untuk pemandangan dramatis',
       difficulty: DifficultyLevel.MODERATE,
       tags: JSON.stringify(['Tebing Karang', 'Peninggalan Jepang', 'Lanskap Liar', 'Fotografi Drone']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Area Parkir Alam', 'Spot Pemandangan']),
       tips: JSON.stringify(['Tetap berhati-hati dan jangan berdiri terlalu dekat di bibir tebing karena tidak ada pagar pembatas.']),
       isFeatured: false,
@@ -749,7 +872,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Sore hari (16:30 - 19:00 WITA) untuk menikmati sunset',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Sunset Ikonik', 'Kafe Tepi Pantai', 'Resort', 'Senggigi', 'Kuliner Malam']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Restoran & Bar', 'Pusat Belanja Seni', 'Dermaga Fastboat ke Bali', 'Toilet & Area Parkir Luas']),
       tips: JSON.stringify(['Duduklah di kafe tepi pantai sambil menikmati jagung bakar pedas manis dan kelapa muda saat senja.']),
       isFeatured: true,
@@ -777,7 +901,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Sore hari (16:45 - 18:15 WITA)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Sunset Point', 'Spot Foto Pohon Kelapa', 'View 3 Gili', 'Gratis']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Area Parkir Tepi Jalan', 'Penjual Kelapa Muda & Jagung Bakar', 'Spot Foto']),
       tips: JSON.stringify(['Waspadai monyet liar yang sesekali melompat ke tepi jalan untuk mencari makanan.']),
       isFeatured: false,
@@ -805,7 +930,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hingga siang hari',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Tirai Daun', 'Air Pegunungan', 'Kolam Renang Alami', 'Geopark Rinjani']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1546484475-7f7bd55792da?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Ojek Wisata Lokal', 'Kamar Ganti & Toilet', 'Warung Makan', 'Pemandu Lokal']),
       tips: JSON.stringify(['Jika tidak ingin berjalan 15 menit melalui hutan, Anda bisa menyewa ojek lokal dari loket pintu masuk.']),
       isFeatured: true,
@@ -833,7 +959,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (08:30 - 12:00)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Akuarium Alami', 'Snorkeling Tenang', 'Pulau Perawan', 'Sekotong']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Penyewaan Perahu Boat', 'Sewa Alat Snorkeling', 'Kantin Tepi Pantai', 'Bungalow']),
       tips: JSON.stringify(['Bawalah roti tawar atau biskuit kering untuk memberi makan ikan saat snorkeling di perairan dangkal.']),
       isFeatured: true,
@@ -861,7 +988,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Siang hari saat pulau pasir muncul sempurna',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Pulau Bentuk Hati', 'Pasir Timbul', 'Ikan Bakar Sudak', 'Fotografi Drone']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Warung Ikan Bakar di Gili Sudak', 'Sewa Perahu Island Hopping']),
       tips: JSON.stringify(['Bawa kamera drone untuk menangkap bentuk pulau hati Gili Kedis dari udara secara sempurna.']),
       isFeatured: false,
@@ -889,7 +1017,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi atau siang hari',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Gerabah Tanah Liat', 'Kendi Maling', 'Edukasi Kriya', 'Oleh-oleh Seni']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Workshop Membuat Gerabah', 'Galeri Showroom Gerabah', 'Area Parkir']),
       tips: JSON.stringify(['Coba praktik membuat asbak atau cangkir tanah liat langsung di atas roda putar tradisional.']),
       isFeatured: false,
@@ -917,7 +1046,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Sore hari (17:00 - 18:30 WITA)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Pura Tebing Karang', 'Sunset Magis', 'Wisata Religi & Budaya', 'Senggigi']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Peminjaman Selendang Kuning', 'Area Parkir', 'Penjual Bunga & Dupa']),
       tips: JSON.stringify(['Pengunjung diwajibkan memakai kain selendang kuning yang disediakan di loket masuk sebagai bentuk penghormatan.']),
       isFeatured: false,
@@ -945,7 +1075,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (08:30 - 11:00)',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Istana Air Kerajaan', 'Mata Air Awet Muda', 'Cagar Budaya', 'Kolam Pemandian']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Kolam Renang Umum', 'Flying Fox & Danau Dayung', 'Warung Sate Bulayak Narmada', 'Toilet']),
       tips: JSON.stringify(['Cicipi kuliner legendaris Sate Bulayak bumbu khas Sasak yang banyak dijual di luar gerbang taman.']),
       isFeatured: false,
@@ -973,7 +1104,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi atau sore hari saat cuaca sejuk',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Kera Ekor Panjang', 'Hutan Lindung', 'Jalur Pegunungan', 'Wisata Keluarga']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Warung Kopi & Kelapa Muda', 'Penjual Kacang Makanan Monyet', 'Area Parkir Tepi Jalan']),
       tips: JSON.stringify(['Simpan barang bawaan kecil seperti kacamata dan topi di dalam tas agar tidak diambil oleh kera usil.']),
       isFeatured: false,
@@ -1001,7 +1133,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari saat visibility air mencapai 25-30 meter',
       difficulty: DifficultyLevel.CHALLENGING,
       tags: JSON.stringify(['Scuba Diving', 'Hiu Karang', 'Penyu Sisik', 'PADI Dive Center', 'Kedalaman 30m']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1682687220063-4742bd7fd538?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Penyewaan Alat Scuba Lengkap', 'Pemandu Divemaster PADI', 'Boat Khusus Diving', 'Kamar Bilas']),
       tips: JSON.stringify(['Wajib memiliki sertifikat minimal Open Water Diver untuk menyelam di Shark Point.']),
       isFeatured: true,
@@ -1029,7 +1162,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Siang hari (12:00 - 14:00) saat sinar matahari tegak lurus menembus celah atap gua',
       difficulty: DifficultyLevel.MODERATE,
       tags: JSON.stringify(['Ray of Light', 'Gua Kelelawar', 'Fotografi Artistik', 'Mandalika']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1533240332313-0db49b459ad6?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Sewa Senter & Helm Pengaman', 'Pemandu Lokal', 'Area Parkir']),
       tips: JSON.stringify(['Gunakan masker penutup hidung karena aroma guano (kotoran kelelawar) cukup menyengat.']),
       isFeatured: false,
@@ -1057,7 +1191,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Sore hingga malam hari untuk kuliner dan suasana santai',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Sirkuit Mandalika', 'Pusat Wisata', 'Bazaar Kuliner', 'Promenade', 'Keluarga']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Bazaar Mandalika', 'Toilet Bersih & Mushola', 'Penyewaan Sepeda Listrik', 'ATM & Minimarket']),
       tips: JSON.stringify(['Sewa skuter atau sepeda listrik untuk menyusuri promenade tepi pantai di sore hari.']),
       isFeatured: true,
@@ -1085,7 +1220,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (06:30 - 10:30) saat ombak offshore',
       difficulty: DifficultyLevel.MODERATE,
       tags: JSON.stringify(['Surfing Boat Trip', 'Desa Nelayan', 'Budidaya Rumput Laut', 'Ombak Beragam']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1502680390469-be75c86b636f?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Sewa Perahu Surfing', 'Surfing Camp & Homestay', 'Kafe Tepi Teluk', 'Perbaikan Papan Selancar']),
       tips: JSON.stringify(['Sewa perahu bersama peselancar lain untuk membagi biaya sewa boat surfing.']),
       isFeatured: false,
@@ -1113,7 +1249,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari saat cuaca cerah',
       difficulty: DifficultyLevel.MODERATE,
       tags: JSON.stringify(['Air Belerang Toska', 'Ngarai Bebatuan Alami', 'Petualangan Sembalun', 'Geowisata']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1546484475-7f7bd55792da?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Ojek Motor Trail Menuju Lokasi', 'Pemandu Lokal Sajang', 'Warung Makanan Ringan']),
       tips: JSON.stringify(['Air belerang alami ini sangat baik dan berkhasiat untuk kesehatan kulit.']),
       isFeatured: true,
@@ -1141,7 +1278,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Sore hari (16:30 - 18:15) untuk sunset dan melihat sirkuit balap',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Legenda Bau Nyale', 'View Sirkuit MotoGP', 'Patung Putri Mandalika', 'Sunset Spot']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Jembatan Bambu Ikonik', 'Area Parkir', 'Warung Kelapa Muda', 'Spot Foto Bukit']),
       tips: JSON.stringify(['Naiklah ke Bukit Seger untuk melihat tikungan sirkuit balap MotoGP dan laut lepas dalam satu frame foto.']),
       isFeatured: true,
@@ -1169,7 +1307,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi hari (08:30 - 11:30) saat buah strawberry segar siap dipetik',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Petik Strawberry', 'Agrowisata Sejuk', 'Lembah Sembalun', 'Keluarga']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1596401057633-54a8fe8ef647?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Keranjang & Gunting Petik', 'Kafe Jus Strawberry Segar', 'Area Parkir', 'Toilet']),
       tips: JSON.stringify(['Pilihlah buah strawberry berwarna merah pekat untuk rasa manis segar optimal.']),
       isFeatured: false,
@@ -1197,7 +1336,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Siang hari saat waktu makan siang (11:30 - 14:30) atau Sore hari',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Ikan Bakar Segar', 'Sambal Plecing', 'Berenang Tenang', 'Keluarga', 'Pohon Kelapa']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Deretan Warung Ikan Bakar', 'Penyewaan Ban & Kano', 'Toilet & Kamar Bilas', 'Area Parkir Teduh']),
       tips: JSON.stringify(['Pesanlah paket ikan bakar kakap merah atau baronang lengkap dengan plecing kangkung dan sambal terasi bakar.']),
       isFeatured: true,
@@ -1225,7 +1365,8 @@ async function main(): Promise<void> {
       bestVisitingTime: 'Pagi atau sore hari',
       difficulty: DifficultyLevel.EASY,
       tags: JSON.stringify(['Tradisi Peresean', 'Rumah Tradisional Sasak', 'Budaya Lombok', 'Dekat Bandara']),
-      coverImageUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       facilities: JSON.stringify(['Pemandu Budaya Lokal', 'Pusat Suvenir Tradisional', 'Toilet', 'Area Parkir']),
       tips: JSON.stringify(['Sangat pas dikunjungi sebagai destinasi pertama setelah mendarat di bandara Lombok.']),
       isFeatured: false,
@@ -1271,7 +1412,8 @@ async function main(): Promise<void> {
       latitude: -8.5833,
       longitude: 116.1167,
       openingHours: '10:00 - 22:00 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800']),
       isHalalCertified: true,
     },
@@ -1293,7 +1435,8 @@ async function main(): Promise<void> {
       latitude: -8.5633,
       longitude: 116.2378,
       openingHours: '09:00 - 18:00 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800']),
       isHalalCertified: true,
     },
@@ -1315,7 +1458,8 @@ async function main(): Promise<void> {
       latitude: -8.7011,
       longitude: 116.2417,
       openingHours: '08:00 - 21:00 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=800']),
       isHalalCertified: true,
     },
@@ -1337,7 +1481,8 @@ async function main(): Promise<void> {
       latitude: -8.4983,
       longitude: 116.0456,
       openingHours: '11:00 - 23:00 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?q=80&w=800']),
       isHalalCertified: true,
     },
@@ -1359,7 +1504,8 @@ async function main(): Promise<void> {
       latitude: -8.8978,
       longitude: 116.2736,
       openingHours: '08:00 - 22:00 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800']),
       isHalalCertified: false,
     },
@@ -1381,7 +1527,8 @@ async function main(): Promise<void> {
       latitude: -8.3556,
       longitude: 116.0389,
       openingHours: '07:30 - 23:30 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=800']),
       isHalalCertified: false,
     },
@@ -1403,7 +1550,8 @@ async function main(): Promise<void> {
       latitude: -8.2995,
       longitude: 116.4065,
       openingHours: '07:00 - 21:00 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1512058564366-18510be2db19?q=80&w=800']),
       isHalalCertified: true,
     },
@@ -1425,14 +1573,22 @@ async function main(): Promise<void> {
       latitude: -8.8922,
       longitude: 116.2795,
       openingHours: '07:30 - 23:00 WITA',
-      coverImageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800']),
       isHalalCertified: false,
     },
   ];
 
   for (const rest of restaurantsData) {
-    await prisma.restaurant.create({ data: rest });
+    await prisma.restaurant.create({
+      data: {
+        ...rest,
+        coverImageUrl: CLOUDINARY_MEDIA.kuliner_sasak.url,
+        coverImagePublicId: CLOUDINARY_MEDIA.kuliner_sasak.publicId,
+        images: JSON.stringify([CLOUDINARY_MEDIA.kuliner_sasak.url, CLOUDINARY_MEDIA.sunset_senggigi.url]),
+      },
+    });
   }
 
   // =========================================================================
@@ -1454,7 +1610,8 @@ async function main(): Promise<void> {
       region: LombokRegion.LOMBOK_SELATAN,
       latitude: -8.895,
       longitude: 116.29,
-      coverImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800']),
       amenities: JSON.stringify(['Private Beach', 'Infinity Pool', 'Spa & Wellness', 'Free WiFi', 'Breakfast Included', 'Fitness Center']),
     },
@@ -1473,7 +1630,8 @@ async function main(): Promise<void> {
       region: LombokRegion.LOMBOK_BARAT,
       latitude: -8.4725,
       longitude: 116.0365,
-      coverImageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800']),
       amenities: JSON.stringify(['Glass Infinity Pool', 'Beachfront Restaurant', 'Sunset Bar', 'Spa Alami', 'Free High-Speed WiFi']),
     },
@@ -1492,7 +1650,8 @@ async function main(): Promise<void> {
       region: LombokRegion.LOMBOK_TIMUR,
       latitude: -8.8756,
       longitude: 116.5895,
-      coverImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800']),
       amenities: JSON.stringify(['Private Cove Beach', 'All-Inclusive Dining', 'Snorkeling Gear', 'Sea Kayaking', 'Eco-Friendly Solarpower']),
     },
@@ -1511,7 +1670,8 @@ async function main(): Promise<void> {
       region: LombokRegion.LOMBOK_UTARA,
       latitude: -8.3025,
       longitude: 116.4095,
-      coverImageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800']),
       amenities: JSON.stringify(['Mountain View Infinity Pool', 'Restoran Kopi Rinjani', 'Dekat Pintu Masuk Air Terjun', 'WiFi']),
     },
@@ -1530,7 +1690,8 @@ async function main(): Promise<void> {
       region: LombokRegion.GILI_ISLANDS,
       latitude: -8.3565,
       longitude: 116.0415,
-      coverImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800']),
       amenities: JSON.stringify(['Large Saltwater Pool', 'Beachfront Dining', 'PADI Dive Centre', 'Spa Treatment', 'Island Tour Service']),
     },
@@ -1549,7 +1710,8 @@ async function main(): Promise<void> {
       region: LombokRegion.LOMBOK_SELATAN,
       latitude: -8.9002,
       longitude: 116.2995,
-      coverImageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800']),
       amenities: JSON.stringify(['3 Outdoor Pools', 'Private Beach Access', 'Kids Club & Activities', 'Daily Buffet Breakfast', 'Water Sports']),
     },
@@ -1568,14 +1730,22 @@ async function main(): Promise<void> {
       region: LombokRegion.LOMBOK_TIMUR,
       latitude: -8.3725,
       longitude: 116.5312,
-      coverImageUrl: 'https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       images: JSON.stringify(['https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?q=80&w=800']),
       amenities: JSON.stringify(['Water Heater Kamar Mandi', 'Teras Pemandangan Gunung', 'Sarapan Khas Sembalun', 'Api Unggun Malam Hari']),
     },
   ];
 
   for (const acc of accommodationsData) {
-    await prisma.accommodation.create({ data: acc });
+    await prisma.accommodation.create({
+      data: {
+        ...acc,
+        coverImageUrl: CLOUDINARY_MEDIA.sunset_senggigi.url,
+        coverImagePublicId: CLOUDINARY_MEDIA.sunset_senggigi.publicId,
+        images: JSON.stringify([CLOUDINARY_MEDIA.sunset_senggigi.url, CLOUDINARY_MEDIA.pantai_kuta.url]),
+      },
+    });
   }
 
   // =========================================================================
@@ -1588,7 +1758,7 @@ async function main(): Promise<void> {
       rating: 5.0,
       content:
         'Pemandangan luar biasa indah! Pasirnya benar-benar seperti butiran merica dan airnya sangat jernih. Wajib sewa kelapa muda di pinggir pantai.',
-      photos: JSON.stringify(['https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=600']),
+      photos: JSON.stringify([CLOUDINARY_MEDIA.pantai_kuta.url]),
     },
     {
       userId: localGuideUser.id,
@@ -1596,7 +1766,7 @@ async function main(): Promise<void> {
       rating: 5.0,
       content:
         'Sebagai guide lokal, saya selalu membawa tamu ke Bukit Merese untuk menikmati sunset. Tidak pernah gagal membuat mereka terpesona!',
-      photos: JSON.stringify(['https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600']),
+      photos: JSON.stringify([CLOUDINARY_MEDIA.pantai_kuta.url]),
     },
     {
       userId: demoUser.id,
@@ -1604,7 +1774,7 @@ async function main(): Promise<void> {
       rating: 5.0,
       content:
         'Trekking menuju Tiu Kelep sangat seru melintasi jembatan air. Saat tiba di depan air terjun, angin dan kabut airnya sangat menyegarkan!',
-      photos: JSON.stringify(['https://images.unsplash.com/photo-1546484475-7f7bd55792da?q=80&w=600']),
+      photos: JSON.stringify([CLOUDINARY_MEDIA.pantai_kuta.url]),
     },
     {
       userId: demoUser.id,
@@ -1612,7 +1782,7 @@ async function main(): Promise<void> {
       rating: 5.0,
       content:
         'Snorkeling langsung dari tepi pantai dan langsung bertemu penyu hijau besar! Sore hari keliling pulau naik sepeda adalah pengalaman terbaik.',
-      photos: JSON.stringify(['https://images.unsplash.com/photo-1537996194471-e657df975ab4?q=80&w=600']),
+      photos: JSON.stringify([CLOUDINARY_MEDIA.pantai_kuta.url]),
     },
     {
       userId: localGuideUser.id,
@@ -1620,7 +1790,7 @@ async function main(): Promise<void> {
       rating: 5.0,
       content:
         'Puncak Dewi Anjani 3.726 mdpl selalu memberikan rasa takjub. Danau Segara Anak di bawah kawah adalah salah satu tempat terindah di dunia.',
-      photos: JSON.stringify(['https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=600']),
+      photos: JSON.stringify([CLOUDINARY_MEDIA.pantai_kuta.url]),
     },
   ];
 
@@ -1662,7 +1832,8 @@ async function main(): Promise<void> {
       title: '3 Hari Jelajah Pesona Lombok Selatan & Gili',
       description:
         'Itinerary lengkap dari pantai eksotis Mandalika, bukit savana Merese, hingga snorkeling air kristal Gili Trawangan.',
-      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       totalDays: 3,
       totalEstimatedBudget: 1850000,
       travelStyle: TravelStyle.BEACH_RELAXATION,
@@ -1757,7 +1928,8 @@ async function main(): Promise<void> {
       id: 'rec_south_lombok_beach',
       title: 'Eksotika Bahari Lombok Selatan',
       subtitle: 'Jelajahi pantai pasir merica, bukit perawan, dan ombak Mandalika.',
-      bannerUrl: 'https://images.unsplash.com/photo-1570789210967-2cac24afeb00?q=80&w=1000',
+      bannerUrl: CLOUDINARY_MEDIA.bukit_merese.url,
+        bannerPublicId: CLOUDINARY_MEDIA.bukit_merese.publicId,
       travelStyle: TravelStyle.BEACH_RELAXATION,
       budgetLevel: BudgetLevel.MID_RANGE,
       recommendedDays: 3,
@@ -1779,7 +1951,8 @@ async function main(): Promise<void> {
       id: 'rec_north_rinjani_adventure',
       title: 'Petualangan Alam Geopark Rinjani',
       subtitle: 'Trekking hutan tropis, air terjun tersembunyi, dan pesona Sembalun.',
-      bannerUrl: 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1000',
+      bannerUrl: CLOUDINARY_MEDIA.bukit_merese.url,
+        bannerPublicId: CLOUDINARY_MEDIA.bukit_merese.publicId,
       travelStyle: TravelStyle.NATURE_ADVENTURE,
       budgetLevel: BudgetLevel.MID_RANGE,
       recommendedDays: 3,
@@ -1804,7 +1977,8 @@ async function main(): Promise<void> {
       title: '3 Hari Liburan Seru di Mandalika & Pantai Selatan',
       description:
         'Itinerary kurasi pesona pantai pasir putih, bukit sunset legendaris, dan kekayaan budaya tenun Sasak di Lombok Selatan.',
-      coverImageUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       totalDays: 3,
       travelStyle: TravelStyle.BEACH_RELAXATION,
       budgetLevel: BudgetLevel.MID_RANGE,
@@ -1953,7 +2127,8 @@ async function main(): Promise<void> {
       title: '3 Hari Surga Bawah Laut & Snorkeling 3 Gili',
       description:
         'Paket perjalanan bahari lengkap mengarungi Gili Trawangan, patung bawah laut Gili Meno, dan ketenangan pasir putih Gili Air.',
-      coverImageUrl: 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?q=80&w=800',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       totalDays: 3,
       travelStyle: TravelStyle.BEACH_RELAXATION,
       budgetLevel: BudgetLevel.MID_RANGE,
@@ -2058,7 +2233,8 @@ async function main(): Promise<void> {
       title: '2 Hari Petualangan Lereng Rinjani & Lembah Sembalun',
       description:
         'Rasakan udara pegunungan yang sejuk, panorama petak sawah warna-warni Sembalun, dan gemuruh air terjun Tiu Kelep.',
-      coverImageUrl: 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?q=80&w=1000',
+      coverImageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       totalDays: 2,
       travelStyle: TravelStyle.NATURE_ADVENTURE,
       budgetLevel: BudgetLevel.MID_RANGE,
@@ -2242,7 +2418,7 @@ async function main(): Promise<void> {
       content:
         'Sore hari di Bukit Merese benar-benar magis. Angin semilir dari Samudra Hindia dan warna langit senja yang berpendar jingga toska tak akan pernah saya lupakan.',
       locationName: 'Bukit Merese, Pujut',
-      photos: JSON.stringify(['https://images.unsplash.com/photo-1507525428034-b723cf961d3e?q=80&w=600']),
+      photos: JSON.stringify([CLOUDINARY_MEDIA.pantai_kuta.url]),
       isPublic: true,
     },
   });
@@ -2288,7 +2464,8 @@ async function main(): Promise<void> {
       media: {
         create: [
           {
-            url: 'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5',
+            url: CLOUDINARY_MEDIA.bukit_merese.url,
+            publicId: CLOUDINARY_MEDIA.bukit_merese.publicId,
             type: 'IMAGE',
             sortOrder: 0,
             caption: 'Puncak Bukit Merese saat golden hour',
@@ -2333,7 +2510,8 @@ async function main(): Promise<void> {
       media: {
         create: [
           {
-            url: '/assets/image/6a9e1195-a82d-479d-b2ef-93334f5381f6.png',
+            url: CLOUDINARY_MEDIA.pantai_kuta.url,
+            publicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
             type: 'IMAGE',
             sortOrder: 0,
             caption: 'Air toska jernih Pantai Tanjung Aan',
