@@ -97,6 +97,11 @@ export const envSchema = z.object({
   MAPBOX_ACCESS_TOKEN: z.string().optional().default(''),
   MAPBOX_PUBLIC_TOKEN: z.string().optional().default(''),
   MAPBOX_SECRET_TOKEN: z.string().optional().default(''),
+
+  CLOUDINARY_CLOUD_NAME: z.string().optional().default(''),
+  CLOUDINARY_API_KEY: z.string().optional().default(''),
+  CLOUDINARY_API_SECRET: z.string().optional().default(''),
+  CLOUDINARY_FOLDER: z.string().optional().default('lombok-explorer'),
 });
 
 export type Env = z.infer<typeof envSchema>;

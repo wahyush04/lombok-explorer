@@ -14,13 +14,13 @@ const ALLOWED_MIME_TYPES = new Set([
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
 const fileFilter = (_req: Request, file: Express.Multer.File, cb: FileFilterCallback) => {
-  if (ALLOWED_MIME_TYPES.has(file.mimetype.toLowerCase())) {
+  if (file && file.mimetype && ALLOWED_MIME_TYPES.has(file.mimetype.toLowerCase())) {
     cb(null, true);
   } else {
     cb(
       new BadRequestError(
-        `Invalid file type '${file.mimetype}'. Only JPEG, PNG, WEBP, GIF, and SVG images are permitted.`,
-        'INVALID_IMAGE_MIME_TYPE',
+        `Invalid image type '${file?.mimetype}'. Only JPEG, PNG, WEBP, GIF, and SVG images are permitted.`,
+        'INVALID_IMAGE_TYPE',
       ),
     );
   }
@@ -39,4 +39,10 @@ export const imageUpload = multer({
 export const uploadSingleImage = imageUpload.single('file');
 export const uploadSingleImageField = (fieldName: string = 'image') =>
   imageUpload.single(fieldName);
+export const uploadFlexibleSingleImage = imageUpload.fields([
+  { name: 'file', maxCount: 1 },
+  { name: 'image', maxCount: 1 },
+  { name: 'avatar', maxCount: 1 },
+  { name: 'cover', maxCount: 1 },
+]);
 export const uploadMultipleImages = imageUpload.array('files', 10);

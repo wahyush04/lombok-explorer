@@ -109,6 +109,31 @@ export class UsersService {
       throw err;
     }
   }
+
+  public async uploadAvatar(
+    userId: string,
+    file: import('../storage/providers').UploadFileInput,
+  ): Promise<SanitizedUser> {
+    const user = await this.repository.findById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found', 'USER_NOT_FOUND');
+    }
+
+    const { storageService } = await import('../storage/storage.service');
+    const oldPublicId = user.avatarPublicId || user.avatarUrl || '';
+    const storedMedia = await storageService.replaceImage(oldPublicId, file, {
+      type: 'PROFILE',
+      entityId: userId,
+    });
+
+    const updatedUser = await this.repository.updateProfile(userId, {
+      avatarUrl: storedMedia.secureUrl,
+      avatarPublicId: storedMedia.publicId,
+    });
+
+    return this.sanitizeUser(updatedUser);
+  }
 }
 
 export const usersService = new UsersService();
+

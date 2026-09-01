@@ -135,6 +135,7 @@ model User {
   password        String?
   name            String
   avatarUrl       String?       @db.Text
+  avatarPublicId  String?       @db.Text
   phone           String?
   role            UserRole      @default(USER)
   status          UserStatus    @default(ACTIVE)
@@ -190,16 +191,17 @@ model AuthIdentity {
 // ==========================================
 
 model Category {
-  id            String            @id @default(uuid())
-  slug          String            @unique
-  name          String
-  description   String            @db.Text
-  iconName      String
-  coverImageUrl String            @db.Text
-  status        DestinationStatus @default(PUBLISHED)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  deletedAt     DateTime?
+  id                 String            @id @default(uuid())
+  slug               String            @unique
+  name               String
+  description        String            @db.Text
+  iconName           String
+  coverImageUrl      String            @db.Text
+  coverImagePublicId String?           @db.Text
+  status             DestinationStatus @default(PUBLISHED)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
 
   // Relations
   destinations Destination[]
@@ -232,6 +234,7 @@ model Destination {
   difficulty               DifficultyLevel   @default(EASY)
   tags                     String            @db.Text // JSON array: ["Pasir Merica", "Sunset"]
   coverImageUrl            String            @db.Text
+  coverImagePublicId       String?           @db.Text
   facilities               String            @db.Text // JSON array: ["Area Parkir", "Toilet"]
   tips                     String?           @db.Text // JSON array: ["Kunjungi saat sore"]
   status                   DestinationStatus @default(PUBLISHED)
@@ -264,6 +267,7 @@ model DestinationImage {
   destinationId String
   destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
   imageUrl      String      @db.Text
+  imagePublicId String?     @db.Text
   caption       String?
   altText       String?
   orderIndex    Int         @default(0)
@@ -324,6 +328,7 @@ model ItineraryTemplate {
   title                  String
   description            String?            @db.Text
   coverImageUrl          String?            @db.Text
+  coverImagePublicId     String?            @db.Text
   totalDays              Int                @default(1)
   travelStyle            TravelStyle        @default(BEACH_RELAXATION)
   budgetLevel            BudgetLevel        @default(MID_RANGE)
@@ -409,6 +414,7 @@ model Itinerary {
   title                  String
   description            String?            @db.Text
   coverImageUrl          String?            @db.Text
+  coverImagePublicId     String?            @db.Text
   totalDays              Int                @default(1)
   totalEstimatedBudget   Decimal            @default(0) @db.Decimal(12, 2)
   travelStyle            TravelStyle        @default(BEACH_RELAXATION)
@@ -499,6 +505,7 @@ model Recommendation {
   title           String
   subtitle        String
   bannerUrl       String      @db.Text
+  bannerPublicId  String?     @db.Text
   travelStyle     TravelStyle
   budgetLevel     BudgetLevel @default(MID_RANGE)
   recommendedDays Int         @default(3)
@@ -534,30 +541,31 @@ model RecommendationDestination {
 // ==========================================
 
 model Restaurant {
-  id               String            @id @default(uuid())
-  name             String
-  slug             String            @unique
-  description      String            @db.Text
-  cuisineType      String
-  specialtyDish    String
-  priceRange       String
-  minPrice         Decimal           @default(0) @db.Decimal(12, 2)
-  maxPrice         Decimal           @default(0) @db.Decimal(12, 2)
-  rating           Float             @default(0.0)
-  reviewCount      Int               @default(0)
-  address          String            @db.Text
-  region           LombokRegion
-  latitude         Float
-  longitude        Float
-  openingHours     String
-  coverImageUrl    String            @db.Text
-  images           String            @db.Text // JSON array of image URLs
-  isHalalCertified Boolean           @default(true)
-  status           DestinationStatus @default(PUBLISHED)
-  isFeatured       Boolean           @default(false)
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  deletedAt        DateTime?
+  id                 String            @id @default(uuid())
+  name               String
+  slug               String            @unique
+  description        String            @db.Text
+  cuisineType        String
+  specialtyDish      String
+  priceRange         String
+  minPrice           Decimal           @default(0) @db.Decimal(12, 2)
+  maxPrice           Decimal           @default(0) @db.Decimal(12, 2)
+  rating             Float             @default(0.0)
+  reviewCount        Int               @default(0)
+  address            String            @db.Text
+  region             LombokRegion
+  latitude           Float
+  longitude          Float
+  openingHours       String
+  coverImageUrl      String            @db.Text
+  coverImagePublicId String?           @db.Text
+  images             String            @db.Text // JSON array of image URLs
+  isHalalCertified   Boolean           @default(true)
+  status             DestinationStatus @default(PUBLISHED)
+  isFeatured         Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
 
   @@index([region])
   @@index([cuisineType])
@@ -568,20 +576,21 @@ model Restaurant {
 }
 
 model Accommodation {
-  id            String            @id @default(uuid())
-  name          String
-  slug          String            @unique
-  type          String // resort, villa, hotel, homestay, glamping
-  description   String            @db.Text
-  rating        Float             @default(0.0)
-  reviewCount   Int               @default(0)
-  pricePerNight Decimal           @db.Decimal(12, 2)
-  currency      String            @default("IDR")
-  address       String            @db.Text
-  region        LombokRegion
-  latitude      Float
-  longitude     Float
-  coverImageUrl String            @db.Text
+  id                 String            @id @default(uuid())
+  name               String
+  slug               String            @unique
+  type               String // resort, villa, hotel, homestay, glamping
+  description        String            @db.Text
+  rating             Float             @default(0.0)
+  reviewCount        Int               @default(0)
+  pricePerNight      Decimal           @db.Decimal(12, 2)
+  currency           String            @default("IDR")
+  address            String            @db.Text
+  region             LombokRegion
+  latitude           Float
+  longitude          Float
+  coverImageUrl      String            @db.Text
+  coverImagePublicId String?           @db.Text
   images        String            @db.Text // JSON array of image URLs
   amenities     String            @db.Text // JSON array of amenities
   contactPhone  String?
@@ -788,6 +797,7 @@ model PostMedia {
   postId    String
   post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
   url       String   @db.Text
+  publicId  String?  @db.Text
   type      String   @default("IMAGE") // IMAGE, VIDEO
   sortOrder Int      @default(0)
   caption   String?  @db.Text

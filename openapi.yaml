@@ -40,6 +40,8 @@ tags:
     description: Social feeds timeline, travel posts, media attachments, likes, comments, bookmarks, and sharing
   - name: Users
     description: User profile management, username availability checks, and profile feeds
+  - name: Media Storage
+    description: Centralized image and media storage powered by Cloudinary with automatic optimization (f_auto, q_auto) and responsive variants
   - name: Admin
     description: Administrative APIs and content management
 
@@ -2447,6 +2449,191 @@ paths:
         '404':
           $ref: '#/components/responses/NotFoundError'
 
+  # ==========================================
+  # CENTRALIZED MEDIA STORAGE & CLOUDINARY
+  # ==========================================
+  /media/images:
+    post:
+      tags:
+        - Media Storage
+      summary: Upload Single Image
+      description: |
+        Uploads a single image to Cloudinary centralized media storage with automatic optimization (f_auto, q_auto)
+        and generates responsive variants (thumbnail, card, cover).
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: Binary image file (JPEG, PNG, WEBP, GIF, SVG, max 5MB)
+                type:
+                  type: string
+                  enum: [DESTINATION, ITINERARY, ACTIVITY, PROFILE, CATEGORY, FEED, GENERAL]
+                  default: GENERAL
+                  description: Target entity classification for folder structure
+                entityId:
+                  type: string
+                  description: Optional ID of the associated entity
+                folder:
+                  type: string
+                  description: Optional custom subfolder path
+      responses:
+        '201':
+          description: Image uploaded successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Image uploaded successfully
+                  data:
+                    type: object
+                    properties:
+                      url:
+                        type: string
+                        example: https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto/lombok-explorer/destinations/merese.webp
+                      secureUrl:
+                        type: string
+                        example: https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto/lombok-explorer/destinations/merese.webp
+                      publicId:
+                        type: string
+                        example: lombok-explorer/destinations/merese
+                      filename:
+                        type: string
+                        example: merese.webp
+                      originalName:
+                        type: string
+                        example: merese_sunset.jpg
+                      mimeType:
+                        type: string
+                        example: image/jpeg
+                      size:
+                        type: integer
+                        example: 245890
+                      width:
+                        type: integer
+                        example: 1920
+                      height:
+                        type: integer
+                        example: 1080
+                      format:
+                        type: string
+                        example: webp
+                      provider:
+                        type: string
+                        example: Cloudinary
+                      variants:
+                        type: object
+                        properties:
+                          thumbnail:
+                            type: string
+                            example: https://res.cloudinary.com/tzccdgab/image/upload/w_200,h_200,c_fill,f_auto,q_auto/lombok-explorer/destinations/merese.webp
+                          card:
+                            type: string
+                            example: https://res.cloudinary.com/tzccdgab/image/upload/w_600,h_400,c_fill,f_auto,q_auto/lombok-explorer/destinations/merese.webp
+                          cover:
+                            type: string
+                            example: https://res.cloudinary.com/tzccdgab/image/upload/w_1200,h_675,c_fill,f_auto,q_auto/lombok-explorer/destinations/merese.webp
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      tags:
+        - Media Storage
+      summary: Delete Stored Media
+      description: Deletes an asset from Cloudinary storage by its publicId or URL.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                publicId:
+                  type: string
+                  example: lombok-explorer/destinations/merese
+                fileUrl:
+                  type: string
+                  example: https://res.cloudinary.com/tzccdgab/image/upload/lombok-explorer/destinations/merese.webp
+      responses:
+        '200':
+          description: Image deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+
+  /media/images/multiple:
+    post:
+      tags:
+        - Media Storage
+      summary: Upload Multiple Images
+      description: Uploads up to 10 images concurrently to Cloudinary.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - files
+              properties:
+                files:
+                  type: array
+                  items:
+                    type: string
+                    format: binary
+                type:
+                  type: string
+                  enum: [DESTINATION, ITINERARY, ACTIVITY, PROFILE, CATEGORY, FEED, GENERAL]
+      responses:
+        '201':
+          description: Images uploaded successfully
+
+  /users/me/avatar:
+    post:
+      tags:
+        - Users
+      summary: Upload Current User Avatar
+      description: Uploads new profile avatar to Cloudinary, updates user record, and cleans up previous avatar asset.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Avatar uploaded successfully
+
 # ==========================================
 # COMPONENTS & SCHEMAS
 # ==========================================
@@ -4807,6 +4994,7 @@ components:
               type: string
               nullable: true
               example: Post contains affiliate promo links spam.
+
 
 
 

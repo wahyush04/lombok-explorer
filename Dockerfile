@@ -5,8 +5,14 @@ FROM node:22-alpine AS builder
 
 WORKDIR /app
 
-# Install native dependencies for Prisma and build tools
-RUN apk add --no-cache openssl libc6-compat
+# Install native dependencies for Prisma and native module build tools (bcrypt, etc.)
+RUN apk add --no-cache openssl libc6-compat python3 make g++
+
+# Configure npm timeouts for reliable network installation
+RUN npm config set fetch-retries 5 && \
+    npm config set fetch-retry-mintimeout 20000 && \
+    npm config set fetch-retry-maxtimeout 120000 && \
+    npm config set fetch-timeout 300000
 
 # Install dependencies
 COPY package*.json ./
@@ -19,6 +25,9 @@ COPY src ./src
 COPY openapi*.yaml ./
 RUN npm run build
 RUN npx prisma generate
+
+# Remove devDependencies to optimize production footprint
+RUN npm prune --omit=dev
 
 # ==========================================
 # STAGE 2: Runner
@@ -39,15 +48,11 @@ RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 # Create assets/image storage directory with proper permissions
 RUN mkdir -p /app/assets/image && chown -R appuser:appgroup /app/assets
 
-# Install production dependencies only
-COPY package*.json ./
-COPY prisma ./prisma/
-RUN npm ci --only=production
-
-# Copy compiled artifacts from builder stage
+# Copy production node_modules, compiled artifacts, and Prisma client from builder
+COPY --from=builder /app/package.json ./package.json
+COPY --from=builder /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-COPY --from=builder /app/node_modules/@prisma/client ./node_modules/@prisma/client
+COPY --from=builder /app/prisma ./prisma
 COPY openapi*.yaml ./
 
 # Switch to non-root user

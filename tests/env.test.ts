@@ -39,12 +39,13 @@ describe('Environment Variable Validation (Zod)', () => {
     expect(parsed.PORT).toBe(8080);
     expect(parsed.API_PREFIX).toBe('/api/v1');
     expect(parsed.HOST).toBe('0.0.0.0');
-    expect(parsed.JWT_ACCESS_EXPIRES_IN).toBe('15m');
+    expect(parsed.JWT_ACCESS_EXPIRES_IN).toBe('1h');
     expect(parsed.JWT_REFRESH_EXPIRES_IN).toBe('7d');
     expect(parsed.CORS_ORIGIN).toBe('*');
     expect(parsed.RATE_LIMIT_WINDOW_MS).toBe(900000);
     expect(parsed.RATE_LIMIT_MAX).toBe(100);
     expect(parsed.LOG_LEVEL).toBe('info');
+    expect(parsed.CLOUDINARY_FOLDER).toBe('lombok-explorer');
   });
 
   it('should fail validation when DATABASE_URL is missing', () => {

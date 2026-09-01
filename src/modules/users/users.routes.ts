@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { authenticate, optionalAuthenticate } from '../../common/middleware/auth.middleware';
 import { generalLimiter } from '../../common/middleware/rate-limit.middleware';
 import { validate } from '../../common/middleware/validate.middleware';
+import { uploadFlexibleSingleImage } from '../storage/storage.middleware';
 import { FeedQueryDtoSchema, feedsController } from '../feeds';
 import { CheckUsernameQuerySchema, UpdateProfileSchema } from './dto/user.dto';
 import { usersController } from './users.controller';
@@ -25,6 +26,14 @@ router.patch(
   authenticate,
   validate({ body: UpdateProfileSchema }),
   usersController.updateMe,
+);
+
+// 4. Upload User Avatar (Authenticated, Cloudinary)
+router.post(
+  '/me/avatar',
+  authenticate,
+  uploadFlexibleSingleImage,
+  usersController.uploadAvatar,
 );
 
 // 4. Public Profile Feed Posts

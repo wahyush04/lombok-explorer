@@ -1,17 +1,17 @@
 import { DestinationImage } from '@prisma/client';
+import { BadRequestError, NotFoundError } from '../../../common/errors/app-error';
 import {
-  adminDestinationImagesRepository,
   AdminDestinationImagesRepository,
+  adminDestinationImagesRepository,
 } from './admin-destination-images.repository';
 import {
   CreateDestinationImageDto,
   DestinationImageDto,
   UpdateDestinationImageDto,
 } from './dto/admin-destination-image.dto';
-import { BadRequestError, NotFoundError } from '../../../common/errors/app-error';
+import { destinationsService } from '../../destinations/destinations.service';
 import { storageService, StorageService } from '../../storage/storage.service';
 import { UploadFileInput } from '../../storage/providers';
-import { destinationsService } from '../../destinations/destinations.service';
 
 export class AdminDestinationImagesService {
   constructor(
@@ -19,11 +19,12 @@ export class AdminDestinationImagesService {
     private readonly storage: StorageService = storageService,
   ) {}
 
-  public mapToDto = (image: DestinationImage): DestinationImageDto => {
+  private mapToDto(image: DestinationImage): DestinationImageDto {
     return {
       id: image.id,
       destinationId: image.destinationId,
       imageUrl: image.imageUrl,
+      imagePublicId: (image as any).imagePublicId || null,
       caption: image.caption,
       altText: image.altText,
       orderIndex: image.orderIndex,
@@ -31,7 +32,7 @@ export class AdminDestinationImagesService {
       createdAt: image.createdAt,
       updatedAt: image.updatedAt,
     };
-  };
+  }
 
   public async getDestinationImages(destinationIdOrSlug: string): Promise<DestinationImageDto[]> {
     const destination = await this.repository.findDestinationByIdOrSlug(destinationIdOrSlug);
@@ -43,7 +44,7 @@ export class AdminDestinationImagesService {
     }
 
     const images = await this.repository.findByDestinationId(destination.id);
-    return images.map(this.mapToDto);
+    return images.map((img) => this.mapToDto(img));
   }
 
   public async createDestinationImage(
@@ -64,9 +65,15 @@ export class AdminDestinationImagesService {
 
     // 1. Resolve Image URL (uploaded file or URL string)
     let imageUrl = dto.imageUrl;
+    let imagePublicId: string | undefined;
+
     if (file && file.buffer && file.buffer.length > 0) {
-      const stored = await this.storage.uploadFile(file);
-      imageUrl = stored.url;
+      const stored = await this.storage.uploadImage(file, {
+        type: 'DESTINATION',
+        entityId: destination.id,
+      });
+      imageUrl = stored.secureUrl || stored.url;
+      imagePublicId = stored.publicId;
     }
 
     if (!imageUrl) {
@@ -93,6 +100,7 @@ export class AdminDestinationImagesService {
     const created = await this.repository.create({
       destination: { connect: { id: destination.id } },
       imageUrl,
+      imagePublicId: imagePublicId || null,
       caption: dto.caption || null,
       altText: dto.altText || null,
       orderIndex,
@@ -111,6 +119,7 @@ export class AdminDestinationImagesService {
       details: JSON.stringify({
         destinationId: destination.id,
         imageUrl,
+        imagePublicId,
         isPrimary,
       }),
       ipAddress,
@@ -147,9 +156,16 @@ export class AdminDestinationImagesService {
 
     // 1. Check if new file uploaded
     let imageUrl = image.imageUrl;
+    let imagePublicId = image.imagePublicId;
+
     if (file && file.buffer && file.buffer.length > 0) {
-      const stored = await this.storage.uploadFile(file);
-      imageUrl = stored.url;
+      const oldPublicId = image.imagePublicId || image.imageUrl;
+      const stored = await this.storage.replaceImage(oldPublicId, file, {
+        type: 'DESTINATION',
+        entityId: destination.id,
+      });
+      imageUrl = stored.secureUrl || stored.url;
+      imagePublicId = stored.publicId;
     } else if (dto.imageUrl) {
       imageUrl = dto.imageUrl;
     }
@@ -172,6 +188,7 @@ export class AdminDestinationImagesService {
     // 3. Update image
     const updated = await this.repository.update(image.id, {
       imageUrl,
+      imagePublicId: imagePublicId || null,
       caption: dto.caption !== undefined ? dto.caption : image.caption,
       altText: dto.altText !== undefined ? dto.altText : image.altText,
       orderIndex,
@@ -190,6 +207,7 @@ export class AdminDestinationImagesService {
       details: JSON.stringify({
         destinationId: destination.id,
         imageUrl,
+        imagePublicId,
         isPrimary,
       }),
       ipAddress,
@@ -222,7 +240,13 @@ export class AdminDestinationImagesService {
       );
     }
 
-    // Delete image
+    // Delete asset from Cloudinary storage if available
+    const assetToDelete = image.imagePublicId || image.imageUrl;
+    if (assetToDelete) {
+      this.storage.deleteImage(assetToDelete).catch(() => {});
+    }
+
+    // Delete image from database
     await this.repository.delete(image.id);
 
     // Invalidate cache
@@ -237,6 +261,7 @@ export class AdminDestinationImagesService {
       details: JSON.stringify({
         destinationId: destination.id,
         imageUrl: image.imageUrl,
+        imagePublicId: image.imagePublicId,
       }),
       ipAddress,
       userAgent,

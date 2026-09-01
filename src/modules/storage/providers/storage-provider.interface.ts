@@ -1,4 +1,4 @@
-import { StoredFileDto } from '../dto/storage.dto';
+import { ImageVariant, StoredMediaDto, UploadMediaOptions } from '../dto/storage.dto';
 
 export interface UploadFileInput {
   buffer: Buffer;
@@ -11,12 +11,26 @@ export interface IStorageProvider {
   /**
    * Saves a binary file and returns structured metadata including public access URL.
    */
-  saveFile(file: UploadFileInput, subfolder?: string): Promise<StoredFileDto>;
+  saveFile(file: UploadFileInput, options?: UploadMediaOptions | string): Promise<StoredMediaDto>;
 
   /**
-   * Deletes a stored file by its URL or relative filename.
+   * Deletes a stored file by its publicId, URL, or relative filename.
    */
-  deleteFile(fileUrlOrName: string): Promise<boolean>;
+  deleteFile(publicIdOrUrl: string): Promise<boolean>;
+
+  /**
+   * Replaces an existing stored file with a new file and cleans up the old asset.
+   */
+  replaceFile(
+    oldPublicIdOrUrl: string,
+    newFile: UploadFileInput,
+    options?: UploadMediaOptions | string,
+  ): Promise<StoredMediaDto>;
+
+  /**
+   * Generates a transformed/optimized CDN URL with automatic format and quality.
+   */
+  generateOptimizedUrl(publicIdOrUrl: string, variant?: ImageVariant): string;
 
   /**
    * Resolves the public accessible URL for a given filename.
@@ -24,7 +38,8 @@ export interface IStorageProvider {
   getFileUrl(filename: string, subfolder?: string): string;
 
   /**
-   * Returns provider identifier (e.g. LocalStorage, CloudStorage).
+   * Returns provider identifier (e.g. Cloudinary, LocalStorage).
    */
   getProviderName(): string;
 }
+

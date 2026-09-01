@@ -26,6 +26,20 @@ export class UsersController {
     const updatedUser = await this.service.updateProfile(userId, dto);
     return ResponseUtil.sendSuccess(res, updatedUser, 'User profile updated successfully', HttpStatus.OK);
   });
+
+  public uploadAvatar = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const file = req.file || (req.files && typeof req.files === 'object' && !Array.isArray(req.files) ? (req.files as Record<string, Express.Multer.File[]>).avatar?.[0] || (req.files as Record<string, Express.Multer.File[]>).file?.[0] || (req.files as Record<string, Express.Multer.File[]>).image?.[0] : undefined);
+
+    if (!file) {
+      const { BadRequestError } = await import('../../common/errors/app-error');
+      throw new BadRequestError('No avatar file provided in "avatar", "file", or "image" field', 'FILE_REQUIRED');
+    }
+
+    const updatedUser = await this.service.uploadAvatar(userId, file);
+    return ResponseUtil.sendSuccess(res, updatedUser, 'Avatar uploaded successfully', HttpStatus.OK);
+  });
 }
 
 export const usersController = new UsersController();
+

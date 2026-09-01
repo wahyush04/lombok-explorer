@@ -34,7 +34,7 @@ services:
       PORT: ${PORT:-8080}
       HOST: 0.0.0.0
       API_PREFIX: ${API_PREFIX:-/api/v1}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://root:root@db:5432/lombok_explorer?schema=public}
+      DATABASE_URL: postgresql://root:root@host.docker.internal:5432/lombok_explorer?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-lombok_explorer_super_secret_access_jwt_key_2026}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-lombok_explorer_super_secret_refresh_jwt_key_2026}
@@ -52,6 +52,12 @@ services:
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-167522607878-rucuu043eshc4ou6k22ruc2fs8kh5f29.apps.googleusercontent.com}
       GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-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}
       GOOGLE_PROJECT_ID: ${GOOGLE_PROJECT_ID:-lombok-explorer}
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-tzccdgab}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-649313611264454}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-mjc_HBPF5rpPXsDV-Th2XkEojKs}
+      CLOUDINARY_FOLDER: ${CLOUDINARY_FOLDER:-lombok-explorer}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - assets_data:/app/assets/image
     depends_on:

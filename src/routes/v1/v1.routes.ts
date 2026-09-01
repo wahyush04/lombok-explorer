@@ -12,7 +12,7 @@ import { weatherRoutes } from '../../modules/weather/weather.routes';
 import { expenseRoutes } from '../../modules/expenses/expenses.routes';
 import { journalRoutes } from '../../modules/journals/journals.routes';
 import { checklistRoutes } from '../../modules/checklists/checklists.routes';
-import { storageRoutes } from '../../modules/storage/storage.routes';
+import { mediaRoutes, storageRoutes } from '../../modules/storage/storage.routes';
 import { feedRoutes } from '../../modules/feeds';
 import { userRoutes } from '../../modules/users/users.routes';
 import { adminRoutes } from '../admin/admin.routes';
@@ -25,23 +25,23 @@ router.use('/health', healthRoutes);
 // 2. Authentication & User Profile Module (Phase 7)
 router.use('/auth', authRoutes);
 
-// 3. Destinations Module (Phase 8)
+// 3. Tourism Destinations Discovery (Phase 8)
 router.use('/destinations', destinationRoutes);
 
-// 4. Categories Module (Phase 9)
+// 4. Categories & Classification (Phase 8)
 router.use('/categories', categoryRoutes);
 
-// 5. Favorites Module (Phase 10)
+// 5. User Favorites & Bookmarks (Phase 9)
 router.use('/favorites', favoriteRoutes);
 
-// 6. Reviews Module (Phase 11)
+// 6. User Reviews & Ratings (Phase 10)
 router.use('/reviews', reviewRoutes);
 
-// 7. Itineraries & Smart Generator Module (Phase 13 & 14)
+// 7. Itineraries & Smart Trip Planner Module (Phase 11)
 router.use('/itineraries', itineraryRoutes);
 router.get('/shared/itineraries/:shareToken', itinerariesController.getSharedItinerary);
 
-// 8. Recommendation Engine (Phase 15)
+// 8. Smart Recommendation Engine (Phase 15)
 router.use('/recommendations', recommendationRoutes);
 
 // 9. Weather Service Module (Phase 16)
@@ -56,8 +56,10 @@ router.use('/journals', journalRoutes);
 // 12. Packing Checklists Module (Phase 18)
 router.use('/checklists', checklistRoutes);
 
-// 13. Image & File Storage Module (Phase 19)
+// 13. Centralized Media & File Storage Module (Cloudinary Storage)
+router.use('/media', mediaRoutes);
 router.use('/storage', storageRoutes);
+
 
 // 14. Feeds & Community Social Module
 router.use('/feeds', feedRoutes);

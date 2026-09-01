@@ -51,6 +51,13 @@ export const config = {
     publicToken: env.MAPBOX_PUBLIC_TOKEN || env.MAPBOX_ACCESS_TOKEN || '',
     secretToken: env.MAPBOX_SECRET_TOKEN || '',
   },
+  cloudinary: {
+    cloudName: env.CLOUDINARY_CLOUD_NAME,
+    apiKey: env.CLOUDINARY_API_KEY,
+    apiSecret: env.CLOUDINARY_API_SECRET,
+    folder: env.CLOUDINARY_FOLDER || 'lombok-explorer',
+    isConfigured: Boolean(env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET),
+  },
 } as const;
 
 export type AppConfig = typeof config;

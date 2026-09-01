@@ -122,7 +122,7 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('id');
-      expect(res.body.data.imageUrl).toContain('/assets/image/');
+      expect(res.body.data.imageUrl).toMatch(/cloudinary\.com|\/assets\/image\//);
       expect(res.body.data.isPrimary).toBe(true);
       expect(res.body.data.orderIndex).toBe(0);
 

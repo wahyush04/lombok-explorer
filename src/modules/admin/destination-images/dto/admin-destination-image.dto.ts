@@ -38,6 +38,7 @@ export interface DestinationImageDto {
   id: string;
   destinationId: string;
   imageUrl: string;
+  imagePublicId?: string | null;
   caption: string | null;
   altText: string | null;
   orderIndex: number;
@@ -45,3 +46,4 @@ export interface DestinationImageDto {
   createdAt: Date;
   updatedAt: Date;
 }
+
