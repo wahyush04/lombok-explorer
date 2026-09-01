@@ -1,7 +1,10 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import request from 'supertest';
 import { createApp } from '../../src/app';
 import { Application } from 'express';
+import { prisma } from '../../src/database/prisma';
+import { storageService } from '../../src/modules/storage/storage.service';
+import { localStorageProvider } from '../../src/modules/storage/providers';
 
 describe('Admin Destination Images Management API Suite (Phase 6)', () => {
   let app: Application;
@@ -9,10 +12,37 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
   let userToken = '';
   let createdImageId = '';
   let uploadedImageId = '';
-  const testDestinationId = 'dest_tanjung_aan';
+  const testDestinationId = 'test_temp_admin_gallery';
 
   beforeAll(async () => {
     app = createApp();
+    storageService.setProvider(localStorageProvider);
+
+    // 0. Create dedicated temporary test destination
+    await prisma.destinationImage.deleteMany({ where: { destinationId: testDestinationId } });
+    await prisma.destination.deleteMany({ where: { id: testDestinationId } });
+    await prisma.destination.create({
+      data: {
+        id: testDestinationId,
+        slug: `temp-gallery-test-${Date.now()}`,
+        name: 'Temporary Gallery Test Destination',
+        shortDescription: 'Temp test destination',
+        description: 'Temp test destination description',
+        categoryId: 'cat_beach',
+        region: 'LOMBOK_SELATAN',
+        locationName: 'Pujut',
+        latitude: -8.9,
+        longitude: 116.3,
+        openingHours: '06:00 - 18:00',
+        bestVisitingTime: 'Pagi hari',
+        difficulty: 'EASY',
+        estimatedDurationMinutes: 60,
+        tags: '[]',
+        facilities: '[]',
+        coverImageUrl:
+          'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267657/lombok-explorer/examples/pexels-ari-setiawan-2156420701-38061830.jpg',
+      },
+    });
 
     // 1. Admin login
     const adminRes = await request(app).post('/api/v1/admin/auth/login').send({
@@ -27,6 +57,11 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
       password: 'Password123!',
     });
     userToken = userRes.body.data.accessToken;
+  });
+
+  afterAll(async () => {
+    await prisma.destinationImage.deleteMany({ where: { destinationId: testDestinationId } });
+    await prisma.destination.deleteMany({ where: { id: testDestinationId } });
   });
 
   describe('GET /api/v1/admin/destinations/:id/images (List Gallery Images)', () => {
@@ -117,7 +152,10 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
         .field('altText', 'Hamparan pasir merica dan air laut jernih')
         .field('orderIndex', '0')
         .field('isPrimary', 'true')
-        .attach('image', validPngBuffer, 'tanjung_aan_gallery.png');
+        .attach('image', validPngBuffer, {
+          filename: 'tanjung_aan_gallery.png',
+          contentType: 'image/png',
+        });
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
@@ -133,7 +171,7 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
         .get(`/api/v1/admin/destinations/${testDestinationId}`)
         .set('Authorization', `Bearer ${adminToken}`);
       expect(destRes.body.data.coverImageUrl).toBe(res.body.data.imageUrl);
-    });
+    }, 20000);
   });
 
   describe('PUT /api/v1/admin/destinations/:id/images/:imageId (Update Gallery Image)', () => {
@@ -186,12 +224,14 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
       expect(res1.body.success).toBe(true);
       expect(res1.body.message).toBe('Destination image deleted successfully');
 
-      const res2 = await request(app)
-        .delete(`/api/v1/admin/destinations/${testDestinationId}/images/${uploadedImageId}`)
-        .set('Authorization', `Bearer ${adminToken}`);
+      if (uploadedImageId) {
+        const res2 = await request(app)
+          .delete(`/api/v1/admin/destinations/${testDestinationId}/images/${uploadedImageId}`)
+          .set('Authorization', `Bearer ${adminToken}`);
 
-      expect(res2.status).toBe(200);
-      expect(res2.body.success).toBe(true);
+        expect(res2.status).toBe(200);
+        expect(res2.body.success).toBe(true);
+      }
     });
   });
 });

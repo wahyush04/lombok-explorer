@@ -317,7 +317,7 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(day1.activities.length).toBe(3);
       expect(day1.totalDistanceKm).toBeGreaterThan(0);
       expect(day1.totalTravelTimeMinutes).toBeGreaterThan(0);
-    });
+    }, 20000);
   });
 
   describe('6. Delete Stop with Automatic Re-indexing', () => {

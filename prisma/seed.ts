@@ -18,51 +18,51 @@ const prisma = new PrismaClient({
 
 
 // =========================================================================
-// CLOUDINARY CENTRALIZED MEDIA ASSETS (Sourced from assets/image/example)
+// CLOUDINARY CENTRALIZED MEDIA ASSETS (Auto-optimized for mobile & web delivery)
 // =========================================================================
 const CLOUDINARY_MEDIA = {
   sasak_culture: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267655/lombok-explorer/examples/istockphoto-525625699-1024x1024.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267655/lombok-explorer/examples/istockphoto-525625699-1024x1024.jpg',
     publicId: 'lombok-explorer/examples/istockphoto-525625699-1024x1024',
   },
   pantai_kuta: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267657/lombok-explorer/examples/pexels-ari-setiawan-2156420701-38061830.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267657/lombok-explorer/examples/pexels-ari-setiawan-2156420701-38061830.jpg',
     publicId: 'lombok-explorer/examples/pexels-ari-setiawan-2156420701-38061830',
   },
   bukit_merese: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267659/lombok-explorer/examples/pexels-bagas-putra-2162789112-38490382.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267659/lombok-explorer/examples/pexels-bagas-putra-2162789112-38490382.jpg',
     publicId: 'lombok-explorer/examples/pexels-bagas-putra-2162789112-38490382',
   },
   gili_trawangan: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267661/lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550278.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267661/lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550278.jpg',
     publicId: 'lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550278',
   },
   snorkeling_penyu: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267664/lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550288.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267664/lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550288.jpg',
     publicId: 'lombok-explorer/examples/pexels-ilham-zovanka-2158121497-37550288',
   },
   gunung_rinjani: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267667/lombok-explorer/examples/pexels-patuur-35604706.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267667/lombok-explorer/examples/pexels-patuur-35604706.jpg',
     publicId: 'lombok-explorer/examples/pexels-patuur-35604706',
   },
   air_terjun: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267669/lombok-explorer/examples/pexels-rama-dhan-862484-6683876.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267669/lombok-explorer/examples/pexels-rama-dhan-862484-6683876.jpg',
     publicId: 'lombok-explorer/examples/pexels-rama-dhan-862484-6683876',
   },
   kuliner_sasak: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267671/lombok-explorer/examples/pexels-roman-odintsov-4870657.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267671/lombok-explorer/examples/pexels-roman-odintsov-4870657.jpg',
     publicId: 'lombok-explorer/examples/pexels-roman-odintsov-4870657',
   },
   desa_sukarara: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267673/lombok-explorer/examples/pexels-shabran-niami-1789590-37059960.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267673/lombok-explorer/examples/pexels-shabran-niami-1789590-37059960.jpg',
     publicId: 'lombok-explorer/examples/pexels-shabran-niami-1789590-37059960',
   },
   surfing_ombak: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267676/lombok-explorer/examples/pexels-tryputroutomo-13338242.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267676/lombok-explorer/examples/pexels-tryputroutomo-13338242.jpg',
     publicId: 'lombok-explorer/examples/pexels-tryputroutomo-13338242',
   },
   sunset_senggigi: {
-    url: 'https://res.cloudinary.com/tzccdgab/image/upload/v1788267679/lombok-explorer/examples/pexels-vincent-ma-janssen-2823154.jpg',
+    url: 'https://res.cloudinary.com/tzccdgab/image/upload/f_auto,q_auto,w_1000/v1788267679/lombok-explorer/examples/pexels-vincent-ma-janssen-2823154.jpg',
     publicId: 'lombok-explorer/examples/pexels-vincent-ma-janssen-2823154',
   },
 };
@@ -86,15 +86,17 @@ function getMediaForCategory(slug: string) {
 }
 
 function getMediaForDestination(catId: string, destId: string) {
-  if (destId.includes('rinjani') || destId.includes('pergasingan')) return CLOUDINARY_MEDIA.gunung_rinjani;
-  if (destId.includes('waterfall') || destId.includes('kelep') || destId.includes('sendang') || destId.includes('benang')) return CLOUDINARY_MEDIA.air_terjun;
-  if (destId.includes('gili')) return CLOUDINARY_MEDIA.gili_trawangan;
-  if (destId.includes('snorkeling') || destId.includes('diving') || destId.includes('turtle')) return CLOUDINARY_MEDIA.snorkeling_penyu;
-  if (destId.includes('merese') || destId.includes('malimbu') || destId.includes('seger')) return CLOUDINARY_MEDIA.bukit_merese;
-  if (destId.includes('sade') || destId.includes('sukarara') || destId.includes('banyumulek')) return CLOUDINARY_MEDIA.desa_sukarara;
-  if (destId.includes('surf') || destId.includes('mawi') || destId.includes('desert')) return CLOUDINARY_MEDIA.surfing_ombak;
-  if (destId.includes('sunset') || destId.includes('senggigi')) return CLOUDINARY_MEDIA.sunset_senggigi;
-  if (destId.includes('kuta') || destId.includes('aan') || destId.includes('mawun') || destId.includes('selong')) return CLOUDINARY_MEDIA.pantai_kuta;
+  const lower = destId.toLowerCase();
+  if (lower.includes('rinjani') || lower.includes('pergasingan') || lower.includes('sembalun')) return CLOUDINARY_MEDIA.gunung_rinjani;
+  if (lower.includes('waterfall') || lower.includes('kelep') || lower.includes('sendang') || lower.includes('benang') || lower.includes('sakti') || lower.includes('pupus')) return CLOUDINARY_MEDIA.air_terjun;
+  if (lower.includes('shark') || lower.includes('turtle') || lower.includes('diving') || lower.includes('snorkeling') || lower.includes('meno')) return CLOUDINARY_MEDIA.snorkeling_penyu;
+  if (lower.includes('gili')) return CLOUDINARY_MEDIA.gili_trawangan;
+  if (lower.includes('merese') || lower.includes('malimbu') || lower.includes('seger') || lower.includes('hill')) return CLOUDINARY_MEDIA.bukit_merese;
+  if (lower.includes('sade') || lower.includes('sukarara') || lower.includes('ende') || lower.includes('banyumulek') || lower.includes('bayan')) return CLOUDINARY_MEDIA.desa_sukarara;
+  if (lower.includes('surf') || lower.includes('mawi') || lower.includes('desert') || lower.includes('selong')) return CLOUDINARY_MEDIA.surfing_ombak;
+  if (lower.includes('nipah') || lower.includes('culinary') || lower.includes('taliwang')) return CLOUDINARY_MEDIA.kuliner_sasak;
+  if (lower.includes('sunset') || lower.includes('senggigi')) return CLOUDINARY_MEDIA.sunset_senggigi;
+  if (lower.includes('kuta') || lower.includes('aan') || lower.includes('mawun') || lower.includes('pink') || lower.includes('tangsi')) return CLOUDINARY_MEDIA.pantai_kuta;
   return getMediaForCategory(catId.replace('cat_', ''));
 }
 
@@ -1374,15 +1376,36 @@ async function main(): Promise<void> {
   ];
 
   for (const dest of destinationsData) {
+    const primaryMedia = getMediaForDestination(dest.categoryId, dest.id);
+    const secondaryMedia =
+      dest.categoryId === 'cat_beach'
+        ? CLOUDINARY_MEDIA.sunset_senggigi
+        : dest.categoryId === 'cat_mountain'
+        ? CLOUDINARY_MEDIA.air_terjun
+        : dest.categoryId === 'cat_waterfall'
+        ? CLOUDINARY_MEDIA.gunung_rinjani
+        : CLOUDINARY_MEDIA.pantai_kuta;
+
     await prisma.destination.create({
       data: {
         ...dest,
+        coverImageUrl: primaryMedia.url,
+        coverImagePublicId: primaryMedia.publicId,
         images: {
           create: [
             {
-              imageUrl: dest.coverImageUrl,
+              imageUrl: primaryMedia.url,
+              imagePublicId: primaryMedia.publicId,
               caption: `${dest.name} - Panorama Utama`,
               orderIndex: 0,
+              isPrimary: true,
+            },
+            {
+              imageUrl: secondaryMedia.url,
+              imagePublicId: secondaryMedia.publicId,
+              caption: `${dest.name} - Suasana Sekitar`,
+              orderIndex: 1,
+              isPrimary: false,
             },
           ],
         },

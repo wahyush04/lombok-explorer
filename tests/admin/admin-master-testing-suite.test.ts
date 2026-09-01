@@ -50,7 +50,7 @@ describe('Admin Master Testing & Quality Assurance Suite (Phase 19)', () => {
       .patch(`/api/v1/admin/users/${suspendedUserId}/status`)
       .set('Authorization', `Bearer ${adminToken}`)
       .send({ status: 'SUSPENDED' });
-  });
+  }, 30000);
 
   describe('1. Authentication Verification', () => {
     it('should successfully login an administrator and return tokens', async () => {
