@@ -55,7 +55,15 @@ router.get(
 // 4. Feed Timeline (Cursor-based infinite scroll)
 router.get('/', optionalAuthenticate, validate({ query: FeedQueryDtoSchema }), feedsController.getFeeds);
 
-// 4. Post CRUD
+// 5. Post CRUD (supports both POST /feeds and POST /feeds/posts)
+router.post(
+  '/',
+  authenticate,
+  feedActionLimiter,
+  validate(CreatePostDtoSchema),
+  feedsController.createPost,
+);
+
 router.post(
   '/posts',
   authenticate,
@@ -65,9 +73,17 @@ router.post(
 );
 
 router.get('/posts/:id', optionalAuthenticate, feedsController.getPostById);
+router.get('/:id', optionalAuthenticate, feedsController.getPostById);
 
 router.patch(
   '/posts/:id',
+  authenticate,
+  validate(UpdatePostDtoSchema),
+  feedsController.updatePost,
+);
+
+router.patch(
+  '/:id',
   authenticate,
   validate(UpdatePostDtoSchema),
   feedsController.updatePost,
@@ -80,20 +96,33 @@ router.put(
   feedsController.updatePost,
 );
 
+router.put(
+  '/:id',
+  authenticate,
+  validate(UpdatePostDtoSchema),
+  feedsController.updatePost,
+);
+
 router.delete('/posts/:id', authenticate, feedsController.deletePost);
+router.delete('/:id', authenticate, feedsController.deletePost);
 
-// 5. Like / Unlike Post
+// 6. Like / Unlike Post
 router.post('/posts/:id/like', authenticate, feedActionLimiter, feedsController.likePost);
+router.post('/:id/like', authenticate, feedActionLimiter, feedsController.likePost);
 router.delete('/posts/:id/like', authenticate, feedActionLimiter, feedsController.unlikePost);
+router.delete('/:id/like', authenticate, feedActionLimiter, feedsController.unlikePost);
 
-// 6. Bookmark / Unbookmark Post
+// 7. Bookmark / Unbookmark Post
 router.post('/posts/:id/bookmark', authenticate, feedActionLimiter, feedsController.bookmarkPost);
+router.post('/:id/bookmark', authenticate, feedActionLimiter, feedsController.bookmarkPost);
 router.delete('/posts/:id/bookmark', authenticate, feedActionLimiter, feedsController.unbookmarkPost);
+router.delete('/:id/bookmark', authenticate, feedActionLimiter, feedsController.unbookmarkPost);
 
-// 7. Share Post
+// 8. Share Post
 router.post('/posts/:id/share', feedActionLimiter, feedsController.sharePost);
+router.post('/:id/share', feedActionLimiter, feedsController.sharePost);
 
-// 8. Report Post
+// 9. Report Post
 router.post(
   '/posts/:id/report',
   authenticate,
@@ -101,10 +130,23 @@ router.post(
   validate(CreateReportDtoSchema),
   feedsController.reportPost,
 );
+router.post(
+  '/:id/report',
+  authenticate,
+  feedActionLimiter,
+  validate(CreateReportDtoSchema),
+  feedsController.reportPost,
+);
 
-// 9. Comments (Cursor-based list, create, delete)
+// 10. Comments (Cursor-based list, create, delete)
 router.get(
   '/posts/:id/comments',
+  optionalAuthenticate,
+  validate({ query: CommentQueryDtoSchema }),
+  feedsController.getComments,
+);
+router.get(
+  '/:id/comments',
   optionalAuthenticate,
   validate({ query: CommentQueryDtoSchema }),
   feedsController.getComments,
@@ -112,6 +154,13 @@ router.get(
 
 router.post(
   '/posts/:id/comments',
+  authenticate,
+  feedActionLimiter,
+  validate(CreateCommentDtoSchema),
+  feedsController.createComment,
+);
+router.post(
+  '/:id/comments',
   authenticate,
   feedActionLimiter,
   validate(CreateCommentDtoSchema),

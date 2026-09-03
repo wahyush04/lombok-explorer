@@ -793,16 +793,22 @@ model PostLocation {
 }
 
 model PostMedia {
-  id        String   @id @default(uuid())
-  postId    String
-  post      Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
-  url       String   @db.Text
-  publicId  String?  @db.Text
-  type      String   @default("IMAGE") // IMAGE, VIDEO
-  sortOrder Int      @default(0)
-  caption   String?  @db.Text
-  createdAt DateTime @default(now())
+  id         String   @id @default(uuid())
+  postId     String
+  post       Post     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  url        String   @db.Text
+  imageUrl   String?  @db.Text
+  publicId   String?  @db.Text
+  width      Int?
+  height     Int?
+  format     String?
+  type       String   @default("IMAGE") // IMAGE, VIDEO
+  sortOrder  Int      @default(0)
+  orderIndex Int      @default(0)
+  caption    String?  @db.Text
+  createdAt  DateTime @default(now())
 
+  @@index([postId, orderIndex])
   @@index([postId, sortOrder])
   @@map("post_media")
 }

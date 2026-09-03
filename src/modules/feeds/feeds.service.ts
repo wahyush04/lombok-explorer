@@ -1,16 +1,22 @@
 import { prisma } from '../../database/prisma';
-import { ForbiddenError, NotFoundError } from '../../common/errors/app-error';
+import { BadRequestError, ForbiddenError, NotFoundError } from '../../common/errors/app-error';
 import { CreatePostDto, FeedQueryDto, SearchDestinationQueryDto, UpdatePostDto } from './dto/feed-post.dto';
 import { feedsRepository, FeedsRepository } from './feeds.repository';
 import { FeedsMapper, PrismaPostWithRelations } from './feeds.mapper';
 import { decodeCursor, encodeCursor } from './utils/cursor.util';
 import { CursorPaginatedData, FeedPostResponse } from './feeds.types';
+import { cloudinaryService, CloudinaryService } from '../cloudinary/cloudinary.service';
 
 export class FeedsService {
   private readonly repository: FeedsRepository;
+  private readonly cloudinary: CloudinaryService;
 
-  constructor(repository: FeedsRepository = feedsRepository) {
+  constructor(
+    repository: FeedsRepository = feedsRepository,
+    cloudinary: CloudinaryService = cloudinaryService,
+  ) {
     this.repository = repository;
+    this.cloudinary = cloudinary;
   }
 
   /**
@@ -97,35 +103,61 @@ export class FeedsService {
   }
 
   /**
-   * Creates a new feed post.
+   * Creates a new feed post with verified Cloudinary image assets and atomic rollback cleanup.
    */
   public async createPost(userId: string, data: CreatePostDto): Promise<FeedPostResponse> {
     let destinationSnapshot: { name: string; latitude: number; longitude: number; address?: string | null } | null = null;
+    const destId = data.destinationId || data.location?.destinationId;
 
-    if (data.destinationId) {
-      const destination = await prisma.destination.findUnique({
-        where: { id: data.destinationId },
-        select: { id: true, name: true, latitude: true, longitude: true, address: true },
-      });
+    const rawImages = data.images || data.media || [];
 
-      if (!destination) {
-        throw new NotFoundError('Selected destination does not exist', 'DESTINATION_NOT_FOUND');
+    // Validate Cloudinary asset ownership for all provided images
+    for (const img of rawImages) {
+      if (img.publicId) {
+        this.cloudinary.validateAssetOwnership(img.publicId, userId);
       }
-
-      destinationSnapshot = {
-        name: destination.name,
-        latitude: destination.latitude,
-        longitude: destination.longitude,
-        address: destination.address,
-      };
     }
 
-    const createdPost = await this.repository.createPost(userId, data, destinationSnapshot);
-    return FeedsMapper.toPostResponse(createdPost, { isLiked: false, isBookmarked: false });
+    try {
+      if (destId) {
+        const destination = await prisma.destination.findUnique({
+          where: { id: destId },
+          select: { id: true, name: true, latitude: true, longitude: true, address: true },
+        });
+
+        if (!destination) {
+          throw new NotFoundError('Selected destination does not exist', 'DESTINATION_NOT_FOUND');
+        }
+
+        destinationSnapshot = {
+          name: destination.name,
+          latitude: destination.latitude,
+          longitude: destination.longitude,
+          address: destination.address,
+        };
+      }
+
+      if (rawImages.length === 0) {
+        throw new BadRequestError('At least one uploaded image is required to create a feed post', 'IMAGES_REQUIRED');
+      }
+
+      const createdPost = await this.repository.createPost(userId, data, destinationSnapshot);
+      return FeedsMapper.toPostResponse(createdPost, { isLiked: false, isBookmarked: false });
+    } catch (err) {
+      // If database transaction or validation failed after image upload, cleanup Cloudinary assets immediately
+      const publicIds = rawImages
+        .map((img) => img.publicId)
+        .filter((id): id is string => Boolean(id));
+
+      if (publicIds.length > 0) {
+        await this.cloudinary.deleteMultipleAssets(publicIds);
+      }
+      throw err;
+    }
   }
 
   /**
-   * Updates an existing feed post (Ownership verified).
+   * Updates an existing feed post (Ownership verified) with support for adding, removing, and reordering images.
    */
   public async updatePost(
     postId: string,
@@ -143,11 +175,34 @@ export class FeedsService {
       throw new ForbiddenError('You do not have permission to edit this post', 'FORBIDDEN_RESOURCE');
     }
 
-    let destinationSnapshot: { name: string; latitude: number; longitude: number; address?: string | null } | null = null;
+    const rawImages = data.images !== undefined ? data.images : data.media;
+    let removedPublicIds: string[] = [];
 
-    if (data.destinationId) {
+    if (rawImages !== undefined) {
+      // Validate asset ownership for newly supplied images
+      for (const img of rawImages) {
+        if (img.publicId) {
+          this.cloudinary.validateAssetOwnership(img.publicId, userId);
+        }
+      }
+
+      // Identify images that were removed in this update
+      const existingPublicIds = (existing.media || [])
+        .map((m) => m.publicId)
+        .filter((id): id is string => Boolean(id));
+      const newPublicIdsSet = new Set(
+        rawImages.map((m) => m.publicId).filter((id): id is string => Boolean(id)),
+      );
+
+      removedPublicIds = existingPublicIds.filter((pid) => !newPublicIdsSet.has(pid));
+    }
+
+    let destinationSnapshot: { name: string; latitude: number; longitude: number; address?: string | null } | null = null;
+    const destId = data.destinationId || data.location?.destinationId;
+
+    if (destId) {
       const destination = await prisma.destination.findUnique({
-        where: { id: data.destinationId },
+        where: { id: destId },
         select: { id: true, name: true, latitude: true, longitude: true, address: true },
       });
 
@@ -164,13 +219,18 @@ export class FeedsService {
     }
 
     const updatedPost = await this.repository.updatePost(postId, data, destinationSnapshot);
-    const interactionsMap = await this.repository.getUserInteractions(userId, [postId]);
 
+    // Delete removed images from Cloudinary asynchronously
+    if (removedPublicIds.length > 0) {
+      await this.cloudinary.deleteMultipleAssets(removedPublicIds);
+    }
+
+    const interactionsMap = await this.repository.getUserInteractions(userId, [postId]);
     return FeedsMapper.toPostResponse(updatedPost, interactionsMap.get(postId));
   }
 
   /**
-   * Soft deletes a post (Ownership verified).
+   * Deletes a post from database and cleans up linked Cloudinary assets (Ownership verified).
    */
   public async deletePost(postId: string, userId: string, userRole: string): Promise<void> {
     const existing = await this.repository.findById(postId);
@@ -183,7 +243,18 @@ export class FeedsService {
       throw new ForbiddenError('You do not have permission to delete this post', 'FORBIDDEN_RESOURCE');
     }
 
-    await this.repository.softDeletePost(postId);
+    // Collect all public IDs linked to this post before deletion
+    const publicIds = (existing.media || [])
+      .map((m) => m.publicId)
+      .filter((id): id is string => Boolean(id));
+
+    // Delete post from database
+    await this.repository.deletePost(postId);
+
+    // Clean up all Cloudinary assets
+    if (publicIds.length > 0) {
+      await this.cloudinary.deleteMultipleAssets(publicIds);
+    }
   }
 
   /**

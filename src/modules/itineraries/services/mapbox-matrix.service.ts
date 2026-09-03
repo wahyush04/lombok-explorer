@@ -198,7 +198,7 @@ export class MapboxMatrixService implements IMapboxMatrixService {
       }
 
       return { distancesKm, durationsMinutes };
-    } catch (error) {
+    } catch (_error) {
       logger.error('Mapbox Matrix API network error; falling back to Haversine');
       return this.calculateFallbackMatrix(coordinates, mode);
     }

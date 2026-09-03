@@ -26,6 +26,7 @@ export interface FeedLocationResponse {
   latitude: number;
   longitude: number;
   address?: string | null;
+  destinationId?: string | null;
   destination?: {
     id: string;
     name: string;
@@ -33,13 +34,21 @@ export interface FeedLocationResponse {
   } | null;
 }
 
-export interface FeedMediaResponse {
+export interface FeedImageResponse {
   id: string;
+  imageUrl: string;
   url: string;
-  type: string;
+  publicId: string | null;
+  width?: number | null;
+  height?: number | null;
+  format?: string | null;
+  orderIndex: number;
   sortOrder: number;
   caption?: string | null;
+  type: string;
 }
+
+export type FeedMediaResponse = FeedImageResponse;
 
 export interface FeedStatsResponse {
   likeCount: number;
@@ -54,12 +63,19 @@ export interface FeedViewerResponse {
 
 export interface FeedPostResponse {
   id: string;
-  author: FeedAuthorResponse;
   title: string;
   description: string;
   location: FeedLocationResponse | null;
+  author: FeedAuthorResponse;
+  user: FeedAuthorResponse;
+  images: FeedImageResponse[];
   media: FeedMediaResponse[];
+  likeCount: number;
+  commentCount: number;
+  shareCount: number;
   stats: FeedStatsResponse;
+  isLiked: boolean;
+  isBookmarked: boolean;
   viewer: FeedViewerResponse;
   status: 'DRAFT' | 'PUBLISHED' | 'HIDDEN' | 'DELETED';
   createdAt: string;
@@ -79,4 +95,3 @@ export interface FeedCommentResponse {
   createdAt: string;
   updatedAt: string;
 }
-

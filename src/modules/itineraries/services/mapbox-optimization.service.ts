@@ -239,7 +239,7 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
         .map((item) => item.origIdx);
 
       return this.buildResultFromOrder(orderedIndices, coordinates, matrix.distancesKm, matrix.durationsMinutes);
-    } catch (error) {
+    } catch (_error) {
       logger.error('Mapbox Optimization API network error; using 2-Opt local optimizer fallback');
       const localOrder = this.solveLocalTsp(
         matrix.distancesKm,

@@ -55,19 +55,22 @@ export class FeedsRepository {
       const locName = data.location?.name || destinationSnapshot?.name || null;
       const lat = data.location?.latitude ?? destinationSnapshot?.latitude ?? null;
       const lng = data.location?.longitude ?? destinationSnapshot?.longitude ?? null;
+      const destId = data.destinationId || data.location?.destinationId || null;
+
+      const rawImages = data.images || data.media || [];
 
       const post = await tx.post.create({
         data: {
           userId,
           title: data.title,
           description: data.description,
-          destinationId: data.destinationId || null,
+          destinationId: destId,
           locationName: locName,
           latitude: lat,
           longitude: lng,
           status: 'PUBLISHED',
           // Create nested PostLocation if location or destination is present
-          ...(data.location || data.destinationId
+          ...(data.location || destId
             ? {
                 location: {
                   create: {
@@ -75,21 +78,31 @@ export class FeedsRepository {
                     latitude: data.location?.latitude ?? destinationSnapshot?.latitude ?? 0,
                     longitude: data.location?.longitude ?? destinationSnapshot?.longitude ?? 0,
                     address: data.location?.address || destinationSnapshot?.address || null,
-                    destinationId: data.destinationId || null,
+                    destinationId: destId,
                   },
                 },
               }
             : {}),
           // Create media items if provided
-          ...(data.media && data.media.length > 0
+          ...(rawImages.length > 0
             ? {
                 media: {
-                  create: data.media.map((item, index) => ({
-                    url: item.url,
-                    type: item.type || 'IMAGE',
-                    sortOrder: item.sortOrder ?? index,
-                    caption: item.caption || null,
-                  })),
+                  create: rawImages.map((item, index) => {
+                    const idx = item.orderIndex ?? item.sortOrder ?? index;
+                    const mediaUrl = item.secureUrl || item.url || '';
+                    return {
+                      url: mediaUrl,
+                      imageUrl: mediaUrl,
+                      publicId: item.publicId || null,
+                      width: item.width ?? null,
+                      height: item.height ?? null,
+                      format: item.format ?? null,
+                      type: item.type || 'IMAGE',
+                      sortOrder: idx,
+                      orderIndex: idx,
+                      caption: item.caption || null,
+                    };
+                  }),
                 },
               }
             : {}),
@@ -229,17 +242,28 @@ export class FeedsRepository {
       }
 
       // 3. Handle media updates if provided
-      if (data.media !== undefined) {
+      const rawImages = data.images !== undefined ? data.images : data.media;
+      if (rawImages !== undefined) {
         await tx.postMedia.deleteMany({ where: { postId: id } });
-        if (data.media.length > 0) {
+        if (rawImages.length > 0) {
           await tx.postMedia.createMany({
-            data: data.media.map((item, index) => ({
-              postId: id,
-              url: item.url,
-              type: item.type || 'IMAGE',
-              sortOrder: item.sortOrder ?? index,
-              caption: item.caption || null,
-            })),
+            data: rawImages.map((item, index) => {
+              const idx = item.orderIndex ?? item.sortOrder ?? index;
+              const mediaUrl = item.secureUrl || item.url || '';
+              return {
+                postId: id,
+                url: mediaUrl,
+                imageUrl: mediaUrl,
+                publicId: item.publicId || null,
+                width: item.width ?? null,
+                height: item.height ?? null,
+                format: item.format ?? null,
+                type: item.type || 'IMAGE',
+                sortOrder: idx,
+                orderIndex: idx,
+                caption: item.caption || null,
+              };
+            }),
           });
         }
       }
@@ -252,6 +276,15 @@ export class FeedsRepository {
       });
 
       return post as PrismaPostWithRelations;
+    });
+  }
+
+  /**
+   * Permanently deletes a post and cascades relations.
+   */
+  public async deletePost(id: string): Promise<void> {
+    await prisma.post.delete({
+      where: { id },
     });
   }
 

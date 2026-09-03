@@ -1,7 +1,7 @@
 import {
   FeedAuthorResponse,
+  FeedImageResponse,
   FeedLocationResponse,
-  FeedMediaResponse,
   FeedPostResponse,
   FeedStatsResponse,
   FeedViewerResponse,
@@ -52,8 +52,14 @@ export interface PrismaPostWithRelations {
   media?: Array<{
     id: string;
     url: string;
+    imageUrl?: string | null;
+    publicId?: string | null;
+    width?: number | null;
+    height?: number | null;
+    format?: string | null;
     type: string;
-    sortOrder: number;
+    sortOrder?: number;
+    orderIndex?: number;
     caption?: string | null;
   }>;
 }
@@ -76,6 +82,7 @@ export class FeedsMapper {
         latitude: post.location.latitude,
         longitude: post.location.longitude,
         address: post.location.address || null,
+        destinationId: post.destinationId || (post.destination ? post.destination.id : null),
         destination: post.destination
           ? {
               id: post.destination.id,
@@ -98,6 +105,7 @@ export class FeedsMapper {
         latitude: post.destination.latitude ?? post.latitude ?? 0,
         longitude: post.destination.longitude ?? post.longitude ?? 0,
         address: post.destination.address || null,
+        destinationId: post.destination.id,
         destination: {
           id: post.destination.id,
           name: post.destination.name,
@@ -111,6 +119,7 @@ export class FeedsMapper {
         name: post.locationName,
         latitude: post.latitude ?? 0,
         longitude: post.longitude ?? 0,
+        destinationId: post.destinationId || null,
         destination: null,
       };
     }
@@ -118,20 +127,34 @@ export class FeedsMapper {
     return null;
   }
 
-  public static toMedia(mediaList?: PrismaPostWithRelations['media']): FeedMediaResponse[] {
+  public static toImages(mediaList?: PrismaPostWithRelations['media']): FeedImageResponse[] {
     if (!mediaList || mediaList.length === 0) {
       return [];
     }
 
     return [...mediaList]
-      .sort((a, b) => a.sortOrder - b.sortOrder)
-      .map((item) => ({
-        id: item.id,
-        url: item.url,
-        type: item.type,
-        sortOrder: item.sortOrder,
-        caption: item.caption || null,
-      }));
+      .sort((a, b) => (a.orderIndex ?? a.sortOrder ?? 0) - (b.orderIndex ?? b.sortOrder ?? 0))
+      .map((item, idx) => {
+        const orderIndex = item.orderIndex ?? item.sortOrder ?? idx;
+        const imageUrl = item.imageUrl || item.url;
+        return {
+          id: item.id,
+          imageUrl,
+          url: item.url || imageUrl,
+          publicId: item.publicId || null,
+          width: item.width ?? null,
+          height: item.height ?? null,
+          format: item.format ?? null,
+          orderIndex,
+          sortOrder: orderIndex,
+          caption: item.caption || null,
+          type: item.type || 'IMAGE',
+        };
+      });
+  }
+
+  public static toMedia(mediaList?: PrismaPostWithRelations['media']): FeedImageResponse[] {
+    return this.toImages(mediaList);
   }
 
   public static toStats(post: PrismaPostWithRelations): FeedStatsResponse {
@@ -146,21 +169,33 @@ export class FeedsMapper {
     post: PrismaPostWithRelations,
     viewer?: FeedViewerResponse,
   ): FeedPostResponse {
+    const images = this.toImages(post.media);
+    const author = this.toAuthor(post.user);
+    const isLiked = Boolean(viewer?.isLiked);
+    const isBookmarked = Boolean(viewer?.isBookmarked);
+
     return {
       id: post.id,
-      author: this.toAuthor(post.user),
       title: post.title,
       description: post.description,
       location: this.toLocation(post),
-      media: this.toMedia(post.media),
+      author,
+      user: author,
+      images,
+      media: images,
+      likeCount: post.likeCount ?? 0,
+      commentCount: post.commentCount ?? 0,
+      shareCount: post.shareCount ?? 0,
       stats: this.toStats(post),
+      isLiked,
+      isBookmarked,
       viewer: viewer || {
-        isLiked: false,
-        isBookmarked: false,
+        isLiked,
+        isBookmarked,
       },
       status: post.status,
-      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : post.createdAt,
-      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : post.updatedAt,
+      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : String(post.createdAt),
+      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : String(post.updatedAt),
     };
   }
 
@@ -170,8 +205,8 @@ export class FeedsMapper {
       postId: comment.postId,
       user: this.toAuthor(comment.user),
       content: comment.content,
-      createdAt: comment.createdAt instanceof Date ? comment.createdAt.toISOString() : comment.createdAt,
-      updatedAt: comment.updatedAt instanceof Date ? comment.updatedAt.toISOString() : comment.updatedAt,
+      createdAt: comment.createdAt instanceof Date ? comment.createdAt.toISOString() : String(comment.createdAt),
+      updatedAt: comment.updatedAt instanceof Date ? comment.updatedAt.toISOString() : String(comment.updatedAt),
     };
   }
 }
@@ -191,4 +226,3 @@ export interface PrismaCommentWithUser {
     avatarUrl?: string | null;
   };
 }
-

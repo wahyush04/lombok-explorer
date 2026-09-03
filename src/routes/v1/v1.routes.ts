@@ -13,6 +13,7 @@ import { expenseRoutes } from '../../modules/expenses/expenses.routes';
 import { journalRoutes } from '../../modules/journals/journals.routes';
 import { checklistRoutes } from '../../modules/checklists/checklists.routes';
 import { mediaRoutes, storageRoutes } from '../../modules/storage/storage.routes';
+import { uploadRoutes } from '../../modules/uploads';
 import { feedRoutes } from '../../modules/feeds';
 import { userRoutes } from '../../modules/users/users.routes';
 import { adminRoutes } from '../admin/admin.routes';
@@ -59,7 +60,7 @@ router.use('/checklists', checklistRoutes);
 // 13. Centralized Media & File Storage Module (Cloudinary Storage)
 router.use('/media', mediaRoutes);
 router.use('/storage', storageRoutes);
-
+router.use('/uploads', uploadRoutes);
 
 // 14. Feeds & Community Social Module
 router.use('/feeds', feedRoutes);

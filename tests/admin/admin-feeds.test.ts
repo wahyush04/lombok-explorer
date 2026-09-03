@@ -36,6 +36,12 @@ describe('Admin Feeds Moderation API Suite (Phase 10)', () => {
         title: 'Post for Admin Moderation Test',
         description: 'Testing moderation features.',
         destinationId: 'dest_bukit_merese',
+        images: [
+          {
+            url: 'https://images.unsplash.com/photo-1589394815804-964ed0be2eb5',
+            orderIndex: 0,
+          },
+        ],
       });
     testPostId = postRes.body.data.id;
 

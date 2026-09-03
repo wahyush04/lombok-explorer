@@ -34,6 +34,8 @@ servers:
     description: Admin API Base
 
 tags:
+  - name: Uploads & Storage
+    description: Generate Cloudinary signed upload parameters for secure direct client uploads
   - name: Feeds Timeline & Discovery
     description: Linimasa postingan publik, pencarian destinasi untuk tag postingan, postingan user, dan bookmark
   - name: Post Management
@@ -46,6 +48,45 @@ tags:
     description: Dashboard moderasi laporan postingan dan kontrol status visibilitas postingan oleh administrator
 
 paths:
+  # ==========================================
+  # UPLOADS & CLOUDINARY SIGNATURE
+  # ==========================================
+  /uploads/signature:
+    post:
+      summary: Generate Cloudinary signed upload parameters
+      description: |
+        Menghasilkan signed upload parameters (signature HMAC-SHA1, timestamp, apiKey, cloudName, dan folder isolasi)
+        sehingga client Android / Web dapat mengunggah file gambar langsung ke Cloudinary API tanpa membebani server backend.
+        
+        **Folder Isolation Path**: `lombok-explorer/feeds/{userId}/{uploadSessionId}`
+      operationId: generateUploadSignature
+      tags:
+        - Uploads & Storage
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                folder:
+                  type: string
+                  default: "feeds"
+                  example: "feeds"
+      responses:
+        '200':
+          description: Upload signature generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SignedUploadSignatureResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # ==========================================
   # FEEDS TIMELINE & DISCOVERY
   # ==========================================
@@ -1090,15 +1131,39 @@ components:
         id:
           type: string
           example: "med_img_01"
+        imageUrl:
+          type: string
+          format: uri
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v1/lombok-explorer/feeds/usr_123/img_01.jpg"
         url:
           type: string
-          example: "https://images.unsplash.com/photo-1570789210967-2cac24afeb00?q=80&w=1200"
-        type:
+          format: uri
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v1/lombok-explorer/feeds/usr_123/img_01.jpg"
+        publicId:
           type: string
-          example: "IMAGE"
+          nullable: true
+          example: "lombok-explorer/feeds/usr_123/img_01"
+        width:
+          type: integer
+          nullable: true
+          example: 1080
+        height:
+          type: integer
+          nullable: true
+          example: 1350
+        format:
+          type: string
+          nullable: true
+          example: "jpg"
+        orderIndex:
+          type: integer
+          example: 0
         sortOrder:
           type: integer
           example: 0
+        type:
+          type: string
+          example: "IMAGE"
         caption:
           type: string
           nullable: true
@@ -1142,6 +1207,7 @@ components:
         - title
         - description
         - location
+        - images
         - media
         - stats
         - viewer
@@ -1154,6 +1220,8 @@ components:
           example: "pst_merese_sunset_01"
         author:
           $ref: '#/components/schemas/FeedAuthorResponse'
+        user:
+          $ref: '#/components/schemas/FeedAuthorResponse'
         title:
           type: string
           example: "Sunset Magis di Bukit Merese, Lombok Selatan"
@@ -1163,10 +1231,29 @@ components:
         location:
           $ref: '#/components/schemas/FeedLocationResponse'
           nullable: true
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeedMediaResponse'
         media:
           type: array
           items:
             $ref: '#/components/schemas/FeedMediaResponse'
+        likeCount:
+          type: integer
+          example: 42
+        commentCount:
+          type: integer
+          example: 8
+        shareCount:
+          type: integer
+          example: 15
+        isLiked:
+          type: boolean
+          example: true
+        isBookmarked:
+          type: boolean
+          example: false
         stats:
           $ref: '#/components/schemas/FeedStatsResponse'
         viewer:
@@ -1226,6 +1313,52 @@ components:
           example: false
 
     # --- REQUEST SCHEMAS ---
+    SignedUploadSignatureResponse:
+      type: object
+      required:
+        - success
+        - statusCode
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        statusCode:
+          type: integer
+          example: 200
+        message:
+          type: string
+          example: "Upload signature generated successfully"
+        data:
+          type: object
+          required:
+            - cloudName
+            - apiKey
+            - timestamp
+            - signature
+            - folder
+            - uploadUrl
+          properties:
+            cloudName:
+              type: string
+              example: "tzccdgab"
+            apiKey:
+              type: string
+              example: "123456789012345"
+            timestamp:
+              type: integer
+              example: 1756885200
+            signature:
+              type: string
+              example: "a1b2c3d4e5f67890abcdef1234567890abcdef12"
+            folder:
+              type: string
+              example: "lombok-explorer/feeds/usr_123/session_abc456"
+            uploadUrl:
+              type: string
+              example: "https://api.cloudinary.com/v1_1/tzccdgab/image/upload"
+
     PostLocationInput:
       type: object
       required:
@@ -1253,19 +1386,34 @@ components:
           maxLength: 300
           example: "Jl. Pariwisata Pantai Kuta, Pujut, Lombok Tengah"
 
-    PostMediaInput:
+    PostImageInput:
       type: object
       required:
-        - url
+        - publicId
       properties:
+        publicId:
+          type: string
+          description: Cloudinary public_id asset yang dihasilkan setelah client upload langsung
+          example: "lombok-explorer/feeds/usr_123/session_abc456/img_01"
+        secureUrl:
+          type: string
+          format: uri
+          description: URL HTTPS asset dari Cloudinary
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v1/lombok-explorer/feeds/usr_123/session_abc456/img_01.jpg"
         url:
           type: string
-          example: "https://images.unsplash.com/photo-1570789210967-2cac24afeb00?q=80&w=1200"
-        type:
+          format: uri
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v1/lombok-explorer/feeds/usr_123/session_abc456/img_01.jpg"
+        width:
+          type: integer
+          example: 1080
+        height:
+          type: integer
+          example: 1350
+        format:
           type: string
-          default: "IMAGE"
-          example: "IMAGE"
-        sortOrder:
+          example: "jpg"
+        orderIndex:
           type: integer
           minimum: 0
           default: 0
@@ -1274,6 +1422,9 @@ components:
           type: string
           maxLength: 500
           example: "Pemandangan bukit saat senja"
+
+    PostMediaInput:
+      $ref: '#/components/schemas/PostImageInput'
 
     CreatePostRequest:
       type: object
@@ -1297,11 +1448,17 @@ components:
           example: "dest_bukit_merese"
         location:
           $ref: '#/components/schemas/PostLocationInput'
+        images:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/PostImageInput'
         media:
           type: array
           maxItems: 10
           items:
-            $ref: '#/components/schemas/PostMediaInput'
+            $ref: '#/components/schemas/PostImageInput'
 
     UpdatePostRequest:
       type: object
@@ -1323,11 +1480,16 @@ components:
         location:
           $ref: '#/components/schemas/PostLocationInput'
           nullable: true
+        images:
+          type: array
+          maxItems: 10
+          items:
+            $ref: '#/components/schemas/PostImageInput'
         media:
           type: array
           maxItems: 10
           items:
-            $ref: '#/components/schemas/PostMediaInput'
+            $ref: '#/components/schemas/PostImageInput'
 
     CreateCommentRequest:
       type: object
