@@ -1459,6 +1459,22 @@ components:
         totalTravelTimeMinutes:
           type: integer
           example: 210
+        totalDestination:
+          type: integer
+          description: Total seluruh destinasi / titik aktivitas pada rencana perjalanan trip
+          example: 8
+        todalDestination:
+          type: integer
+          description: Total destinasi pada rencana trip (alias backward-compatibility)
+          example: 8
+        totalDestinations:
+          type: integer
+          description: Total destinasi pada rencana trip (alias plural)
+          example: 8
+        destinationCount:
+          type: integer
+          description: Total destinasi pada rencana trip (alias count)
+          example: 8
         travelStyle:
           $ref: '#/components/schemas/TravelStyle'
         budgetLevel:

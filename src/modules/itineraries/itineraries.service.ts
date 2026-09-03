@@ -81,6 +81,7 @@ export class ItinerariesService {
     let totalDist = 0;
     let totalDur = 0;
     let totalBudget = 0;
+    let totalDestinationsCount = 0;
 
     const days: ItineraryDayDto[] = Array.isArray(itinerary.days)
       ? itinerary.days.map((day: ItineraryDayWithItems) => {
@@ -92,6 +93,8 @@ export class ItinerariesService {
           const rawItems = Array.isArray(day.items)
             ? [...day.items].sort((a, b) => a.orderIndex - b.orderIndex)
             : [];
+
+          totalDestinationsCount += rawItems.length;
 
           const activities: ItineraryActivityDto[] = rawItems.map((item, idx) => {
             const cost = Number(item.estimatedCost) || 0;
@@ -218,6 +221,10 @@ export class ItinerariesService {
       totalDistanceKm: Math.round(totalDist * 10) / 10 || Number(itinerary.totalDistanceKm) || 0,
       totalDurationMinutes: Math.round(totalDur) || Number(itinerary.totalTravelTimeMinutes) || 0,
       totalTravelTimeMinutes: Math.round(totalDur) || Number(itinerary.totalTravelTimeMinutes) || 0,
+      totalDestination: totalDestinationsCount,
+      todalDestination: totalDestinationsCount,
+      totalDestinations: totalDestinationsCount,
+      destinationCount: totalDestinationsCount,
       travelStyle: itinerary.travelStyle,
       budgetLevel: itinerary.budgetLevel,
       transportationMode: itinerary.transportationMode || 'CAR',
@@ -1038,6 +1045,10 @@ export class ItinerariesService {
         badgeText,
         totalDistanceKm: totalDistKm,
         distanceFormatted,
+        totalDestination: totalActivitiesCount,
+        todalDestination: totalActivitiesCount,
+        totalDestinations: totalActivitiesCount,
+        destinationCount: totalActivitiesCount,
         focus: {
           dayNumber: activeDayNumber,
           dayTitle: rawDayTitle,
@@ -1230,6 +1241,9 @@ export class ItinerariesService {
       totalDurationMinutes: template.totalDurationMinutes,
       totalTravelTimeMinutes: template.totalDurationMinutes,
       destinationCount: totalDestCount,
+      totalDestination: totalDestCount,
+      todalDestination: totalDestCount,
+      totalDestinations: totalDestCount,
       routeSummary,
       isPublished: template.isPublished,
       isFeatured: template.isFeatured,
@@ -1242,4 +1256,3 @@ export class ItinerariesService {
 }
 
 export const itinerariesService = new ItinerariesService();
-

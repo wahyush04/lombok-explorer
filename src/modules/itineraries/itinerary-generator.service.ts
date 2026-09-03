@@ -505,9 +505,11 @@ export class ItineraryGeneratorService {
 
     let totalDistAll = 0;
     let totalDurAll = 0;
+    let totalDestCount = 0;
     for (const d of generatedDays) {
       totalDistAll += d.totalDistanceKm;
       totalDurAll += d.totalTravelTimeMinutes;
+      totalDestCount += d.activities.length;
     }
 
     const itineraryResult: ItineraryDto = {
@@ -525,6 +527,10 @@ export class ItineraryGeneratorService {
       totalDistanceKm: Math.round(totalDistAll * 10) / 10,
       totalDurationMinutes: Math.round(totalDurAll),
       totalTravelTimeMinutes: Math.round(totalDurAll),
+      totalDestination: totalDestCount,
+      todalDestination: totalDestCount,
+      totalDestinations: totalDestCount,
+      destinationCount: totalDestCount,
       travelStyle: style,
       budgetLevel: dto.budgetLevel || BudgetLevel.MID_RANGE,
       transportationMode:
