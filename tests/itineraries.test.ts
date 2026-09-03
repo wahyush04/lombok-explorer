@@ -131,10 +131,10 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(res.body.data.daysCount).toBe(2);
       expect(res.body.data.totalDistanceKm).toBe(0);
       expect(res.body.data.totalDurationMinutes).toBe(0);
-      expect(res.body.data.totalDestination).toBe(0);
-      expect(res.body.data.todalDestination).toBe(0);
       expect(res.body.data.totalDestinations).toBe(0);
-      expect(res.body.data.destinationCount).toBe(0);
+      expect(res.body.data.totalDestination).toBeUndefined();
+      expect(res.body.data.todalDestination).toBeUndefined();
+      expect(res.body.data.destinationCount).toBeUndefined();
       expect(res.body.data.startDate).toBe('2026-09-01');
       expect(res.body.data.endDate).toBe('2026-09-02');
       expect(res.body.data.days.length).toBe(2);
@@ -255,10 +255,10 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
-      expect(res.body.data.totalDestination).toBe(3);
-      expect(res.body.data.todalDestination).toBe(3);
       expect(res.body.data.totalDestinations).toBe(3);
-      expect(res.body.data.destinationCount).toBe(3);
+      expect(res.body.data.totalDestination).toBeUndefined();
+      expect(res.body.data.todalDestination).toBeUndefined();
+      expect(res.body.data.destinationCount).toBeUndefined();
       const day1 = res.body.data.days.find((d: any) => d.id === day1Id);
       expect(day1.activities.length).toBe(3);
       expect(day1.segments.length).toBe(2);
@@ -627,7 +627,8 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(first.id).toBeDefined();
       expect(first.title).toBeDefined();
       expect(first.totalDays).toBeGreaterThan(0);
-      expect(first.destinationCount).toBeGreaterThanOrEqual(0);
+      expect(first.totalDestinations).toBeGreaterThanOrEqual(0);
+      expect(first.destinationCount).toBeUndefined();
       expect(first.isPublished).toBe(true);
 
       templateId = first.id;

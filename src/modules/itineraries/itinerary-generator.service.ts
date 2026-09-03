@@ -527,10 +527,7 @@ export class ItineraryGeneratorService {
       totalDistanceKm: Math.round(totalDistAll * 10) / 10,
       totalDurationMinutes: Math.round(totalDurAll),
       totalTravelTimeMinutes: Math.round(totalDurAll),
-      totalDestination: totalDestCount,
-      todalDestination: totalDestCount,
       totalDestinations: totalDestCount,
-      destinationCount: totalDestCount,
       travelStyle: style,
       budgetLevel: dto.budgetLevel || BudgetLevel.MID_RANGE,
       transportationMode:

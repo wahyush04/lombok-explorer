@@ -300,10 +300,7 @@ export interface ItineraryDto {
   totalDistanceKm: number;
   totalDurationMinutes: number;
   totalTravelTimeMinutes: number;
-  totalDestination: number;
-  todalDestination: number;
   totalDestinations: number;
-  destinationCount: number;
   travelStyle: TravelStyle;
   budgetLevel: BudgetLevel;
   transportationMode: TransportationMode;
@@ -347,10 +344,7 @@ export interface ActiveTripCardDto {
   badgeText: string;
   totalDistanceKm: number;
   distanceFormatted: string;
-  totalDestination: number;
-  todalDestination: number;
   totalDestinations: number;
-  destinationCount: number;
   focus: ActiveTripFocusDto;
   progress: ActiveTripProgressDto;
   shareToken: string | null;
@@ -415,9 +409,6 @@ export interface ItineraryTemplateDto {
   totalDistanceKm: number;
   totalDurationMinutes: number;
   totalTravelTimeMinutes?: number;
-  destinationCount: number;
-  totalDestination: number;
-  todalDestination: number;
   totalDestinations: number;
   routeSummary?: string;
   isPublished: boolean;
