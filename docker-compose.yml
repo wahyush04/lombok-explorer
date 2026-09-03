@@ -1,5 +1,5 @@
 services:
-  # Database Service (PostgreSQL 16)
+  # Container 1: Database Service (PostgreSQL 16)
   db:
     image: postgres:16-alpine
     container_name: lombok_explorer_db
@@ -12,6 +12,8 @@ services:
       - "${DB_PORT:-5432}:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    networks:
+      - lombok_network
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-root} -d ${DB_NAME:-lombok_explorer}"]
       interval: 5s
@@ -19,7 +21,7 @@ services:
       retries: 10
       start_period: 10s
 
-  # Backend API Service (Node.js Express + TypeScript + Prisma)
+  # Container 2: Backend API Service (Node.js Express + TypeScript + Prisma)
   backend:
     build:
       context: .
@@ -30,11 +32,11 @@ services:
       - "3000:8080"
       - "8080:8080"
     environment:
-      NODE_ENV: ${NODE_ENV:-development}
+      NODE_ENV: ${NODE_ENV:-production}
       PORT: ${PORT:-8080}
       HOST: 0.0.0.0
       API_PREFIX: ${API_PREFIX:-/api/v1}
-      DATABASE_URL: postgresql://root:root@host.docker.internal:5432/lombok_explorer?schema=public
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${DB_USER:-root}:${DB_PASSWORD:-root}@db:5432/${DB_NAME:-lombok_explorer}?schema=public}
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-lombok_explorer_super_secret_access_jwt_key_2026}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-lombok_explorer_super_secret_refresh_jwt_key_2026}
@@ -56,13 +58,17 @@ services:
       CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-649313611264454}
       CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-mjc_HBPF5rpPXsDV-Th2XkEojKs}
       CLOUDINARY_FOLDER: ${CLOUDINARY_FOLDER:-lombok-explorer}
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     volumes:
       - assets_data:/app/assets/image
+    networks:
+      - lombok_network
     depends_on:
       db:
         condition: service_healthy
+
+networks:
+  lombok_network:
+    driver: bridge
 
 volumes:
   db_data:
