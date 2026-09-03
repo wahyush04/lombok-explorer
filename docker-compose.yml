@@ -5,9 +5,9 @@ services:
     container_name: lombok_explorer_db
     restart: unless-stopped
     environment:
-      POSTGRES_USER: ${DB_USER:-root}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-root}
-      POSTGRES_DB: ${DB_NAME:-lombok_explorer}
+      POSTGRES_USER: ${DB_USER:-lombokexplorerdb}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-S2vjv3I7BXmTgOZzr7C9}
+      POSTGRES_DB: ${DB_NAME:-lombokexplorerdb}
     ports:
       - "${DB_PORT:-5432}:5432"
     volumes:
@@ -15,7 +15,7 @@ services:
     networks:
       - lombok_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-root} -d ${DB_NAME:-lombok_explorer}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-lombokexplorerdb} -d ${DB_NAME:-lombokexplorerdb}"]
       interval: 5s
       timeout: 5s
       retries: 10
@@ -36,10 +36,10 @@ services:
       PORT: ${PORT:-8080}
       HOST: 0.0.0.0
       API_PREFIX: ${API_PREFIX:-/api/v1}
-      DATABASE_URL: ${DATABASE_URL:-postgresql://${DB_USER:-root}:${DB_PASSWORD:-root}@db:5432/${DB_NAME:-lombok_explorer}?schema=public}
-      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-lombok_explorer_super_secret_access_jwt_key_2026}
-      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
-      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-lombok_explorer_super_secret_refresh_jwt_key_2026}
+      DATABASE_URL: ${DATABASE_URL:-postgresql://${DB_USER:-lombokexplorerdb}:${DB_PASSWORD:-S2vjv3I7BXmTgOZzr7C9}@db:5432/${DB_NAME:-lombokexplorerdb}?schema=public}
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-030e970e1b696519f8e8db3e756c93a7c42840b054f3ec24f017e270fd375a8f0b4c104e162c756461f8be92e0ea0e19ec6eba7d0a81263fb4a76d9de41b1147}
+      JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-24h}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-362acb13371c55fb706860492bd20a7ff361e893804701ce2a30ad6b58959cc77b74fd296c62d55c25988a3abd0cb14fbc46cb5cb1292a7b73d2fd582001d02d}
       JWT_REFRESH_EXPIRES_IN: ${JWT_REFRESH_EXPIRES_IN:-7d}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
       RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-900000}
@@ -48,7 +48,7 @@ services:
       WEATHER_API_KEY: ${WEATHER_API_KEY:-e98c7ab33f21494199425936251005}
       WEATHER_API_BASE_URL: ${WEATHER_API_BASE_URL:-https://api.weatherapi.com/v1}
       WEATHER_CACHE_TTL_SECONDS: ${WEATHER_CACHE_TTL_SECONDS:-600}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-wahyush04.colab@example.com}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-wahyush04@gmail.com}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD:-lombokExplorer@2026}
       ADMIN_NAME: ${ADMIN_NAME:-Super Admin Lombok Explorer}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-167522607878-rucuu043eshc4ou6k22ruc2fs8kh5f29.apps.googleusercontent.com}
