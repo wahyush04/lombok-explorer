@@ -277,6 +277,7 @@ describe('OpenAPI & Swagger UI Integration (Phase 6)', () => {
     expect(response.status).toBe(200);
     expect(response.body.success).toBe(true);
     expect(response.body.data).toHaveProperty('docs', '/api/docs');
+    expect(response.body.data).toHaveProperty('exploreDocs', '/api/docs/explore');
     expect(response.body.data).toHaveProperty('docsJson', '/api/docs/json');
     expect(response.body.data).toHaveProperty('docsYaml', '/api/docs/yaml');
   });

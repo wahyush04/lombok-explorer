@@ -1,0 +1,1750 @@
+openapi: 3.0.3
+info:
+  title: Lombok Explorer - Destinations, Accommodations & Restaurants (Culinary) API Specification
+  description: |
+    Spesifikasi OpenAPI khusus untuk integrasi **Mobile Frontend (Android / iOS / Web)** yang mencakup 3 pilar utama eksplorasi wisata Pulau Lombok:
+    
+    1. **Destinasi Wisata (`Destinations`)**: Penelusuran katalog wisata, PostgreSQL Full-Text Search (FTS) + Trigram fuzzy search, nearby geolocation, filter multi-kategori, ulasan/rating bintang, dan wishlist/favorit.
+    2. **Akomodasi & Penginapan (`Accommodations`)**: Katalog hotel, resor tepi pantai bintang 5, villa privat dengan kolam renang, glamping Rinjani, dan homestay tradisional Sasak.
+    3. **Kuliner & Restoran (`Restaurants`)**: Rekomendasi kuliner legendaris Sasak (Ayam Taliwang, Nasi Balap Puyung, Sate Rembiga), seafood bakar Pantai Nipah, kafe sunset Senggigi/Kuta, serta sertifikasi halal.
+    4. **Kategori Wisata (`Categories`)**: Klasifikasi tematik seperti Pantai & Pesisir, Pegunungan & Air Terjun, Budaya Sasak, Wisata Bahari & Snorkeling.
+    5. **Smart Recommendations**: Rekomendasi destinasi cerdas berdasarkan travel style, budget, dan radius koordinat GPS.
+
+    ---
+    ### 📱 Panduan Integrasi Mobile / Android:
+    - **Base URL Emulator**: `http://10.0.2.2:3000`
+    - **Base URL Real Device (Development VM)**: `http://34.142.205.101:3000`
+    - **Format Response**: Mengikuti standar amplop `{ success: Boolean, message: String, data: T, meta?: PaginationMeta }`.
+    - **Header Auth**: Menggunakan header `Authorization: Bearer <JWT_TOKEN>`. Endpoint baca bersifat publik/guest-friendly; jika token disertakan, data personalisasi (seperti `isFavorite: true`) akan otomatis terisi.
+  version: 1.0.0
+  contact:
+    name: Lombok Explorer Mobile & Backend Team
+    url: https://github.com/wahyush04/lombok-explorer
+servers:
+  - url: http://34.142.205.101:3000
+    description: Remote Development VM Server
+  - url: http://10.0.2.2:3000
+    description: Android Studio Emulator Loopback
+  - url: http://127.0.0.1:3000
+    description: Localhost Development Server
+  - url: https://api.lombokexplorer.com
+    description: Production Server
+
+tags:
+  - name: Destinations
+    description: Eksplorasi destinasi wisata alam, bahari, budaya, dan petualangan di Pulau Lombok
+  - name: Tourism Categories
+    description: Kategori dan klasifikasi tematik destinasi wisata
+  - name: Accommodations
+    description: Hotel, resort, villa, glamping, dan homestay penginapan di Lombok
+  - name: Restaurants & Culinary
+    description: Kuliner khas Lombok, seafood segar, cafe, dan rumah makan halal
+  - name: Destination Reviews
+    description: Ulasan, rating bintang, review breakdown, dan pengalaman traveler
+  - name: Destination Favorites
+    description: Wishlist dan penanda destinasi favorit pengguna
+  - name: Smart Recommendations
+    description: Rekomendasi personalisasi berdasarkan preferensi gaya liburan dan lokasi
+
+paths:
+  # ============================================================================
+  # 1. TOURISM DESTINATIONS (KATALOG, SEARCH, NEARBY, DETAIL)
+  # ============================================================================
+  /api/v1/destinations:
+    get:
+      tags:
+        - Destinations
+      summary: Daftar Destinasi Wisata (Pagination, Filter & Sorting)
+      description: |
+        Mengambil daftar destinasi wisata terpublikasi dengan dukungan filtering komprehensif (wilayah/region, kategori, level kesulitan, batas rating, rentang tiket masuk, dan tags).
+        Mendukung caching header `Cache-Control` untuk menghemat bandwidth mobile.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+          description: Halaman data (1-indexed)
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+          description: Jumlah item per halaman
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter ID kategori (cth. `cat_beach`) atau slug (cth. `pantai-pesisir`)
+        - in: query
+          name: region
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+          description: Filter wilayah geografis Lombok
+        - in: query
+          name: difficulty
+          schema:
+            $ref: '#/components/schemas/DifficultyLevel'
+          description: Filter tingkat kesulitan jelajah
+        - in: query
+          name: min_rating
+          schema:
+            type: number
+            minimum: 0
+            maximum: 5
+            example: 4.5
+          description: Batas rating minimal destinasi
+        - in: query
+          name: max_price
+          schema:
+            type: number
+            example: 50000
+          description: Batas maksimal harga tiket masuk (IDR)
+        - in: query
+          name: min_price
+          schema:
+            type: number
+            example: 0
+          description: Batas minimal harga tiket masuk (IDR)
+        - in: query
+          name: is_featured
+          schema:
+            type: boolean
+          description: Hanya ambil destinasi unggulan (featured)
+        - in: query
+          name: tags
+          schema:
+            type: string
+          description: Filter tag spesifik (cth. `Sunset`, `Snorkeling`, `Pasir Merica`)
+        - in: query
+          name: search
+          schema:
+            type: string
+          description: Pencarian teks dasar (nama / deskripsi / lokasi)
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+            enum: [rating, reviewCount, entranceFee, name, createdAt]
+            default: rating
+          description: Kolom pengurutan data
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Arah pengurutan
+      responses:
+        '200':
+          description: Berhasil mengambil daftar destinasi wisata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationPaginatedResponse'
+
+  /api/v1/destinations/featured:
+    get:
+      tags:
+        - Destinations
+      summary: Destinasi Unggulan (Featured Destinations for Mobile Home)
+      description: Mengambil daftar destinasi wisata unggulan dengan rating tertinggi untuk carousel beranda aplikasi mobile.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 6
+          description: Jumlah destinasi unggulan yang diambil
+      responses:
+        '200':
+          description: Berhasil mengambil destinasi featured
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationListResponse'
+
+  /api/v1/destinations/nearby:
+    get:
+      tags:
+        - Destinations
+      summary: Destinasi Terdekat Sekitar Pengguna (Nearby by GPS)
+      description: Mencari destinasi wisata dalam radius kilometer tertentu dari koordinat GPS latitude dan longitude pengguna.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: latitude
+          required: true
+          schema:
+            type: number
+            format: double
+            example: -8.8924
+          description: Koordinat latitude perangkat pengguna
+        - in: query
+          name: longitude
+          required: true
+          schema:
+            type: number
+            format: double
+            example: 116.2952
+          description: Koordinat longitude perangkat pengguna
+        - in: query
+          name: radius_km
+          schema:
+            type: number
+            default: 25.0
+            example: 15.0
+          description: Radius pencarian dalam kilometer
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Maksimal destinasi yang dikembalikan
+      responses:
+        '200':
+          description: Berhasil mengambil destinasi terdekat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationListResponse'
+
+  /api/v1/destinations/search:
+    get:
+      tags:
+        - Destinations
+      summary: Pencarian Destinasi Cerdas (Full-Text Search + Trigram Fuzzy)
+      description: |
+        Endpoint pencarian utama dengan ranking relevansi weighted PostgreSQL FTS dan `pg_trgm`:
+        - **Bobot A**: Judul / Nama Destinasi
+        - **Bobot B**: Short Description
+        - **Bobot C**: Deskripsi Lengkap, Nama Lokasi & Alamat
+        - **Bobot D**: Tags, Fasilitas, Tips, & Nama Kategori
+        - **Fuzzy Tolerance**: Tetap menemukan hasil meski ada typo (cth. `bukit merse` -> `Bukit Merese`).
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: q
+          required: true
+          schema:
+            type: string
+            minLength: 1
+            example: bukit merese
+          description: Kata kunci pencarian
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Nomor halaman
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+          description: Jumlah hasil per halaman
+        - in: query
+          name: region
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+          description: Filter wilayah
+        - in: query
+          name: category
+          schema:
+            type: string
+          description: Filter ID / slug kategori
+        - in: query
+          name: min_rating
+          schema:
+            type: number
+          description: Filter batas rating minimal
+        - in: query
+          name: max_price
+          schema:
+            type: number
+          description: Filter harga tiket maksimal
+      responses:
+        '200':
+          description: Berhasil melakukan pencarian destinasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationPaginatedResponse'
+
+  /api/v1/destinations/{id}:
+    get:
+      tags:
+        - Destinations
+      summary: Detail Lengkap Destinasi Wisata
+      description: Mengambil informasi detail destinasi wisata menggunakan ID (UUID) atau Slug URL. Menyertakan galeri foto resolusi tinggi, fasilitas, tips berkunjung, ringkasan rating ulasan, dan status favorit pengguna aktif.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: bukit-merese
+          description: UUID atau Slug destinasi (cth. `bukit-merese` atau `c7b...`)
+      responses:
+        '200':
+          description: Detail destinasi berhasil ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DestinationDetailResponse'
+        '404':
+          description: Destinasi tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # 2. DESTINATION REVIEWS & RATINGS
+  # ============================================================================
+  /api/v1/destinations/{id}/reviews:
+    get:
+      tags:
+        - Destination Reviews
+      summary: Mengambil Daftar Ulasan Destinasi
+      description: Mengambil ulasan traveler terverifikasi untuk destinasi tertentu beserta ringkasan agregasi rating (bintang 1 - 5).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: bukit-merese
+          description: UUID atau Slug destinasi
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: rating
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 5
+          description: Filter ulasan dengan bintang tertentu
+      responses:
+        '200':
+          description: Daftar ulasan destinasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewListResponse'
+
+    post:
+      tags:
+        - Destination Reviews
+      summary: Menambahkan Ulasan & Rating Destinasi
+      description: Memberikan ulasan baru, rating 1-5 bintang, dan upload foto pengalaman berkunjung ke destinasi.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: bukit-merese
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateReviewRequest'
+      responses:
+        '201':
+          description: Ulasan berhasil dibuat
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewDetailResponse'
+        '400':
+          description: Validasi input gagal
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Pengguna belum terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # 3. DESTINATION FAVORITES / BOOKMARKS
+  # ============================================================================
+  /api/v1/destinations/{id}/favorite:
+    get:
+      tags:
+        - Destination Favorites
+      summary: Cek Status Favorit Destinasi
+      description: Memeriksa apakah destinasi sudah disimpan ke wishlist oleh pengguna yang sedang login.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: bukit-merese
+      responses:
+        '200':
+          description: Status favorit berhasil didapatkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Favorite status retrieved successfully
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                        example: true
+
+    post:
+      tags:
+        - Destination Favorites
+      summary: Toggle / Tambah ke Favorit Wishlist
+      description: Menambahkan atau membalikkan status favorit destinasi untuk pengguna aktif.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: bukit-merese
+      responses:
+        '200':
+          description: Berhasil toggle status favorit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Destination added to favorites
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                        example: true
+
+    delete:
+      tags:
+        - Destination Favorites
+      summary: Hapus Destinasi dari Favorit
+      description: Menghapus destinasi dari daftar wishlist traveler.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: bukit-merese
+      responses:
+        '200':
+          description: Berhasil menghapus dari favorit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Destination removed from favorites
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                        example: false
+
+  # ============================================================================
+  # 4. TOURISM CATEGORIES
+  # ============================================================================
+  /api/v1/categories:
+    get:
+      tags:
+        - Tourism Categories
+      summary: Mengambil Daftar Kategori Wisata
+      description: Mengambil seluruh kategori pariwisata yang aktif (Pantai, Pegunungan, Budaya, Kuliner, dll.) untuk chips filter dan tab navigasi aplikasi mobile.
+      responses:
+        '200':
+          description: Daftar kategori wisata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryListResponse'
+
+  /api/v1/categories/{id}:
+    get:
+      tags:
+        - Tourism Categories
+      summary: Detail Kategori & Destinasi di Dalamnya
+      description: Mengambil informasi detail kategori beserta daftar destinasi yang berada di bawah kategori tersebut (terpaginasi).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: pantai-pesisir
+          description: UUID atau Slug kategori
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Detail kategori dan daftar destinasinya
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CategoryDetailResponse'
+
+  # ============================================================================
+  # 5. ACCOMMODATIONS (HOTEL, RESORT, VILLA, HOMESTAY, GLAMPING)
+  # ============================================================================
+  /api/v1/accommodations:
+    get:
+      tags:
+        - Accommodations
+      summary: Daftar Akomodasi & Penginapan (Pagination, Filter & Sorting)
+      description: |
+        Mengambil daftar penginapan di Pulau Lombok (Resort Bintang 5, Villa Mewah, Hotel, Homestay, Glamping).
+        Mendukung filter wilayah, jenis penginapan, rentang tarif per malam, batas rating bintang, dan fasilitas (amenities).
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+          description: Nomor halaman
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+          description: Item per halaman
+        - in: query
+          name: region
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+          description: Filter wilayah di Lombok
+        - in: query
+          name: type
+          schema:
+            type: string
+            example: resort
+          description: Tipe akomodasi (`resort`, `villa`, `hotel`, `homestay`, `glamping`)
+        - in: query
+          name: min_price
+          schema:
+            type: number
+            example: 500000
+          description: Harga minimal per malam (IDR)
+        - in: query
+          name: max_price
+          schema:
+            type: number
+            example: 3000000
+          description: Harga maksimal per malam (IDR)
+        - in: query
+          name: min_rating
+          schema:
+            type: number
+            example: 4.0
+          description: Batas rating minimal
+        - in: query
+          name: amenity
+          schema:
+            type: string
+            example: Kolam Renang
+          description: Fasilitas yang harus dimiliki (cth. `Kolam Renang`, `WiFi`, `Sarapan`, `Pemandangan Laut`)
+        - in: query
+          name: is_featured
+          schema:
+            type: boolean
+          description: Filter hanya akomodasi unggulan
+        - in: query
+          name: q
+          schema:
+            type: string
+            example: Oberoi
+          description: Kata kunci pencarian nama, alamat, atau fasilitas
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+            enum: [rating, reviewCount, pricePerNight, name, createdAt]
+            default: rating
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Daftar akomodasi berhasil didapatkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationPaginatedResponse'
+
+  /api/v1/accommodations/featured:
+    get:
+      tags:
+        - Accommodations
+      summary: Akomodasi Unggulan (Featured Hotels & Resorts)
+      description: Mengambil daftar rekomendasi hotel & villa pilihan terbaik dengan rating tertinggi untuk spotlight mobile.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: Berhasil mengambil akomodasi unggulan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationListResponse'
+
+  /api/v1/accommodations/{id}:
+    get:
+      tags:
+        - Accommodations
+      summary: Detail Lengkap Akomodasi
+      description: Mengambil data detail penginapan berdasarkan ID atau Slug, termasuk galeri foto lengkap, fasilitas kamar, kontak telepon pemesanan, dan lokasi koordinat peta.
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: the-oberoi-beach-resort-lombok
+          description: UUID atau Slug akomodasi
+      responses:
+        '200':
+          description: Detail akomodasi ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AccommodationDetailResponse'
+        '404':
+          description: Akomodasi tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # 6. RESTAURANTS & CULINARY (KULINER & MAKANAN KHAS SASAK)
+  # ============================================================================
+  /api/v1/restaurants:
+    get:
+      tags:
+        - Restaurants & Culinary
+      summary: Daftar Restoran & Kuliner (Pagination, Filter & Sorting)
+      description: |
+        Mengambil daftar tempat kuliner dan restoran di Pulau Lombok.
+        Mendukung pencarian menu khas Sasak (Ayam Taliwang, Plecing Kangkung, Sate Rembiga, Nasi Balap), filter sertifikasi Halal, rentang harga, dan wilayah.
+      parameters:
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+        - in: query
+          name: region
+          schema:
+            $ref: '#/components/schemas/LombokRegion'
+          description: Filter wilayah kuliner
+        - in: query
+          name: cuisine_type
+          schema:
+            type: string
+            example: Tradisional Sasak
+          description: Jenis kuliner (cth. `Tradisional Sasak`, `Seafood & Bakaran`, `Nusantara`, `Cafe & Bakery`, `Western`)
+        - in: query
+          name: is_halal
+          schema:
+            type: boolean
+            default: true
+          description: Filter khusus makanan bersertifikasi halal
+        - in: query
+          name: min_price
+          schema:
+            type: number
+            example: 20000
+          description: Estimasi harga menu termurah
+        - in: query
+          name: max_price
+          schema:
+            type: number
+            example: 100000
+          description: Estimasi harga menu termahal
+        - in: query
+          name: min_rating
+          schema:
+            type: number
+            example: 4.0
+        - in: query
+          name: is_featured
+          schema:
+            type: boolean
+        - in: query
+          name: q
+          schema:
+            type: string
+            example: taliwang
+          description: Kata kunci nama resto, makanan andalan, atau alamat
+        - in: query
+          name: sort_by
+          schema:
+            type: string
+            enum: [rating, reviewCount, minPrice, maxPrice, name, createdAt]
+            default: rating
+        - in: query
+          name: order
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Daftar restoran berhasil didapatkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestaurantPaginatedResponse'
+
+  /api/v1/restaurants/featured:
+    get:
+      tags:
+        - Restaurants & Culinary
+      summary: Restoran & Kuliner Unggulan (Featured Culinary)
+      description: Mengambil rekomendasi kuliner paling legendaris dan populer di Lombok untuk section rekomendasi beranda.
+      parameters:
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 6
+      responses:
+        '200':
+          description: Berhasil mengambil restoran unggulan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestaurantListResponse'
+
+  /api/v1/restaurants/{id}:
+    get:
+      tags:
+        - Restaurants & Culinary
+      summary: Detail Lengkap Restoran & Menu Andalan
+      description: Mengambil data restoran secara komprehensif (jam buka operasional, spesialisasi menu andalan, estimasi harga, galeri foto, alamat, dan pin lokasi GPS).
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: ayam-taliwang-h-mohrad
+          description: UUID atau Slug restoran
+      responses:
+        '200':
+          description: Detail restoran ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RestaurantDetailResponse'
+        '404':
+          description: Restoran tidak ditemukan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ============================================================================
+  # 7. SMART RECOMMENDATIONS (STYLE & GEOLOCATION BASED)
+  # ============================================================================
+  /api/v1/recommendations:
+    get:
+      tags:
+        - Smart Recommendations
+      summary: Rekomendasi Cerdas Destinasi & Rencana Liburan
+      description: Menghasilkan kurasi destinasi wisata yang cocok dengan preferensi gaya liburan pengguna (Beach, Trekking, Cultural, Culinary, Relaxing) dan koordinat posisi traveler.
+      security:
+        - BearerAuth: []
+        - {}
+      parameters:
+        - in: query
+          name: travel_style
+          schema:
+            $ref: '#/components/schemas/TravelStyle'
+          description: Gaya liburan traveler
+        - in: query
+          name: budget_level
+          schema:
+            $ref: '#/components/schemas/BudgetLevel'
+          description: Tingkat anggaran
+        - in: query
+          name: latitude
+          schema:
+            type: number
+            example: -8.8924
+        - in: query
+          name: longitude
+          schema:
+            type: number
+            example: 116.2952
+        - in: query
+          name: radius_km
+          schema:
+            type: number
+            default: 30
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 5
+      responses:
+        '200':
+          description: Rekomendasi destinasi berhasil dikurasi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Success fetching recommendations
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Destination'
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Masukkan access token JWT dengan format `Bearer <token>`
+
+  schemas:
+    # ==========================================================================
+    # ENUMS
+    # ==========================================================================
+    LombokRegion:
+      type: string
+      enum:
+        - LOMBOK_BARAT
+        - LOMBOK_TENGAH
+        - LOMBOK_TIMUR
+        - LOMBOK_UTARA
+        - MATARAM
+      description: |
+        Zona wilayah administratif Pulau Lombok:
+        - `LOMBOK_BARAT`: Senggigi, Sekotong, Narmada, Gili Nanggu
+        - `LOMBOK_TENGAH`: Mandalika, Kuta Lombok, Tanjung Aan, Selong Belanak, Bandara YIA (LOP)
+        - `LOMBOK_TIMUR`: Sembalun, Tetebatu, Pelabuhan Kayangan, Gili Kondo
+        - `LOMBOK_UTARA`: Gunung Rinjani, Senaru, Gili Trawangan, Gili Meno, Gili Air
+        - `MATARAM`: Kota Mataram, Ampenan, Cakranegara (Pusat Kuliner & Belanja)
+      example: LOMBOK_TENGAH
+
+    DifficultyLevel:
+      type: string
+      enum:
+        - EASY
+        - MODERATE
+        - HARD
+        - EXTREME
+      description: |
+        Tingkat tantangan fisik menjelajah destinasi:
+        - `EASY`: Ramah keluarga, lansia, dan anak-anak (pantai landai, taman kota).
+        - `MODERATE`: Perlu jalan kaki ringan / tangga (bukit pendek, air terjun berundak).
+        - `HARD`: Trekking jalan tanah berbatu, rute menanjak curam.
+        - `EXTREME`: Pendakian puncak Gunung Rinjani, susur gua liar, diving arus deras.
+      example: EASY
+
+    TravelStyle:
+      type: string
+      enum:
+        - BEACH_RELAXATION
+        - NATURE_ADVENTURE
+        - CULTURE_HERITAGE
+        - CULINARY_EXPLORER
+        - LUXURY_HONEYMOON
+        - BUDGET_BACKPACKER
+      example: BEACH_RELAXATION
+
+    BudgetLevel:
+      type: string
+      enum:
+        - BACKPACKER
+        - MID_RANGE
+        - LUXURY
+      example: MID_RANGE
+
+    # ==========================================================================
+    # CORE ENTITIES
+    # ==========================================================================
+    Category:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - iconName
+      properties:
+        id:
+          type: string
+          example: cat_beach
+        name:
+          type: string
+          example: Pantai & Pesisir
+        slug:
+          type: string
+          example: pantai-pesisir
+        description:
+          type: string
+          example: Pesona garis pantai berpasir putih, air laut toska jernih, dan panorama sunset eksotis Lombok.
+        iconName:
+          type: string
+          example: beach_access
+        coverImageUrl:
+          type: string
+          format: uri
+          example: https://images.unsplash.com/photo-1507525428034-b723cf961d3e
+        status:
+          type: string
+          example: PUBLISHED
+
+    DestinationImage:
+      type: object
+      required:
+        - id
+        - imageUrl
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: 88f8ec52-51a8-4381-83ae-d90ce54fa1d7
+        imageUrl:
+          type: string
+          format: uri
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        imagePublicId:
+          type: string
+          nullable: true
+          example: lombok-explorer/destinations/merese_1
+        caption:
+          type: string
+          nullable: true
+          example: Panorama Sunset Golden Hour dari Puncak Bukit Merese
+        altText:
+          type: string
+          nullable: true
+          example: Lanskap perbukitan hijau dan laut lepas Tanjung Aan
+        orderIndex:
+          type: integer
+          example: 0
+        isPrimary:
+          type: boolean
+          example: true
+
+    Destination:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - shortDescription
+        - description
+        - categoryId
+        - region
+        - locationName
+        - latitude
+        - longitude
+        - rating
+        - reviewCount
+        - entranceFee
+        - currency
+        - openingHours
+        - difficulty
+        - tags
+        - coverImageUrl
+        - facilities
+      properties:
+        id:
+          type: string
+          example: dest_bukit_merese
+        name:
+          type: string
+          example: Bukit Merese
+        slug:
+          type: string
+          example: bukit-merese
+        shortDescription:
+          type: string
+          example: Perbukitan hijau menjorok ke laut dengan pemandangan sunset terindah di Lombok Selatan.
+        description:
+          type: string
+          example: Bukit Merese menyuguhkan panorama 360 derajat Teluk Tanjung Aan dan Samudera Hindia. Waktu terbaik berkunjung adalah sore hari menjelang matahari terbenam.
+        categoryId:
+          type: string
+          example: cat_beach
+        category:
+          $ref: '#/components/schemas/Category'
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        locationName:
+          type: string
+          example: Kuta, Pujut, Kabupaten Lombok Tengah
+        address:
+          type: string
+          nullable: true
+          example: Jl. Kuta Lombok, Tanjung Aan, Pujut, Lombok Tengah, NTB
+        latitude:
+          type: number
+          format: double
+          example: -8.9135
+        longitude:
+          type: number
+          format: double
+          example: 116.3154
+        rating:
+          type: number
+          format: float
+          example: 4.85
+        reviewCount:
+          type: integer
+          example: 420
+        entranceFee:
+          type: number
+          example: 10000
+        ticketPrice:
+          type: number
+          example: 10000
+        currency:
+          type: string
+          example: IDR
+        openingHours:
+          type: string
+          example: 06:00 - 18:30 WITA
+        estimatedDurationMinutes:
+          type: integer
+          example: 90
+        bestVisitingTime:
+          type: string
+          example: 16:30 - 18:15 WITA (Golden Hour Sunset)
+        difficulty:
+          $ref: '#/components/schemas/DifficultyLevel'
+        tags:
+          type: array
+          items:
+            type: string
+          example: ["Sunset Spot", "Perbukitan", "Fotografi", "Panorama Laut"]
+        coverImageUrl:
+          type: string
+          format: uri
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        coverImagePublicId:
+          type: string
+          nullable: true
+          example: lombok-explorer/destinations/merese_cover
+        facilities:
+          type: array
+          items:
+            type: string
+          example: ["Area Parkir Luas", "Toilet", "Warung Kelapa Muda", "Spot Foto"]
+        tips:
+          type: array
+          items:
+            type: string
+          example: ["Gunakan alas kaki yang nyaman untuk mendaki bukit", "Bawa kacamata hitam dan topi saat siang"]
+        status:
+          type: string
+          example: PUBLISHED
+        isFeatured:
+          type: boolean
+          example: true
+        isFavorite:
+          type: boolean
+          description: Ditampilkan `true` jika pengguna yang sedang login memfavoritkan destinasi ini
+          example: false
+        images:
+          type: array
+          items:
+            $ref: '#/components/schemas/DestinationImage'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-08-20T10:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-09-04T12:00:00.000Z'
+
+    Accommodation:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - type
+        - description
+        - rating
+        - reviewCount
+        - pricePerNight
+        - currency
+        - address
+        - region
+        - latitude
+        - longitude
+        - coverImageUrl
+        - images
+        - amenities
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: a1b2c3d4-e5f6-4a5b-8c9d-0e1f2a3b4c5d
+        name:
+          type: string
+          example: The Oberoi Beach Resort Lombok
+        slug:
+          type: string
+          example: the-oberoi-beach-resort-lombok
+        type:
+          type: string
+          example: resort
+          description: Kategori jenis akomodasi (`resort`, `villa`, `hotel`, `homestay`, `glamping`)
+        description:
+          type: string
+          example: Resor mewah bintang lima di tepi Teluk Medana dengan pemandangan langsung ke Tiga Gili dan matahari terbenam. Dilengkapi kolam renang infinity tepi pantai dan fasilitas spa eksklusif.
+        rating:
+          type: number
+          format: float
+          example: 4.9
+        reviewCount:
+          type: integer
+          example: 185
+        pricePerNight:
+          type: number
+          example: 3850000
+        currency:
+          type: string
+          example: IDR
+        address:
+          type: string
+          example: Medana Beach, Tanjung, Lombok Utara, NTB
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        latitude:
+          type: number
+          format: double
+          example: -8.3582
+        longitude:
+          type: number
+          format: double
+          example: 116.1263
+        coverImageUrl:
+          type: string
+          format: uri
+          example: https://images.unsplash.com/photo-1582719508461-905c673771fd
+        coverImagePublicId:
+          type: string
+          nullable: true
+          example: lombok-explorer/accommodations/oberoi_cover
+        images:
+          type: array
+          items:
+            type: string
+          example:
+            - https://images.unsplash.com/photo-1582719508461-905c673771fd
+            - https://images.unsplash.com/photo-1571896349842-33c89424de2d
+        amenities:
+          type: array
+          items:
+            type: string
+          example:
+            - Infinity Pool
+            - Private Beach Access
+            - High-Speed WiFi
+            - Luxury Spa & Wellness
+            - Sunset Dining Restaurant
+            - Speedboat Charter ke Gili
+            - AC & Room Service 24 Jam
+        contactPhone:
+          type: string
+          nullable: true
+          example: '+623706138444'
+        websiteUrl:
+          type: string
+          nullable: true
+          example: https://www.oberoihotels.com/hotels-in-lombok/
+        status:
+          type: string
+          example: PUBLISHED
+        isFeatured:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-08-22T08:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-09-04T12:00:00.000Z'
+
+    Restaurant:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - description
+        - cuisineType
+        - specialtyDish
+        - priceRange
+        - minPrice
+        - maxPrice
+        - rating
+        - reviewCount
+        - address
+        - region
+        - latitude
+        - longitude
+        - openingHours
+        - coverImageUrl
+        - images
+        - isHalalCertified
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: b2c3d4e5-f6a7-4b5c-9d0e-1f2a3b4c5d6e
+        name:
+          type: string
+          example: Ayam Taliwang H. Moerad
+        slug:
+          type: string
+          example: ayam-taliwang-h-moerad
+        description:
+          type: string
+          example: Pelopor kuliner otentik Ayam Taliwang khas Pulau Lombok sejak tahun 1960. Disajikan dengan racikan bumbu plecing pedas gurih, terasi Lombok harum, dan kangkung segar air mengalir.
+        cuisineType:
+          type: string
+          example: Tradisional Sasak
+        specialtyDish:
+          type: string
+          example: Ayam Bakar Taliwang Super Pedas & Plecing Kangkung
+        priceRange:
+          type: string
+          example: Rp 35.000 - Rp 75.000
+        minPrice:
+          type: number
+          example: 35000
+        maxPrice:
+          type: number
+          example: 75000
+        rating:
+          type: number
+          format: float
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 520
+        address:
+          type: string
+          example: Jl. Pelikan No. 6, Cakranegara, Kota Mataram, NTB
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        latitude:
+          type: number
+          format: double
+          example: -8.5831
+        longitude:
+          type: number
+          format: double
+          example: 116.1287
+        openingHours:
+          type: string
+          example: 09:00 - 22:00 WITA
+        coverImageUrl:
+          type: string
+          format: uri
+          example: https://images.unsplash.com/photo-1544025162-d76694265947
+        coverImagePublicId:
+          type: string
+          nullable: true
+          example: lombok-explorer/restaurants/taliwang_cover
+        images:
+          type: array
+          items:
+            type: string
+          example:
+            - https://images.unsplash.com/photo-1544025162-d76694265947
+            - https://images.unsplash.com/photo-1555939594-58d7cb561ad1
+        isHalalCertified:
+          type: boolean
+          example: true
+        status:
+          type: string
+          example: PUBLISHED
+        isFeatured:
+          type: boolean
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-08-22T08:00:00.000Z'
+        updatedAt:
+          type: string
+          format: date-time
+          example: '2026-09-04T12:00:00.000Z'
+
+    Review:
+      type: object
+      required:
+        - id
+        - rating
+        - content
+        - user
+        - createdAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: e1f2a3b4-c5d6-4e7f-8a9b-0c1d2e3f4a5b
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          example: 5
+        content:
+          type: string
+          example: Sunset di Bukit Merese benar-benar magis! Pemandangan laut dari atas bukit sangat memukau, angin sepoi-sepoi dan akses jalannya cukup mudah.
+        photos:
+          type: array
+          items:
+            type: string
+          example:
+            - https://res.cloudinary.com/tzccdgab/image/upload/v1/merese_review.jpg
+        user:
+          type: object
+          properties:
+            id:
+              type: string
+              example: usr_traveler_123
+            name:
+              type: string
+              example: Nabila Putri
+            avatarUrl:
+              type: string
+              nullable: true
+              example: https://images.unsplash.com/photo-1494790108377-be9c29b29330
+        createdAt:
+          type: string
+          format: date-time
+          example: '2026-09-02T14:30:00.000Z'
+
+    CreateReviewRequest:
+      type: object
+      required:
+        - rating
+        - content
+      properties:
+        rating:
+          type: number
+          minimum: 1
+          maximum: 5
+          example: 5
+          description: Nilai rating dari 1 hingga 5 bintang
+        content:
+          type: string
+          minLength: 10
+          example: Pemandangan sangat menakjubkan, fasilitas bersih dan tertata rapi!
+          description: Teks ulasan traveler (minimal 10 karakter)
+        photos:
+          type: array
+          items:
+            type: string
+          example:
+            - https://res.cloudinary.com/tzccdgab/image/upload/v1/review1.jpg
+          description: Daftar tautan URL foto dokumentasi pengalaman berkunjung
+
+    PaginationMeta:
+      type: object
+      required:
+        - page
+        - limit
+        - total
+        - totalPages
+        - currentPage
+        - totalCount
+        - hasNextPage
+        - hasPrevPage
+      properties:
+        page:
+          type: integer
+          example: 1
+        limit:
+          type: integer
+          example: 10
+        total:
+          type: integer
+          example: 45
+        totalPages:
+          type: integer
+          example: 5
+        currentPage:
+          type: integer
+          example: 1
+        totalCount:
+          type: integer
+          example: 45
+        hasNextPage:
+          type: boolean
+          example: true
+        hasPrevPage:
+          type: boolean
+          example: false
+
+    # ==========================================================================
+    # RESPONSE ENVELOPES
+    # ==========================================================================
+    DestinationPaginatedResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching destinations
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Destination'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    DestinationListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching destinations
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Destination'
+
+    DestinationDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching destination detail
+        data:
+          $ref: '#/components/schemas/Destination'
+
+    AccommodationPaginatedResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching accommodations
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Accommodation'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    AccommodationListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching featured accommodations
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Accommodation'
+
+    AccommodationDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching accommodation detail
+        data:
+          $ref: '#/components/schemas/Accommodation'
+
+    RestaurantPaginatedResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching restaurants
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Restaurant'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    RestaurantListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching featured restaurants
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Restaurant'
+
+    RestaurantDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching restaurant detail
+        data:
+          $ref: '#/components/schemas/Restaurant'
+
+    CategoryListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching categories
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Category'
+
+    CategoryDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching category detail
+        data:
+          type: object
+          properties:
+            category:
+              $ref: '#/components/schemas/Category'
+            destinations:
+              type: array
+              items:
+                $ref: '#/components/schemas/Destination'
+            meta:
+              $ref: '#/components/schemas/PaginationMeta'
+
+    ReviewListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Success fetching reviews
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Review'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    ReviewDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Review submitted successfully
+        data:
+          $ref: '#/components/schemas/Review'
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+        - errorCode
+      properties:
+        success:
+          type: boolean
+          example: false
+        message:
+          type: string
+          example: Destination not found
+        errorCode:
+          type: string
+          example: DESTINATION_NOT_FOUND
+        details:
+          type: array
+          items:
+            type: string
+          nullable: true
+          example: null

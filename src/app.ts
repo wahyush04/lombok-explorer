@@ -248,7 +248,68 @@ export const createApp = (): Application => {
       );
     }
 
-    // 8d. Public OpenAPI Documentation (/api/docs)
+    const exploreOpenApiPath = path.resolve(process.cwd(), 'openapi-explore.yaml');
+
+    // 8e. Destinations, Accommodations & Restaurants OpenAPI Documentation (/api/docs/explore & /api/docs/destinations)
+    if (fs.existsSync(exploreOpenApiPath)) {
+      const exploreFileContent = fs.readFileSync(exploreOpenApiPath, 'utf8');
+      const exploreSwaggerDoc = yaml.parse(exploreFileContent);
+
+      const exploreUiOptions: swaggerUi.SwaggerUiOptions = {
+        customSiteTitle:
+          'Lombok Explorer Destinations, Accommodations & Restaurants API Documentation',
+        customCss: `
+          .swagger-ui .topbar { display: none }
+          .swagger-ui .info { margin-bottom: 24px; }
+          .swagger-ui .scheme-container { background: #f0fdf4; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        `,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: 'none',
+          filter: true,
+          tryItOutEnabled: true,
+        },
+      };
+
+      app.get(
+        [
+          '/api/docs/explore/json',
+          '/api/docs/explore-json',
+          '/api/docs/destinations/json',
+          '/api/docs/destinations-json',
+        ],
+        (_req: Request, res: Response) => {
+          res.setHeader('Content-Type', 'application/json');
+          res.json(exploreSwaggerDoc);
+        },
+      );
+      app.get(
+        [
+          '/api/docs/explore/yaml',
+          '/api/docs/explore-yaml',
+          '/api/docs/destinations/yaml',
+          '/api/docs/destinations-yaml',
+        ],
+        (_req: Request, res: Response) => {
+          res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+          res.send(exploreFileContent);
+        },
+      );
+
+      app.use(
+        ['/api/docs/explore', '/api/docs/destinations'],
+        swaggerUi.serveFiles(exploreSwaggerDoc, exploreUiOptions),
+        swaggerUi.setup(exploreSwaggerDoc, exploreUiOptions),
+      );
+      app.use(
+        ['/docs/explore', '/docs/destinations'],
+        swaggerUi.serveFiles(exploreSwaggerDoc, exploreUiOptions),
+        swaggerUi.setup(exploreSwaggerDoc, exploreUiOptions),
+      );
+    }
+
+    // 8f. Public General OpenAPI Documentation (/api/docs)
     if (fs.existsSync(openApiPath)) {
       const fileContent = fs.readFileSync(openApiPath, 'utf8');
       const swaggerDocument = yaml.parse(fileContent);
@@ -311,8 +372,10 @@ export const createApp = (): Application => {
         version: config.app.version,
         environment: config.app.env,
         docs: '/api/docs',
+        exploreDocs: '/api/docs/explore',
         authDocs: '/api/docs/auth',
         feedDocs: '/api/docs/feed',
+        itineraryDocs: '/api/docs/itinerary',
         adminDocs: '/api/docs/admin',
         docsJson: '/api/docs/json',
         docsYaml: '/api/docs/yaml',

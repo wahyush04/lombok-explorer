@@ -3,6 +3,8 @@ import { healthRoutes } from '../../modules/health/health.routes';
 import { authRoutes } from '../../modules/auth/auth.routes';
 import { destinationRoutes } from '../../modules/destinations/destinations.routes';
 import { categoryRoutes } from '../../modules/categories/categories.routes';
+import { accommodationRoutes } from '../../modules/accommodations/accommodations.routes';
+import { restaurantRoutes } from '../../modules/restaurants/restaurants.routes';
 import { favoriteRoutes } from '../../modules/favorites/favorites.routes';
 import { reviewRoutes } from '../../modules/reviews/reviews.routes';
 import { itineraryRoutes } from '../../modules/itineraries/itineraries.routes';
@@ -31,6 +33,12 @@ router.use('/destinations', destinationRoutes);
 
 // 4. Categories & Classification (Phase 8)
 router.use('/categories', categoryRoutes);
+
+// 4b. Accommodations Discovery (Resorts, Villas, Hotels, Homestays)
+router.use('/accommodations', accommodationRoutes);
+
+// 4c. Restaurants & Culinary Discovery (Tradisional Sasak, Seafood, Cafe)
+router.use('/restaurants', restaurantRoutes);
 
 // 5. User Favorites & Bookmarks (Phase 9)
 router.use('/favorites', favoriteRoutes);
