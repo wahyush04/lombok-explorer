@@ -10,7 +10,12 @@ export const CreateCommentDtoSchema = z.object({
 
 export const CommentQueryDtoSchema = z.object({
   cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1, 'Limit must be at least 1').max(50, 'Limit cannot exceed 50').default(20),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1, 'Limit must be at least 1')
+    .max(50, 'Limit cannot exceed 50')
+    .default(20),
   order: z.enum(['asc', 'desc']).optional().default('desc'),
 });
 

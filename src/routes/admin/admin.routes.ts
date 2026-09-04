@@ -10,6 +10,7 @@ import { adminReviewRoutes } from '../../modules/admin/reviews/admin-reviews.rou
 import { adminAuditLogRoutes } from '../../modules/admin/audit-logs/admin-audit-logs.routes';
 import { adminFeedsRoutes } from '../../modules/admin/feeds/admin-feeds.routes';
 import { adminItineraryTemplateRoutes } from '../../modules/admin/itinerary-templates/admin-itinerary-templates.routes';
+import { adminUploadsRoutes } from '../../modules/admin/uploads/admin-uploads.routes';
 
 const router = Router();
 
@@ -23,31 +24,34 @@ router.use('/auth', adminAuthRoutes);
 // 2. Admin Dashboard Statistics (/api/v1/admin/dashboard)
 router.use('/dashboard', adminDashboardRoutes);
 
-// 3. Admin Destinations Management (/api/v1/admin/destinations)
+// 3. Admin Media & Uploads (/api/v1/admin/uploads)
+router.use('/uploads', adminUploadsRoutes);
+
+// 4. Admin Destinations Management (/api/v1/admin/destinations)
 router.use('/destinations', adminDestinationRoutes);
 
-// 4. Admin Categories Management (/api/v1/admin/categories)
+// 5. Admin Categories Management (/api/v1/admin/categories)
 router.use('/categories', adminCategoryRoutes);
 
-// 5. Admin Restaurants Management (/api/v1/admin/restaurants)
+// 6. Admin Restaurants Management (/api/v1/admin/restaurants)
 router.use('/restaurants', adminRestaurantRoutes);
 
-// 6. Admin Accommodations Management (/api/v1/admin/accommodations)
+// 7. Admin Accommodations Management (/api/v1/admin/accommodations)
 router.use('/accommodations', adminAccommodationRoutes);
 
-// 7. Admin User Management (/api/v1/admin/users)
+// 8. Admin User Management (/api/v1/admin/users)
 router.use('/users', adminUserRoutes);
 
-// 8. Admin Reviews Moderation (/api/v1/admin/reviews)
+// 9. Admin Reviews Moderation (/api/v1/admin/reviews)
 router.use('/reviews', adminReviewRoutes);
 
-// 9. Admin Audit Logs (/api/v1/admin/audit-logs)
+// 10. Admin Audit Logs (/api/v1/admin/audit-logs)
 router.use('/audit-logs', adminAuditLogRoutes);
 
-// 10. Admin Feeds & Social Moderation (/api/v1/admin/feeds)
+// 11. Admin Feeds & Social Moderation (/api/v1/admin/feeds)
 router.use('/feeds', adminFeedsRoutes);
 
-// 11. Admin Curated Itinerary Templates (/api/v1/admin/itinerary-templates)
+// 12. Admin Curated Itinerary Templates (/api/v1/admin/itinerary-templates)
 router.use('/itinerary-templates', adminItineraryTemplateRoutes);
 
 export const adminRoutes = router;

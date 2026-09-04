@@ -9,5 +9,3 @@ export * from './feeds.service';
 export * from './feeds.controller';
 export * from './feeds.routes';
 export * from './utils/cursor.util';
-
-

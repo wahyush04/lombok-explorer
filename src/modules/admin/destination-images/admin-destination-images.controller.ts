@@ -23,12 +23,10 @@ export class AdminDestinationImagesController {
   public createImage = async (req: Request, res: Response): Promise<void> => {
     const { id } = req.params;
     const body = req.body as CreateDestinationImageDto;
-    const file = req.file;
 
     const data = await this.service.createDestinationImage(
       id as string,
       body,
-      file,
       req.user?.userId,
       req.ip,
       req.headers['user-agent'] as string | undefined,
@@ -39,13 +37,11 @@ export class AdminDestinationImagesController {
   public updateImage = async (req: Request, res: Response): Promise<void> => {
     const { id, imageId } = req.params;
     const body = req.body as UpdateDestinationImageDto;
-    const file = req.file;
 
     const data = await this.service.updateDestinationImage(
       id as string,
       imageId as string,
       body,
-      file,
       req.user?.userId,
       req.ip,
       req.headers['user-agent'] as string | undefined,

@@ -10,7 +10,10 @@ export class UploadsController {
   public getSignature = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user?.userId;
     if (!userId) {
-      throw new UnauthorizedError('Authentication required to request upload signature', 'AUTH_REQUIRED');
+      throw new UnauthorizedError(
+        'Authentication required to request upload signature',
+        'AUTH_REQUIRED',
+      );
     }
 
     const folderType = (req.body?.folder || req.query?.folder || 'feeds') as string;

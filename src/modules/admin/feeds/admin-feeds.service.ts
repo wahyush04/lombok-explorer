@@ -78,7 +78,8 @@ export class AdminFeedsService {
             author: {
               id: report.post.user?.id || '',
               name: report.post.user?.name || '',
-              username: report.post.user?.username || report.post.user?.email.split('@')[0] || 'user',
+              username:
+                report.post.user?.username || report.post.user?.email.split('@')[0] || 'user',
             },
             media: report.post.media,
             location: report.post.location,
@@ -100,11 +101,7 @@ export class AdminFeedsService {
     };
   }
 
-  public async updateReportStatus(
-    id: string,
-    data: AdminUpdateReportStatusDto,
-    adminId?: string,
-  ) {
+  public async updateReportStatus(id: string, data: AdminUpdateReportStatusDto, adminId?: string) {
     const existing = await this.repository.findReportById(id);
     if (!existing) {
       throw new NotFoundError(`Post report with ID '${id}' not found`, 'REPORT_NOT_FOUND');
@@ -139,11 +136,7 @@ export class AdminFeedsService {
     };
   }
 
-  public async updatePostStatus(
-    postId: string,
-    data: AdminUpdatePostStatusDto,
-    adminId?: string,
-  ) {
+  public async updatePostStatus(postId: string, data: AdminUpdatePostStatusDto, adminId?: string) {
     const post = await this.repository.findPostById(postId);
     if (!post) {
       throw new NotFoundError(`Feed post with ID '${postId}' not found`, 'POST_NOT_FOUND');

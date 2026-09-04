@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { LombokRegion, TravelStyle, UserRole, UserStatus } from '@prisma/client';
+import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const AdminUserFilterQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -37,6 +38,7 @@ export const UpdateUserSchema = z.object({
   role: z.nativeEnum(UserRole).optional(),
   status: z.nativeEnum(UserStatus).optional(),
   phone: z.string().trim().nullable().optional(),
+  avatar: CloudinaryAssetInputSchema.optional(),
   avatarUrl: z.string().trim().url().nullable().optional(),
   travelStyle: z.nativeEnum(TravelStyle).nullable().optional(),
   preferredRegion: z.nativeEnum(LombokRegion).nullable().optional(),
@@ -70,6 +72,7 @@ export interface AdminUserDto {
   email: string;
   name: string;
   avatarUrl: string | null;
+  avatarPublicId?: string | null;
   phone: string | null;
   role: UserRole;
   status: UserStatus;

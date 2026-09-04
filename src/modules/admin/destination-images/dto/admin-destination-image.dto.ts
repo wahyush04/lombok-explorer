@@ -1,9 +1,13 @@
 import { z } from 'zod';
+import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const CreateDestinationImageSchema = z.object({
+  image: z.union([CloudinaryAssetInputSchema, z.string().trim()]).optional(),
+  publicId: z.string().trim().optional(),
+  secureUrl: z.string().trim().url('secureUrl must be a valid URL').optional(),
   imageUrl: z.string().trim().optional(),
-  caption: z.string().trim().max(255).optional(),
-  altText: z.string().trim().max(255).optional(),
+  caption: z.string().trim().max(255).optional().nullable(),
+  altText: z.string().trim().max(255).optional().nullable(),
   orderIndex: z.coerce.number().int().min(0).optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
   isPrimary: z
@@ -14,12 +18,18 @@ export const CreateDestinationImageSchema = z.object({
     }, z.boolean().optional())
     .optional()
     .default(false),
+  width: z.coerce.number().int().positive().optional(),
+  height: z.coerce.number().int().positive().optional(),
+  format: z.string().trim().optional(),
 });
 
 export const UpdateDestinationImageSchema = z.object({
+  image: z.union([CloudinaryAssetInputSchema, z.string().trim()]).optional(),
+  publicId: z.string().trim().optional(),
+  secureUrl: z.string().trim().url('secureUrl must be a valid URL').optional(),
   imageUrl: z.string().trim().optional(),
-  caption: z.string().trim().max(255).optional(),
-  altText: z.string().trim().max(255).optional(),
+  caption: z.string().trim().max(255).optional().nullable(),
+  altText: z.string().trim().max(255).optional().nullable(),
   orderIndex: z.coerce.number().int().min(0).optional(),
   sortOrder: z.coerce.number().int().min(0).optional(),
   isPrimary: z
@@ -29,6 +39,9 @@ export const UpdateDestinationImageSchema = z.object({
       return val;
     }, z.boolean().optional())
     .optional(),
+  width: z.coerce.number().int().positive().optional(),
+  height: z.coerce.number().int().positive().optional(),
+  format: z.string().trim().optional(),
 });
 
 export type CreateDestinationImageDto = z.infer<typeof CreateDestinationImageSchema>;
@@ -46,4 +59,3 @@ export interface DestinationImageDto {
   createdAt: Date;
   updatedAt: Date;
 }
-

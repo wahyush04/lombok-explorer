@@ -10,8 +10,17 @@ export class AdminItineraryTemplatesRepository {
   public async findMany(
     filter: AdminTemplateFilterQuery,
   ): Promise<{ items: ItineraryTemplate[]; total: number }> {
-    const { page, limit, search, travelStyle, budgetLevel, isPublished, isFeatured, sortBy, order } =
-      filter;
+    const {
+      page,
+      limit,
+      search,
+      travelStyle,
+      budgetLevel,
+      isPublished,
+      isFeatured,
+      sortBy,
+      order,
+    } = filter;
     const skip = (page - 1) * limit;
 
     const where: Prisma.ItineraryTemplateWhereInput = {
@@ -99,33 +108,34 @@ export class AdminItineraryTemplatesRepository {
       const template = await tx.itineraryTemplate.create({
         data: {
           ...templateFields,
-          days: days && days.length > 0
-            ? {
-                create: days.map((day) => ({
-                  dayNumber: day.dayNumber,
-                  title: day.title,
-                  notes: day.notes,
-                  totalDistanceKm: day.totalDistanceKm,
-                  totalDurationMinutes: day.totalDurationMinutes,
-                  estimatedBudget: day.estimatedBudget,
-                  activities: {
-                    create: (day.activities || []).map((act, actIdx) => ({
-                      destinationId: act.destinationId || null,
-                      customLocation: act.customLocation || null,
-                      customTitle: act.customTitle || null,
-                      orderIndex: act.orderIndex ?? actIdx,
-                      startTime: act.startTime || null,
-                      endTime: act.endTime || null,
-                      activityNotes: act.activityNotes || null,
-                      estimatedDurationMinutes: act.estimatedDurationMinutes || 60,
-                      estimatedCost: act.estimatedCost || 0,
-                      distanceFromPrevKm: act.distanceFromPrevKm || 0,
-                      travelTimeFromPrevMinutes: act.travelTimeFromPrevMinutes || 0,
-                    })),
-                  },
-                })),
-              }
-            : undefined,
+          days:
+            days && days.length > 0
+              ? {
+                  create: days.map((day) => ({
+                    dayNumber: day.dayNumber,
+                    title: day.title,
+                    notes: day.notes,
+                    totalDistanceKm: day.totalDistanceKm,
+                    totalDurationMinutes: day.totalDurationMinutes,
+                    estimatedBudget: day.estimatedBudget,
+                    activities: {
+                      create: (day.activities || []).map((act, actIdx) => ({
+                        destinationId: act.destinationId || null,
+                        customLocation: act.customLocation || null,
+                        customTitle: act.customTitle || null,
+                        orderIndex: act.orderIndex ?? actIdx,
+                        startTime: act.startTime || null,
+                        endTime: act.endTime || null,
+                        activityNotes: act.activityNotes || null,
+                        estimatedDurationMinutes: act.estimatedDurationMinutes || 60,
+                        estimatedCost: act.estimatedCost || 0,
+                        distanceFromPrevKm: act.distanceFromPrevKm || 0,
+                        travelTimeFromPrevMinutes: act.travelTimeFromPrevMinutes || 0,
+                      })),
+                    },
+                  })),
+                }
+              : undefined,
         },
         include: {
           days: {

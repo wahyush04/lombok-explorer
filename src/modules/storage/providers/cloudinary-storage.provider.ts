@@ -170,7 +170,9 @@ export class CloudinaryStorageProvider implements IStorageProvider {
   }
 
   public getFileUrl(filename: string, subfolder?: string): string {
-    const folder = subfolder ? `${config.cloudinary.folder}/${subfolder}` : config.cloudinary.folder;
+    const folder = subfolder
+      ? `${config.cloudinary.folder}/${subfolder}`
+      : config.cloudinary.folder;
     return this.generateOptimizedUrl(`${folder}/${filename}`, 'original');
   }
 

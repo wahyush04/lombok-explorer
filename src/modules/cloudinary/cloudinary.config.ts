@@ -18,9 +18,7 @@ if (isCloudinaryConfigured) {
     '☁️ Cloudinary SDK Initialized Successfully',
   );
 } else {
-  logger.warn(
-    '⚠️ Cloudinary is not configured with valid credentials in environment variables.',
-  );
+  logger.warn('⚠️ Cloudinary is not configured with valid credentials in environment variables.');
 }
 
 export { cloudinary };

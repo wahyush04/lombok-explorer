@@ -19,7 +19,12 @@ export class AdminItineraryTemplatesController {
   public getTemplates = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as AdminTemplateFilterQuery;
     const { data, meta } = await this.service.getTemplates(query);
-    return ResponseUtil.sendPaginated(res, data, meta, 'Itinerary templates retrieved successfully');
+    return ResponseUtil.sendPaginated(
+      res,
+      data,
+      meta,
+      'Itinerary templates retrieved successfully',
+    );
   });
 
   public getTemplateById = asyncHandler(async (req: Request, res: Response) => {
@@ -30,14 +35,14 @@ export class AdminItineraryTemplatesController {
 
   public createTemplate = asyncHandler(async (req: Request, res: Response) => {
     const body = req.body as CreateItineraryTemplateInput;
-    const data = await this.service.createTemplate(body);
+    const data = await this.service.createTemplate(body, req.user?.userId);
     return ResponseUtil.sendCreated(res, data, 'Itinerary template created successfully');
   });
 
   public updateTemplate = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
     const body = req.body as UpdateItineraryTemplateInput;
-    const data = await this.service.updateTemplate(id, body);
+    const data = await this.service.updateTemplate(id, body, req.user?.userId);
     return ResponseUtil.sendSuccess(res, data, 'Itinerary template updated successfully');
   });
 

@@ -1,6 +1,6 @@
 export interface CursorPayload {
   createdAt: string; // ISO 8601 string
-  id: string;        // UUID
+  id: string; // UUID
 }
 
 export interface CursorPaginationMeta {

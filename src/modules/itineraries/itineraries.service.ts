@@ -164,7 +164,8 @@ export class ItinerariesService {
               endTime,
               destinationId: item.destinationId,
               destination: destinationSummary,
-              destinationName: item.destination?.name || customLoc?.name || item.customTitle || 'Aktivitas Trip',
+              destinationName:
+                item.destination?.name || customLoc?.name || item.customTitle || 'Aktivitas Trip',
               destinationCategory: categoryName,
               imageUrl: imgUrl,
               coverImageUrl: imgUrl,
@@ -192,7 +193,7 @@ export class ItinerariesService {
             itineraryId: day.itineraryId,
             dayNumber: day.dayNumber,
             title: day.title,
-            date: day.date ? new Date(day.date).toISOString().split('T')[0] ?? null : null,
+            date: day.date ? (new Date(day.date).toISOString().split('T')[0] ?? null) : null,
             notes: day.notes,
             totalDistanceKm: Math.round(dayDist * 100) / 100,
             totalDurationMinutes: Math.round(dayDur),
@@ -233,8 +234,12 @@ export class ItinerariesService {
       isSaved: itinerary.isSaved,
       shareToken,
       shareUrl,
-      startDate: itinerary.startDate ? new Date(itinerary.startDate).toISOString().split('T')[0] ?? null : null,
-      endDate: itinerary.endDate ? new Date(itinerary.endDate).toISOString().split('T')[0] ?? null : null,
+      startDate: itinerary.startDate
+        ? (new Date(itinerary.startDate).toISOString().split('T')[0] ?? null)
+        : null,
+      endDate: itinerary.endDate
+        ? (new Date(itinerary.endDate).toISOString().split('T')[0] ?? null)
+        : null,
       days,
       createdAt: itinerary.createdAt.toISOString(),
       updatedAt: itinerary.updatedAt.toISOString(),
@@ -443,7 +448,10 @@ export class ItinerariesService {
   public async getSharedItinerary(shareToken: string): Promise<ItineraryDto> {
     const itinerary = await this.repository.findByShareToken(shareToken);
     if (!itinerary) {
-      throw new NotFoundError('Shared itinerary not found or expired', 'SHARED_ITINERARY_NOT_FOUND');
+      throw new NotFoundError(
+        'Shared itinerary not found or expired',
+        'SHARED_ITINERARY_NOT_FOUND',
+      );
     }
     return this.mapToDto(itinerary as ItineraryWithRelations);
   }
@@ -453,7 +461,12 @@ export class ItinerariesService {
     const startDate = dto.startDate ? new Date(dto.startDate) : null;
     const endDate = dto.endDate ? new Date(dto.endDate) : null;
 
-    let initialDays: { title: string; date?: Date | null; notes?: string | null; items?: unknown[] }[] = [];
+    let initialDays: {
+      title: string;
+      date?: Date | null;
+      notes?: string | null;
+      items?: unknown[];
+    }[] = [];
 
     if (dto.days && dto.days.length > 0) {
       initialDays = dto.days.map((d, i) => ({
@@ -549,12 +562,16 @@ export class ItinerariesService {
 
     const startLocationStr =
       dto.startLocation !== undefined
-        ? dto.startLocation ? JSON.stringify(dto.startLocation) : null
+        ? dto.startLocation
+          ? JSON.stringify(dto.startLocation)
+          : null
         : undefined;
 
     const endLocationStr =
       dto.endLocation !== undefined
-        ? dto.endLocation ? JSON.stringify(dto.endLocation) : null
+        ? dto.endLocation
+          ? JSON.stringify(dto.endLocation)
+          : null
         : undefined;
 
     const startDate =
@@ -653,7 +670,11 @@ export class ItinerariesService {
     return this.mapToDto(cloned as ItineraryWithRelations);
   }
 
-  public async generateShareToken(userId: string, userRole: string, id: string): Promise<{ shareToken: string; shareUrl: string }> {
+  public async generateShareToken(
+    userId: string,
+    userRole: string,
+    id: string,
+  ): Promise<{ shareToken: string; shareUrl: string }> {
     const existing = await this.repository.findById(id);
     if (!existing) {
       throw new NotFoundError(`Itinerary '${id}' not found`, 'ITINERARY_NOT_FOUND');
@@ -688,7 +709,10 @@ export class ItinerariesService {
     }
 
     if (itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to modify this itinerary', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to modify this itinerary',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     const date = dto.date ? new Date(dto.date) : null;
@@ -715,7 +739,10 @@ export class ItinerariesService {
     }
 
     if (day.itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to modify this day', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to modify this day',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     const date = dto.date !== undefined ? (dto.date ? new Date(dto.date) : null) : undefined;
@@ -741,7 +768,10 @@ export class ItinerariesService {
     }
 
     if (day.itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to delete this day', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to delete this day',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     await this.repository.deleteDayAndReindex(itineraryId, dayId);
@@ -764,7 +794,10 @@ export class ItinerariesService {
     }
 
     if (day.itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to add activities to this trip', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to add activities to this trip',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     // If destinationId provided, validate existence
@@ -774,7 +807,10 @@ export class ItinerariesService {
         select: { id: true, name: true, status: true },
       });
       if (!dest) {
-        throw new NotFoundError(`Destination '${dto.destinationId}' not found`, 'DESTINATION_NOT_FOUND');
+        throw new NotFoundError(
+          `Destination '${dto.destinationId}' not found`,
+          'DESTINATION_NOT_FOUND',
+        );
       }
     }
 
@@ -808,17 +844,29 @@ export class ItinerariesService {
     dto: UpdateActivityDto,
   ): Promise<ItineraryDto> {
     const activity = await this.repository.findActivityById(activityId);
-    if (!activity || activity.itineraryDayId !== dayId || activity.itineraryDay.itineraryId !== itineraryId) {
-      throw new NotFoundError(`Activity '${activityId}' not found in specified day`, 'ACTIVITY_NOT_FOUND');
+    if (
+      !activity ||
+      activity.itineraryDayId !== dayId ||
+      activity.itineraryDay.itineraryId !== itineraryId
+    ) {
+      throw new NotFoundError(
+        `Activity '${activityId}' not found in specified day`,
+        'ACTIVITY_NOT_FOUND',
+      );
     }
 
     if (activity.itineraryDay.itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to modify this activity', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to modify this activity',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     const customLocationStr =
       dto.customLocation !== undefined
-        ? dto.customLocation ? JSON.stringify(dto.customLocation) : null
+        ? dto.customLocation
+          ? JSON.stringify(dto.customLocation)
+          : null
         : undefined;
 
     await this.repository.updateActivity(activityId, {
@@ -834,7 +882,10 @@ export class ItinerariesService {
       isCompleted: dto.isCompleted,
     });
 
-    await this.recalculateDayRouteAndSchedule(dayId, activity.itineraryDay.itinerary.transportationMode);
+    await this.recalculateDayRouteAndSchedule(
+      dayId,
+      activity.itineraryDay.itinerary.transportationMode,
+    );
 
     const updated = await this.repository.findById(itineraryId);
     return this.mapToDto(updated as ItineraryWithRelations);
@@ -848,16 +899,29 @@ export class ItinerariesService {
     activityId: string,
   ): Promise<ItineraryDto> {
     const activity = await this.repository.findActivityById(activityId);
-    if (!activity || activity.itineraryDayId !== dayId || activity.itineraryDay.itineraryId !== itineraryId) {
-      throw new NotFoundError(`Activity '${activityId}' not found in specified day`, 'ACTIVITY_NOT_FOUND');
+    if (
+      !activity ||
+      activity.itineraryDayId !== dayId ||
+      activity.itineraryDay.itineraryId !== itineraryId
+    ) {
+      throw new NotFoundError(
+        `Activity '${activityId}' not found in specified day`,
+        'ACTIVITY_NOT_FOUND',
+      );
     }
 
     if (activity.itineraryDay.itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to delete this activity', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to delete this activity',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     await this.repository.deleteActivityAndReindex(dayId, activityId);
-    await this.recalculateDayRouteAndSchedule(dayId, activity.itineraryDay.itinerary.transportationMode);
+    await this.recalculateDayRouteAndSchedule(
+      dayId,
+      activity.itineraryDay.itinerary.transportationMode,
+    );
 
     const updated = await this.repository.findById(itineraryId);
     return this.mapToDto(updated as ItineraryWithRelations);
@@ -876,7 +940,10 @@ export class ItinerariesService {
     }
 
     if (day.itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to reorder activities in this trip', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to reorder activities in this trip',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     const dayItemIds = new Set(day.items.map((it) => it.id));
@@ -906,7 +973,10 @@ export class ItinerariesService {
     }
 
     if (itinerary.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to optimize this trip', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to optimize this trip',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     const targetDays = dto.dayId
@@ -1071,9 +1141,7 @@ export class ItinerariesService {
     return templates.map((t: any) => this.mapTemplateToDto(t));
   }
 
-  public async browseTemplates(
-    query: BrowseItineraryQuery,
-  ): Promise<BrowseTemplatesResponseDto> {
+  public async browseTemplates(query: BrowseItineraryQuery): Promise<BrowseTemplatesResponseDto> {
     const rawPage = Number(query.page);
     const rawLimit = Number(query.limit);
 
@@ -1187,7 +1255,9 @@ export class ItinerariesService {
           startTime: act.startTime,
           endTime: act.endTime,
           timeSlot:
-            act.startTime && act.endTime ? `${act.startTime} - ${act.endTime}` : act.timeSlot || null,
+            act.startTime && act.endTime
+              ? `${act.startTime} - ${act.endTime}`
+              : act.timeSlot || null,
           activityNotes: act.activityNotes,
           estimatedDurationMinutes: act.estimatedDurationMinutes,
           estimatedCost: Number(act.estimatedCost) || 0,
@@ -1240,8 +1310,16 @@ export class ItinerariesService {
       isFeatured: template.isFeatured,
       sortOrder: template.sortOrder,
       days: mappedDays,
-      createdAt: template.createdAt ? (template.createdAt instanceof Date ? template.createdAt.toISOString() : String(template.createdAt)) : new Date().toISOString(),
-      updatedAt: template.updatedAt ? (template.updatedAt instanceof Date ? template.updatedAt.toISOString() : String(template.updatedAt)) : new Date().toISOString(),
+      createdAt: template.createdAt
+        ? template.createdAt instanceof Date
+          ? template.createdAt.toISOString()
+          : String(template.createdAt)
+        : new Date().toISOString(),
+      updatedAt: template.updatedAt
+        ? template.updatedAt instanceof Date
+          ? template.updatedAt.toISOString()
+          : String(template.updatedAt)
+        : new Date().toISOString(),
     };
   }
 }

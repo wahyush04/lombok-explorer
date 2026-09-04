@@ -3,7 +3,12 @@ import { asyncHandler } from '../../common/utils/async-handler.util';
 import { ResponseUtil } from '../../common/utils/api-response.util';
 import { HttpStatus } from '../../common/constants';
 import { feedsService, FeedsService } from './feeds.service';
-import { CreatePostDto, FeedQueryDto, SearchDestinationQueryDto, UpdatePostDto } from './dto/feed-post.dto';
+import {
+  CreatePostDto,
+  FeedQueryDto,
+  SearchDestinationQueryDto,
+  UpdatePostDto,
+} from './dto/feed-post.dto';
 
 export class FeedsController {
   private readonly service: FeedsService;
@@ -16,7 +21,12 @@ export class FeedsController {
     res.setHeader('Vary', 'Authorization');
     const query = req.query as unknown as FeedQueryDto;
     const result = await this.service.getFeeds(query, req.user?.userId);
-    return ResponseUtil.sendSuccess(res, result, 'Feed posts retrieved successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      result,
+      'Feed posts retrieved successfully',
+      HttpStatus.OK,
+    );
   });
 
   public getUserPosts = asyncHandler(async (req: Request, res: Response) => {
@@ -24,14 +34,24 @@ export class FeedsController {
     const targetUserId = String(req.params.userId || req.params.id);
     const query = req.query as unknown as FeedQueryDto;
     const result = await this.service.getUserPosts(targetUserId, query, req.user?.userId);
-    return ResponseUtil.sendSuccess(res, result, 'User feed posts retrieved successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      result,
+      'User feed posts retrieved successfully',
+      HttpStatus.OK,
+    );
   });
 
   public getPostById = asyncHandler(async (req: Request, res: Response) => {
     res.setHeader('Vary', 'Authorization');
     const postId = String(req.params.id);
     const result = await this.service.getPostById(postId, req.user?.userId, req.user?.role);
-    return ResponseUtil.sendSuccess(res, result, 'Feed post detail retrieved successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      result,
+      'Feed post detail retrieved successfully',
+      HttpStatus.OK,
+    );
   });
 
   public createPost = asyncHandler(async (req: Request, res: Response) => {
@@ -61,7 +81,12 @@ export class FeedsController {
   public searchDestinations = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as SearchDestinationQueryDto;
     const result = await this.service.searchDestinations(query);
-    return ResponseUtil.sendSuccess(res, result, 'Destinations search completed successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      result,
+      'Destinations search completed successfully',
+      HttpStatus.OK,
+    );
   });
 
   public likePost = asyncHandler(async (req: Request, res: Response) => {
@@ -112,14 +137,24 @@ export class FeedsController {
     const userId = req.user!.userId;
     const postId = String(req.params.id);
     const result = await this.service.unbookmarkPost(userId, postId);
-    return ResponseUtil.sendSuccess(res, result, 'Post removed from bookmarks successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      result,
+      'Post removed from bookmarks successfully',
+      HttpStatus.OK,
+    );
   });
 
   public getUserBookmarks = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.userId;
     const query = req.query as unknown as import('./dto/feed-bookmark.dto').BookmarkQueryDto;
     const result = await this.service.getUserBookmarks(userId, query);
-    return ResponseUtil.sendSuccess(res, result, 'Bookmarked feeds retrieved successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      result,
+      'Bookmarked feeds retrieved successfully',
+      HttpStatus.OK,
+    );
   });
 
   public sharePost = asyncHandler(async (req: Request, res: Response) => {

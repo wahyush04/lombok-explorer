@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DifficultyLevel, LombokRegion, DestinationStatus } from '@prisma/client';
+import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const AdminDestinationFilterQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
@@ -83,8 +84,12 @@ export const CreateDestinationSchema = z.object({
   bestVisitingTime: z.string().optional().default('Pagi / Sore hari'),
   difficulty: z.nativeEnum(DifficultyLevel).optional().default(DifficultyLevel.EASY),
   tags: z.array(z.string()).optional().default([]),
+  coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().optional().default(''),
-  images: z.array(z.string()).optional().default([]),
+  images: z
+    .array(z.union([CloudinaryAssetInputSchema, z.string()]))
+    .optional()
+    .default([]),
   facilities: z.array(z.string()).optional().default([]),
   tips: z.array(z.string()).optional().default([]),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),

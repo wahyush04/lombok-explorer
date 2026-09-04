@@ -55,15 +55,16 @@ export const UploadImageQuerySchema = z.object({
 });
 export type UploadImageQuery = z.infer<typeof UploadImageQuerySchema>;
 
-export const DeleteMediaDtoSchema = z.object({
-  publicId: z.string().trim().optional(),
-  fileUrl: z.string().trim().optional(),
-}).refine((data) => Boolean(data.publicId || data.fileUrl), {
-  message: 'Either "publicId" or "fileUrl" must be provided for deletion',
-});
+export const DeleteMediaDtoSchema = z
+  .object({
+    publicId: z.string().trim().optional(),
+    fileUrl: z.string().trim().optional(),
+  })
+  .refine((data) => Boolean(data.publicId || data.fileUrl), {
+    message: 'Either "publicId" or "fileUrl" must be provided for deletion',
+  });
 export type DeleteMediaDto = z.infer<typeof DeleteMediaDtoSchema>;
 
 // Backward compatibility alias
 export const DeleteFileDtoSchema = DeleteMediaDtoSchema;
 export type DeleteFileDto = DeleteMediaDto;
-

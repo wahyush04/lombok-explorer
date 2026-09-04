@@ -1,6 +1,11 @@
 import { prisma } from '../../database/prisma';
 import { BadRequestError, ForbiddenError, NotFoundError } from '../../common/errors/app-error';
-import { CreatePostDto, FeedQueryDto, SearchDestinationQueryDto, UpdatePostDto } from './dto/feed-post.dto';
+import {
+  CreatePostDto,
+  FeedQueryDto,
+  SearchDestinationQueryDto,
+  UpdatePostDto,
+} from './dto/feed-post.dto';
 import { feedsRepository, FeedsRepository } from './feeds.repository';
 import { FeedsMapper, PrismaPostWithRelations } from './feeds.mapper';
 import { decodeCursor, encodeCursor } from './utils/cursor.util';
@@ -81,7 +86,11 @@ export class FeedsService {
   /**
    * Retrieves single post detail by ID.
    */
-  public async getPostById(postId: string, viewerUserId?: string, userRole?: string): Promise<FeedPostResponse> {
+  public async getPostById(
+    postId: string,
+    viewerUserId?: string,
+    userRole?: string,
+  ): Promise<FeedPostResponse> {
     const post = await this.repository.findById(postId);
     if (!post) {
       throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
@@ -106,7 +115,12 @@ export class FeedsService {
    * Creates a new feed post with verified Cloudinary image assets and atomic rollback cleanup.
    */
   public async createPost(userId: string, data: CreatePostDto): Promise<FeedPostResponse> {
-    let destinationSnapshot: { name: string; latitude: number; longitude: number; address?: string | null } | null = null;
+    let destinationSnapshot: {
+      name: string;
+      latitude: number;
+      longitude: number;
+      address?: string | null;
+    } | null = null;
     const destId = data.destinationId || data.location?.destinationId;
 
     const rawImages = data.images || data.media || [];
@@ -138,7 +152,10 @@ export class FeedsService {
       }
 
       if (rawImages.length === 0) {
-        throw new BadRequestError('At least one uploaded image is required to create a feed post', 'IMAGES_REQUIRED');
+        throw new BadRequestError(
+          'At least one uploaded image is required to create a feed post',
+          'IMAGES_REQUIRED',
+        );
       }
 
       const createdPost = await this.repository.createPost(userId, data, destinationSnapshot);
@@ -172,7 +189,10 @@ export class FeedsService {
 
     // Owner or Admin check
     if (existing.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to edit this post', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to edit this post',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     const rawImages = data.images !== undefined ? data.images : data.media;
@@ -197,7 +217,12 @@ export class FeedsService {
       removedPublicIds = existingPublicIds.filter((pid) => !newPublicIdsSet.has(pid));
     }
 
-    let destinationSnapshot: { name: string; latitude: number; longitude: number; address?: string | null } | null = null;
+    let destinationSnapshot: {
+      name: string;
+      latitude: number;
+      longitude: number;
+      address?: string | null;
+    } | null = null;
     const destId = data.destinationId || data.location?.destinationId;
 
     if (destId) {
@@ -240,7 +265,10 @@ export class FeedsService {
 
     // Owner or Admin check
     if (existing.userId !== userId && userRole !== 'ADMIN') {
-      throw new ForbiddenError('You do not have permission to delete this post', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to delete this post',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     // Collect all public IDs linked to this post before deletion
@@ -295,7 +323,10 @@ export class FeedsService {
   /**
    * Retrieves cursor-paginated comments for a post.
    */
-  public async getComments(postId: string, query: import('./dto/feed-comment.dto').CommentQueryDto) {
+  public async getComments(
+    postId: string,
+    query: import('./dto/feed-comment.dto').CommentQueryDto,
+  ) {
     // Verify post exists
     const post = await this.repository.findById(postId);
     if (!post) {
@@ -316,9 +347,11 @@ export class FeedsService {
     const lastItem = hasNextPage && items.length > 0 ? items[items.length - 1] : null;
     const nextCursor = lastItem ? encodeCursor(lastItem) : null;
 
-    const mappedItems = comments.slice(0, limit).map((comment: import('./feeds.mapper').PrismaCommentWithUser) =>
-      FeedsMapper.toCommentResponse(comment),
-    );
+    const mappedItems = comments
+      .slice(0, limit)
+      .map((comment: import('./feeds.mapper').PrismaCommentWithUser) =>
+        FeedsMapper.toCommentResponse(comment),
+      );
 
     return {
       items: mappedItems,
@@ -332,7 +365,11 @@ export class FeedsService {
   /**
    * Creates a new comment on a post.
    */
-  public async createComment(userId: string, postId: string, data: import('./dto/feed-comment.dto').CreateCommentDto) {
+  public async createComment(
+    userId: string,
+    postId: string,
+    data: import('./dto/feed-comment.dto').CreateCommentDto,
+  ) {
     try {
       const comment = await this.repository.createComment(userId, postId, data.content);
       return FeedsMapper.toCommentResponse(comment);
@@ -358,7 +395,10 @@ export class FeedsService {
     const isAdmin = userRole === 'ADMIN';
 
     if (!isCommentAuthor && !isPostOwner && !isAdmin) {
-      throw new ForbiddenError('You do not have permission to delete this comment', 'FORBIDDEN_RESOURCE');
+      throw new ForbiddenError(
+        'You do not have permission to delete this comment',
+        'FORBIDDEN_RESOURCE',
+      );
     }
 
     await this.repository.softDeleteComment(commentId, comment.postId);
@@ -395,7 +435,10 @@ export class FeedsService {
   /**
    * Retrieves cursor-paginated bookmarked posts of a user.
    */
-  public async getUserBookmarks(userId: string, query: import('./dto/feed-bookmark.dto').BookmarkQueryDto) {
+  public async getUserBookmarks(
+    userId: string,
+    query: import('./dto/feed-bookmark.dto').BookmarkQueryDto,
+  ) {
     const limit = Math.max(1, Math.min(50, Number(query.limit) || 20));
     const cursor = decodeCursor(query.cursor);
 
@@ -407,7 +450,9 @@ export class FeedsService {
     const hasNextPage = bookmarks.length > limit;
     const items = hasNextPage ? bookmarks.slice(0, limit) : bookmarks;
     const lastItem = hasNextPage && items.length > 0 ? items[items.length - 1] : null;
-    const nextCursor = lastItem ? encodeCursor({ createdAt: lastItem.createdAt.toISOString(), id: lastItem.id }) : null;
+    const nextCursor = lastItem
+      ? encodeCursor({ createdAt: lastItem.createdAt.toISOString(), id: lastItem.id })
+      : null;
 
     const postIds = items.map((b: { post: { id: string } }) => b.post.id);
     const interactionsMap = await this.repository.getUserInteractions(userId, postIds);
@@ -444,7 +489,11 @@ export class FeedsService {
   /**
    * Submits a report for a post.
    */
-  public async reportPost(userId: string, postId: string, data: import('./dto/feed-report.dto').CreateReportDto) {
+  public async reportPost(
+    userId: string,
+    postId: string,
+    data: import('./dto/feed-report.dto').CreateReportDto,
+  ) {
     try {
       const report = await this.repository.createReport(userId, postId, data);
       return {
@@ -464,4 +513,3 @@ export class FeedsService {
 }
 
 export const feedsService = new FeedsService();
-

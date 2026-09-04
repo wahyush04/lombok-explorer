@@ -29,12 +29,7 @@ router.patch(
 );
 
 // 4. Upload User Avatar (Authenticated, Cloudinary)
-router.post(
-  '/me/avatar',
-  authenticate,
-  uploadFlexibleSingleImage,
-  usersController.uploadAvatar,
-);
+router.post('/me/avatar', authenticate, uploadFlexibleSingleImage, usersController.uploadAvatar);
 
 // 4. Public Profile Feed Posts
 router.get(

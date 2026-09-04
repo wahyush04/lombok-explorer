@@ -122,10 +122,7 @@ export class AuthService {
     // 2. Check if username already exists
     const existingUsername = await this.repository.findByUsername(normalizedUsername);
     if (existingUsername) {
-      throw new ConflictError(
-        'Username is already taken',
-        'USERNAME_ALREADY_EXISTS',
-      );
+      throw new ConflictError('Username is already taken', 'USERNAME_ALREADY_EXISTS');
     }
 
     // 3. Hash password with bcrypt
@@ -567,10 +564,7 @@ export class AuthService {
         });
 
         if (existingUsername) {
-          throw new ConflictError(
-            'Username is already taken',
-            'USERNAME_ALREADY_EXISTS',
-          );
+          throw new ConflictError('Username is already taken', 'USERNAME_ALREADY_EXISTS');
         }
 
         // Check if Google identity is already linked
@@ -634,10 +628,7 @@ export class AuthService {
       if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
         const target = String((err.meta as { target?: string[] | string })?.target || '');
         if (target.includes('username')) {
-          throw new ConflictError(
-            'Username is already taken',
-            'USERNAME_ALREADY_EXISTS',
-          );
+          throw new ConflictError('Username is already taken', 'USERNAME_ALREADY_EXISTS');
         }
         if (target.includes('providerAccountId') || target.includes('provider')) {
           throw new ConflictError(

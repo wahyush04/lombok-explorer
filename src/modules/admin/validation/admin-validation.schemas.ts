@@ -8,6 +8,7 @@ import {
   UserStatus,
   TravelStyle,
 } from '@prisma/client';
+import { CloudinaryAssetInputSchema } from '../uploads/dto/admin-uploads.dto';
 
 // ==========================================
 // 1. GENERIC PARAMS & PAGINATION SCHEMAS
@@ -103,7 +104,12 @@ export const createDestinationSchema = z.object({
     .union([z.array(z.string()), z.string()])
     .optional()
     .default([]),
+  coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().trim().optional().default(''),
+  images: z
+    .array(z.union([CloudinaryAssetInputSchema, z.string()]))
+    .optional()
+    .default([]),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().optional().default(false),
 });
@@ -131,6 +137,7 @@ export const createCategorySchema = z.object({
   slug: z.string().trim().optional(),
   description: z.string().trim().min(5, 'Description must be at least 5 characters'),
   iconName: z.string().trim().min(1, 'Icon name is required'),
+  coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().trim().optional().default(''),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),
 });
@@ -154,6 +161,7 @@ export const updateUserSchema = z.object({
   role: z.nativeEnum(UserRole).optional(),
   status: z.nativeEnum(UserStatus).optional(),
   phone: z.string().trim().nullable().optional(),
+  avatar: CloudinaryAssetInputSchema.optional(),
   avatarUrl: z.string().trim().url().nullable().optional(),
   travelStyle: z.nativeEnum(TravelStyle).nullable().optional(),
   preferredRegion: z.nativeEnum(LombokRegion).nullable().optional(),

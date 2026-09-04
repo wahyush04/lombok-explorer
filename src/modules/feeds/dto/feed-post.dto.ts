@@ -1,7 +1,10 @@
 import { z } from 'zod';
 
 export const PostLocationInputSchema = z.object({
-  name: z.string({ required_error: 'Location name is required' }).min(1, 'Location name cannot be empty').max(150),
+  name: z
+    .string({ required_error: 'Location name is required' })
+    .min(1, 'Location name cannot be empty')
+    .max(150),
   latitude: z.number({ required_error: 'Latitude is required' }).min(-90).max(90),
   longitude: z.number({ required_error: 'Longitude is required' }).min(-180).max(180),
   address: z.string().max(300).optional(),
@@ -39,7 +42,10 @@ export const CreatePostDtoSchema = z
     destinationId: z.string().optional(),
     location: PostLocationInputSchema.optional(),
     images: z.array(PostImageInputSchema).max(10, 'Maximum 10 images allowed per post').optional(),
-    media: z.array(PostImageInputSchema).max(10, 'Maximum 10 media items allowed per post').optional(),
+    media: z
+      .array(PostImageInputSchema)
+      .max(10, 'Maximum 10 media items allowed per post')
+      .optional(),
   })
   .refine(
     (data) => {
@@ -47,30 +53,47 @@ export const CreatePostDtoSchema = z
       const hasDest = Boolean(data.destinationId || data.location?.destinationId);
       const hasLoc = Boolean(
         data.location &&
-          data.location.name &&
-          typeof data.location.latitude === 'number' &&
-          typeof data.location.longitude === 'number',
+        data.location.name &&
+        typeof data.location.latitude === 'number' &&
+        typeof data.location.longitude === 'number',
       );
       return hasDest || hasLoc;
     },
     {
-      message: 'Either destinationId or custom location (name, latitude, longitude) must be provided',
+      message:
+        'Either destinationId or custom location (name, latitude, longitude) must be provided',
       path: ['location'],
     },
   );
 
 export const UpdatePostDtoSchema = z.object({
-  title: z.string().min(2, 'Title must be at least 2 characters').max(150, 'Title must not exceed 150 characters').optional(),
-  description: z.string().min(2, 'Description must be at least 2 characters').max(5000, 'Description must not exceed 5000 characters').optional(),
+  title: z
+    .string()
+    .min(2, 'Title must be at least 2 characters')
+    .max(150, 'Title must not exceed 150 characters')
+    .optional(),
+  description: z
+    .string()
+    .min(2, 'Description must be at least 2 characters')
+    .max(5000, 'Description must not exceed 5000 characters')
+    .optional(),
   destinationId: z.string().nullable().optional(),
   location: PostLocationInputSchema.nullable().optional(),
   images: z.array(PostImageInputSchema).max(10, 'Maximum 10 images allowed per post').optional(),
-  media: z.array(PostImageInputSchema).max(10, 'Maximum 10 media items allowed per post').optional(),
+  media: z
+    .array(PostImageInputSchema)
+    .max(10, 'Maximum 10 media items allowed per post')
+    .optional(),
 });
 
 export const FeedQueryDtoSchema = z.object({
   cursor: z.string().optional(),
-  limit: z.coerce.number().int().min(1, 'Limit must be at least 1').max(50, 'Limit cannot exceed 50').default(20),
+  limit: z.coerce
+    .number()
+    .int()
+    .min(1, 'Limit must be at least 1')
+    .max(50, 'Limit cannot exceed 50')
+    .default(20),
   destinationId: z.string().optional(),
   userId: z.string().optional(),
 });

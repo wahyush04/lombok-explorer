@@ -9,11 +9,15 @@ import {
   CreateAccommodationDto,
   UpdateAccommodationDto,
 } from './dto/admin-accommodation.dto';
-import { ConflictError, NotFoundError } from '../../../common/errors/app-error';
+import { BadRequestError, ConflictError, NotFoundError } from '../../../common/errors/app-error';
+import { cloudinaryService, CloudinaryService } from '../../cloudinary/cloudinary.service';
+import { logger } from '../../../common/utils/logger';
+import { CloudinaryAssetInput } from '../uploads/dto/admin-uploads.dto';
 
 export class AdminAccommodationsService {
   constructor(
     private readonly repository: AdminAccommodationsRepository = adminAccommodationsRepository,
+    private readonly cloudinary: CloudinaryService = cloudinaryService,
   ) {}
 
   public mapToDto = (accommodation: Accommodation): AdminAccommodationDto => {
@@ -50,6 +54,7 @@ export class AdminAccommodationsService {
       latitude: accommodation.latitude,
       longitude: accommodation.longitude,
       coverImageUrl: accommodation.coverImageUrl,
+      coverImagePublicId: accommodation.coverImagePublicId,
       images: parsedImages,
       facilities: parsedAmenities,
       amenities: parsedAmenities,
@@ -113,41 +118,98 @@ export class AdminAccommodationsService {
       );
     }
 
+    // 2. Resolve cover image & public ID
+    let coverImageUrl = dto.coverImageUrl || '';
+    let coverImagePublicId: string | null = null;
+    const newPublicIds: string[] = [];
+
+    if (dto.coverImage && typeof dto.coverImage === 'object') {
+      coverImageUrl = dto.coverImage.secureUrl;
+      coverImagePublicId = dto.coverImage.publicId;
+      if (adminUserId && coverImagePublicId) {
+        this.cloudinary.validateAdminAssetOwnership(
+          coverImagePublicId,
+          adminUserId,
+          'ACCOMMODATION',
+        );
+        newPublicIds.push(coverImagePublicId);
+      }
+    }
+
+    if (!coverImageUrl) {
+      throw new BadRequestError('Cover image is required', 'COVER_IMAGE_REQUIRED');
+    }
+
+    // 3. Resolve gallery images
+    const imagesList: string[] = [];
+    if (Array.isArray(dto.images) && dto.images.length > 0) {
+      dto.images.forEach((item) => {
+        if (typeof item === 'object' && item !== null) {
+          const asset = item as CloudinaryAssetInput;
+          if (asset.publicId) {
+            if (adminUserId) {
+              this.cloudinary.validateAdminAssetOwnership(
+                asset.publicId,
+                adminUserId,
+                'ACCOMMODATION',
+              );
+            }
+            newPublicIds.push(asset.publicId);
+          }
+          imagesList.push(asset.secureUrl);
+        } else if (typeof item === 'string' && item.trim().length > 0) {
+          imagesList.push(item.trim());
+        }
+      });
+    }
+
     const amenitiesList = dto.facilities || dto.amenities || [];
 
-    // 2. Create accommodation
-    const created = await this.repository.create({
-      name: dto.name,
-      slug,
-      type: dto.type,
-      description: dto.description,
-      pricePerNight: dto.pricePerNight,
-      currency: dto.currency || 'IDR',
-      address: dto.address,
-      region: dto.region,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
-      coverImageUrl: dto.coverImageUrl,
-      images: JSON.stringify(dto.images || []),
-      amenities: JSON.stringify(amenitiesList),
-      contactPhone: dto.contactPhone || null,
-      websiteUrl: dto.websiteUrl || null,
-      status: dto.status,
-      isFeatured: dto.isFeatured,
-    });
+    try {
+      // 4. Create accommodation
+      const created = await this.repository.create({
+        name: dto.name,
+        slug,
+        type: dto.type,
+        description: dto.description,
+        pricePerNight: dto.pricePerNight,
+        currency: dto.currency || 'IDR',
+        address: dto.address,
+        region: dto.region,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        coverImageUrl,
+        coverImagePublicId,
+        images: JSON.stringify(imagesList),
+        amenities: JSON.stringify(amenitiesList),
+        contactPhone: dto.contactPhone || null,
+        websiteUrl: dto.websiteUrl || null,
+        status: dto.status,
+        isFeatured: dto.isFeatured,
+      });
 
-    // 3. Audit log
-    await this.repository.createAuditLog({
-      userId: adminUserId,
-      action: 'CREATE_ACCOMMODATION',
-      entity: 'Accommodation',
-      entityId: created.id,
-      details: JSON.stringify({ name: created.name, slug: created.slug }),
-      ipAddress,
-      userAgent,
-    });
+      // 5. Audit log
+      await this.repository.createAuditLog({
+        userId: adminUserId,
+        action: 'CREATE_ACCOMMODATION',
+        entity: 'Accommodation',
+        entityId: created.id,
+        details: JSON.stringify({ name: created.name, slug: created.slug }),
+        ipAddress,
+        userAgent,
+      });
 
-    return this.mapToDto(created);
+      return this.mapToDto(created);
+    } catch (error) {
+      if (newPublicIds.length > 0) {
+        logger.warn(
+          { newPublicIds, error },
+          'Rolling back Cloudinary assets due to Accommodation create failure',
+        );
+        await this.cloudinary.deleteMultipleAssets(newPublicIds).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   public async updateAccommodation(
@@ -180,40 +242,113 @@ export class AdminAccommodationsService {
       }
     }
 
+    // Resolve cover image & public ID
+    let coverImageUrlToUpdate: string | undefined = undefined;
+    let coverImagePublicIdToUpdate: string | null | undefined = undefined;
+    const newPublicIds: string[] = [];
+
+    if (dto.coverImage && typeof dto.coverImage === 'object') {
+      coverImageUrlToUpdate = dto.coverImage.secureUrl;
+      coverImagePublicIdToUpdate = dto.coverImage.publicId;
+      if (adminUserId && coverImagePublicIdToUpdate) {
+        this.cloudinary.validateAdminAssetOwnership(
+          coverImagePublicIdToUpdate,
+          adminUserId,
+          'ACCOMMODATION',
+        );
+        newPublicIds.push(coverImagePublicIdToUpdate);
+      }
+    } else if (dto.coverImageUrl !== undefined) {
+      coverImageUrlToUpdate = dto.coverImageUrl;
+    }
+
+    // Resolve gallery images
+    let imagesJsonToUpdate: string | undefined = undefined;
+    if (Array.isArray(dto.images)) {
+      const imagesList: string[] = [];
+      dto.images.forEach((item) => {
+        if (typeof item === 'object' && item !== null) {
+          const asset = item as CloudinaryAssetInput;
+          if (asset.publicId) {
+            if (adminUserId) {
+              this.cloudinary.validateAdminAssetOwnership(
+                asset.publicId,
+                adminUserId,
+                'ACCOMMODATION',
+              );
+            }
+            newPublicIds.push(asset.publicId);
+          }
+          imagesList.push(asset.secureUrl);
+        } else if (typeof item === 'string' && item.trim().length > 0) {
+          imagesList.push(item.trim());
+        }
+      });
+      imagesJsonToUpdate = JSON.stringify(imagesList);
+    }
+
     const amenitiesList = dto.facilities || dto.amenities;
 
-    const updated = await this.repository.update(existing.id, {
-      ...(dto.name && { name: dto.name }),
-      ...(slug && { slug }),
-      ...(dto.type && { type: dto.type }),
-      ...(dto.description && { description: dto.description }),
-      ...(dto.pricePerNight !== undefined && { pricePerNight: dto.pricePerNight }),
-      ...(dto.currency && { currency: dto.currency }),
-      ...(dto.address && { address: dto.address }),
-      ...(dto.region && { region: dto.region }),
-      ...(dto.latitude !== undefined && { latitude: dto.latitude }),
-      ...(dto.longitude !== undefined && { longitude: dto.longitude }),
-      ...(dto.coverImageUrl && { coverImageUrl: dto.coverImageUrl }),
-      ...(dto.images && { images: JSON.stringify(dto.images) }),
-      ...(amenitiesList && { amenities: JSON.stringify(amenitiesList) }),
-      ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone }),
-      ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),
-      ...(dto.status && { status: dto.status }),
-      ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
-    });
+    try {
+      const updated = await this.repository.update(existing.id, {
+        ...(dto.name && { name: dto.name }),
+        ...(slug && { slug }),
+        ...(dto.type && { type: dto.type }),
+        ...(dto.description && { description: dto.description }),
+        ...(dto.pricePerNight !== undefined && { pricePerNight: dto.pricePerNight }),
+        ...(dto.currency && { currency: dto.currency }),
+        ...(dto.address && { address: dto.address }),
+        ...(dto.region && { region: dto.region }),
+        ...(dto.latitude !== undefined && { latitude: dto.latitude }),
+        ...(dto.longitude !== undefined && { longitude: dto.longitude }),
+        ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
+        ...(coverImagePublicIdToUpdate !== undefined && {
+          coverImagePublicId: coverImagePublicIdToUpdate,
+        }),
+        ...(imagesJsonToUpdate !== undefined && { images: imagesJsonToUpdate }),
+        ...(amenitiesList && { amenities: JSON.stringify(amenitiesList) }),
+        ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone }),
+        ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),
+        ...(dto.status && { status: dto.status }),
+        ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+      });
 
-    // Audit log
-    await this.repository.createAuditLog({
-      userId: adminUserId,
-      action: 'UPDATE_ACCOMMODATION',
-      entity: 'Accommodation',
-      entityId: updated.id,
-      details: JSON.stringify({ changes: dto }),
-      ipAddress,
-      userAgent,
-    });
+      // Post-commit cleanup of old cover asset if replaced
+      if (
+        coverImagePublicIdToUpdate &&
+        existing.coverImagePublicId &&
+        existing.coverImagePublicId !== coverImagePublicIdToUpdate
+      ) {
+        this.cloudinary.deleteAsset(existing.coverImagePublicId).catch((err) => {
+          logger.warn(
+            { err, oldPublicId: existing.coverImagePublicId },
+            'Failed to delete replaced accommodation cover asset',
+          );
+        });
+      }
 
-    return this.mapToDto(updated);
+      // Audit log
+      await this.repository.createAuditLog({
+        userId: adminUserId,
+        action: 'UPDATE_ACCOMMODATION',
+        entity: 'Accommodation',
+        entityId: updated.id,
+        details: JSON.stringify({ changes: dto }),
+        ipAddress,
+        userAgent,
+      });
+
+      return this.mapToDto(updated);
+    } catch (error) {
+      if (newPublicIds.length > 0) {
+        logger.warn(
+          { newPublicIds, error },
+          'Rolling back Cloudinary assets due to Accommodation update failure',
+        );
+        await this.cloudinary.deleteMultipleAssets(newPublicIds).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   public async updateAccommodationStatus(
@@ -261,6 +396,9 @@ export class AdminAccommodationsService {
 
     if (hard) {
       await this.repository.hardDelete(existing.id);
+      if (existing.coverImagePublicId) {
+        this.cloudinary.deleteAsset(existing.coverImagePublicId).catch(() => {});
+      }
     } else {
       await this.repository.softDelete(existing.id);
     }

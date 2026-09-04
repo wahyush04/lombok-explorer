@@ -15,9 +15,14 @@ import { ConflictError, NotFoundError } from '../../../common/errors/app-error';
 import { categoriesService } from '../../categories/categories.service';
 import { destinationsService } from '../../destinations/destinations.service';
 import { PaginationMeta } from '../../../common/types';
+import { cloudinaryService, CloudinaryService } from '../../cloudinary/cloudinary.service';
+import { logger } from '../../../common/utils/logger';
 
 export class AdminCategoriesService {
-  constructor(private readonly repository: AdminCategoriesRepository = adminCategoriesRepository) {}
+  constructor(
+    private readonly repository: AdminCategoriesRepository = adminCategoriesRepository,
+    private readonly cloudinary: CloudinaryService = cloudinaryService,
+  ) {}
 
   public slugify(text: string): string {
     return text
@@ -36,6 +41,7 @@ export class AdminCategoriesService {
       description: category.description,
       iconName: category.iconName,
       coverImageUrl: category.coverImageUrl,
+      coverImagePublicId: category.coverImagePublicId,
       status: category.status ?? DestinationStatus.PUBLISHED,
       destinationsCount: category._count?.destinations ?? 0,
       createdAt: category.createdAt,
@@ -101,31 +107,55 @@ export class AdminCategoriesService {
       );
     }
 
-    // 3. Create Category
-    const created = await this.repository.create({
-      name: dto.name.trim(),
-      slug,
-      description: dto.description.trim(),
-      iconName: dto.iconName.trim(),
-      coverImageUrl: dto.coverImageUrl || '',
-      status: dto.status ?? DestinationStatus.PUBLISHED,
-    });
+    // 3. Resolve cover image & public ID
+    let coverImageUrl = dto.coverImageUrl || '';
+    let coverImagePublicId: string | null = null;
 
-    // Invalidate public categories cache
-    categoriesService.clearCache();
+    if (dto.coverImage && typeof dto.coverImage === 'object') {
+      coverImageUrl = dto.coverImage.secureUrl;
+      coverImagePublicId = dto.coverImage.publicId;
+      if (adminUserId && coverImagePublicId) {
+        this.cloudinary.validateAdminAssetOwnership(coverImagePublicId, adminUserId, 'CATEGORY');
+      }
+    }
 
-    // Audit Log
-    await this.repository.createAuditLog({
-      userId: adminUserId,
-      action: 'CREATE_CATEGORY',
-      entity: 'Category',
-      entityId: created.id,
-      details: JSON.stringify({ name: created.name, slug: created.slug }),
-      ipAddress,
-      userAgent,
-    });
+    try {
+      // 4. Create Category
+      const created = await this.repository.create({
+        name: dto.name.trim(),
+        slug,
+        description: dto.description.trim(),
+        iconName: dto.iconName.trim(),
+        coverImageUrl,
+        coverImagePublicId,
+        status: dto.status ?? DestinationStatus.PUBLISHED,
+      });
 
-    return this.mapToAdminDto(created);
+      // Invalidate public categories cache
+      categoriesService.clearCache();
+
+      // Audit Log
+      await this.repository.createAuditLog({
+        userId: adminUserId,
+        action: 'CREATE_CATEGORY',
+        entity: 'Category',
+        entityId: created.id,
+        details: JSON.stringify({ name: created.name, slug: created.slug }),
+        ipAddress,
+        userAgent,
+      });
+
+      return this.mapToAdminDto(created);
+    } catch (error) {
+      if (coverImagePublicId) {
+        logger.warn(
+          { coverImagePublicId, error },
+          'Rolling back Cloudinary asset due to Category create failure',
+        );
+        await this.cloudinary.deleteAsset(coverImagePublicId).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   public async updateCategory(
@@ -166,32 +196,76 @@ export class AdminCategoriesService {
       slugToUpdate = formattedSlug;
     }
 
-    // 4. Update Category
-    const updated = await this.repository.update(category.id, {
-      ...(dto.name && { name: dto.name }),
-      ...(slugToUpdate && { slug: slugToUpdate }),
-      ...(dto.description && { description: dto.description }),
-      ...(dto.iconName && { iconName: dto.iconName }),
-      ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
-      ...(dto.status && { status: dto.status }),
-    });
+    // 4. Resolve cover image
+    let coverImageUrlToUpdate: string | undefined = undefined;
+    let coverImagePublicIdToUpdate: string | null | undefined = undefined;
+    let newPublicId: string | null = null;
 
-    // Invalidate public categories and destinations caches
-    categoriesService.clearCache();
-    destinationsService.clearCache();
+    if (dto.coverImage && typeof dto.coverImage === 'object') {
+      coverImageUrlToUpdate = dto.coverImage.secureUrl;
+      coverImagePublicIdToUpdate = dto.coverImage.publicId;
+      newPublicId = dto.coverImage.publicId;
+      if (adminUserId && newPublicId) {
+        this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'CATEGORY');
+      }
+    } else if (dto.coverImageUrl !== undefined) {
+      coverImageUrlToUpdate = dto.coverImageUrl;
+    }
 
-    // Audit Log
-    await this.repository.createAuditLog({
-      userId: adminUserId,
-      action: 'UPDATE_CATEGORY',
-      entity: 'Category',
-      entityId: updated.id,
-      details: JSON.stringify({ name: updated.name, changes: Object.keys(dto) }),
-      ipAddress,
-      userAgent,
-    });
+    try {
+      // 5. Update Category
+      const updated = await this.repository.update(category.id, {
+        ...(dto.name && { name: dto.name }),
+        ...(slugToUpdate && { slug: slugToUpdate }),
+        ...(dto.description && { description: dto.description }),
+        ...(dto.iconName && { iconName: dto.iconName }),
+        ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
+        ...(coverImagePublicIdToUpdate !== undefined && {
+          coverImagePublicId: coverImagePublicIdToUpdate,
+        }),
+        ...(dto.status && { status: dto.status }),
+      });
 
-    return this.mapToAdminDto(updated);
+      // Clean up old cover asset if replaced post-commit
+      if (
+        newPublicId &&
+        category.coverImagePublicId &&
+        category.coverImagePublicId !== newPublicId
+      ) {
+        this.cloudinary.deleteAsset(category.coverImagePublicId).catch((err) => {
+          logger.warn(
+            { err, oldPublicId: category.coverImagePublicId },
+            'Failed to delete replaced category cover asset',
+          );
+        });
+      }
+
+      // Invalidate public categories and destinations caches
+      categoriesService.clearCache();
+      destinationsService.clearCache();
+
+      // Audit Log
+      await this.repository.createAuditLog({
+        userId: adminUserId,
+        action: 'UPDATE_CATEGORY',
+        entity: 'Category',
+        entityId: updated.id,
+        details: JSON.stringify({ name: updated.name, changes: Object.keys(dto) }),
+        ipAddress,
+        userAgent,
+      });
+
+      return this.mapToAdminDto(updated);
+    } catch (error) {
+      if (newPublicId) {
+        logger.warn(
+          { newPublicId, error },
+          'Rolling back Cloudinary asset due to Category update failure',
+        );
+        await this.cloudinary.deleteAsset(newPublicId).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   public async updateCategoryStatus(
@@ -274,6 +348,9 @@ export class AdminCategoriesService {
     // 3. Delete Category (hard or soft)
     if (query.force) {
       await this.repository.hardDelete(category.id);
+      if (category.coverImagePublicId) {
+        this.cloudinary.deleteAsset(category.coverImagePublicId).catch(() => {});
+      }
     } else {
       await this.repository.softDelete(category.id);
     }

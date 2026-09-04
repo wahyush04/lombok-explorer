@@ -82,4 +82,3 @@ export const feedActionLimiter: RateLimitRequestHandler = rateLimit({
     errorCode: 'TOO_MANY_REQUESTS',
   },
 });
-

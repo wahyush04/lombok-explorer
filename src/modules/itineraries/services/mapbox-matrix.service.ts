@@ -85,7 +85,10 @@ export class MapboxMatrixService implements IMapboxMatrixService {
   /**
    * Internal fallback matrix calculator using Haversine formulas.
    */
-  public calculateFallbackMatrix(coordinates: GeoCoordinate[], mode: TransportationMode = 'CAR'): MatrixResult {
+  public calculateFallbackMatrix(
+    coordinates: GeoCoordinate[],
+    mode: TransportationMode = 'CAR',
+  ): MatrixResult {
     const n = coordinates.length;
     const distancesKm: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
     const durationsMinutes: number[][] = Array.from({ length: n }, () => Array(n).fill(0));
@@ -137,9 +140,7 @@ export class MapboxMatrixService implements IMapboxMatrixService {
 
     try {
       const profile = this.getMapboxProfile(mode);
-      const coordString = coordinates
-        .map((c) => `${c.longitude},${c.latitude}`)
-        .join(';');
+      const coordString = coordinates.map((c) => `${c.longitude},${c.latitude}`).join(';');
 
       const url = `https://api.mapbox.com/directions-matrix/v1/${profile}/${coordString}?annotations=distance,duration&access_token=${this.token}`;
 

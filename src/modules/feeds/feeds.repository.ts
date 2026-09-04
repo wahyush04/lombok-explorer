@@ -48,7 +48,12 @@ export class FeedsRepository {
   public async createPost(
     userId: string,
     data: CreatePostDto,
-    destinationSnapshot?: { name: string; latitude: number; longitude: number; address?: string | null } | null,
+    destinationSnapshot?: {
+      name: string;
+      latitude: number;
+      longitude: number;
+      address?: string | null;
+    } | null,
   ): Promise<PrismaPostWithRelations> {
     return prisma.$transaction(async (tx) => {
       // Determine location snapshot fields
@@ -117,7 +122,10 @@ export class FeedsRepository {
   /**
    * Finds a single post by ID.
    */
-  public async findById(id: string, includeDeleted = false): Promise<PrismaPostWithRelations | null> {
+  public async findById(
+    id: string,
+    includeDeleted = false,
+  ): Promise<PrismaPostWithRelations | null> {
     const post = await prisma.post.findFirst({
       where: {
         id,
@@ -173,10 +181,7 @@ export class FeedsRepository {
 
     const posts = await prisma.post.findMany({
       where,
-      orderBy: [
-        { createdAt: 'desc' },
-        { id: 'desc' },
-      ],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1, // Fetch limit + 1 to detect if next page exists
       include: this.defaultPostInclude,
     });
@@ -190,7 +195,12 @@ export class FeedsRepository {
   public async updatePost(
     id: string,
     data: UpdatePostDto,
-    destinationSnapshot?: { name: string; latitude: number; longitude: number; address?: string | null } | null,
+    destinationSnapshot?: {
+      name: string;
+      latitude: number;
+      longitude: number;
+      address?: string | null;
+    } | null,
   ): Promise<PrismaPostWithRelations> {
     return prisma.$transaction(async (tx) => {
       // 1. Prepare base update data
@@ -380,7 +390,10 @@ export class FeedsRepository {
   /**
    * Adds like to post atomically and increments likeCount.
    */
-  public async addLike(userId: string, postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+  public async addLike(
+    userId: string,
+    postId: string,
+  ): Promise<{ isLiked: boolean; likeCount: number }> {
     return prisma.$transaction(async (tx) => {
       const post = await tx.post.findFirst({
         where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
@@ -418,7 +431,10 @@ export class FeedsRepository {
   /**
    * Removes like from post atomically and decrements likeCount.
    */
-  public async removeLike(userId: string, postId: string): Promise<{ isLiked: boolean; likeCount: number }> {
+  public async removeLike(
+    userId: string,
+    postId: string,
+  ): Promise<{ isLiked: boolean; likeCount: number }> {
     return prisma.$transaction(async (tx) => {
       const post = await tx.post.findFirst({
         where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
@@ -578,10 +594,7 @@ export class FeedsRepository {
 
     return prisma.postComment.findMany({
       where,
-      orderBy: [
-        { createdAt: orderDirection },
-        { id: orderDirection },
-      ],
+      orderBy: [{ createdAt: orderDirection }, { id: orderDirection }],
       take: limit + 1,
       include: {
         user: {
@@ -707,10 +720,7 @@ export class FeedsRepository {
 
     return prisma.postBookmark.findMany({
       where,
-      orderBy: [
-        { createdAt: 'desc' },
-        { id: 'desc' },
-      ],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       include: {
         post: {
@@ -790,4 +800,3 @@ export class FeedsRepository {
 }
 
 export const feedsRepository = new FeedsRepository();
-

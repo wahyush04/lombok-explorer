@@ -163,7 +163,14 @@ export class ItinerariesController {
     const userId = req.user!.userId;
     const userRole = req.user!.role;
     const dto = req.body as UpdateActivityDto;
-    const data = await this.service.updateActivity(userId, userRole, itineraryId, dayId, activityId, dto);
+    const data = await this.service.updateActivity(
+      userId,
+      userRole,
+      itineraryId,
+      dayId,
+      activityId,
+      dto,
+    );
     return ResponseUtil.sendSuccess(res, data, 'Stop activity updated successfully');
   });
 
@@ -173,8 +180,18 @@ export class ItinerariesController {
     const activityId = String(req.params.activityId);
     const userId = req.user!.userId;
     const userRole = req.user!.role;
-    const data = await this.service.deleteActivity(userId, userRole, itineraryId, dayId, activityId);
-    return ResponseUtil.sendSuccess(res, data, 'Stop activity deleted and route recalculation completed');
+    const data = await this.service.deleteActivity(
+      userId,
+      userRole,
+      itineraryId,
+      dayId,
+      activityId,
+    );
+    return ResponseUtil.sendSuccess(
+      res,
+      data,
+      'Stop activity deleted and route recalculation completed',
+    );
   });
 
   public reorderActivities = asyncHandler(async (req: Request, res: Response) => {
@@ -184,7 +201,11 @@ export class ItinerariesController {
     const userRole = req.user!.role;
     const dto = req.body as ReorderActivitiesDto;
     const data = await this.service.reorderActivities(userId, userRole, itineraryId, dayId, dto);
-    return ResponseUtil.sendSuccess(res, data, 'Stop activities reordered and route recalculation completed');
+    return ResponseUtil.sendSuccess(
+      res,
+      data,
+      'Stop activities reordered and route recalculation completed',
+    );
   });
 
   // --- ROUTE OPTIMIZATION ---

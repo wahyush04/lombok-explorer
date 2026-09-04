@@ -238,7 +238,9 @@ export class ItinerariesRepository {
           },
         });
 
-        const items = Array.isArray(dayData.items) ? (dayData.items as Record<string, unknown>[]) : [];
+        const items = Array.isArray(dayData.items)
+          ? (dayData.items as Record<string, unknown>[])
+          : [];
         for (const [itemIdx, item] of items.entries()) {
           const customLocationStr = item.customLocation
             ? typeof item.customLocation === 'string'
@@ -557,7 +559,11 @@ export class ItinerariesRepository {
 
   public async updateItineraryTotals(
     itineraryId: string,
-    totals: { totalDistanceKm: number; totalTravelTimeMinutes: number; totalEstimatedBudget: number },
+    totals: {
+      totalDistanceKm: number;
+      totalTravelTimeMinutes: number;
+      totalEstimatedBudget: number;
+    },
   ) {
     return prisma.itinerary.update({
       where: { id: itineraryId },
@@ -696,8 +702,10 @@ export class ItinerariesRepository {
     query?: string;
     q?: string;
     search?: string;
-    duration_filter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
-    durationFilter?: 'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
+    duration_filter?:
+      'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
+    durationFilter?:
+      'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
     travel_style?: TravelStyle;
     travelStyle?: TravelStyle;
     budget_level?: BudgetLevel;
@@ -921,4 +929,3 @@ export class ItinerariesRepository {
 }
 
 export const itinerariesRepository = new ItinerariesRepository();
-

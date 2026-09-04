@@ -67,7 +67,10 @@ export class StorageService {
    */
   public async deleteImage(publicIdOrUrl: string): Promise<boolean> {
     if (!publicIdOrUrl) {
-      throw new BadRequestError('Image publicId or URL is required for deletion', 'INVALID_FILE_PARAM');
+      throw new BadRequestError(
+        'Image publicId or URL is required for deletion',
+        'INVALID_FILE_PARAM',
+      );
     }
 
     return this.provider.deleteFile(publicIdOrUrl);
@@ -99,10 +102,7 @@ export class StorageService {
   // Backward compatibility alias methods
   // =========================================================================
 
-  public async uploadFile(
-    file: UploadFileInput,
-    subfolder?: string,
-  ): Promise<StoredMediaDto> {
+  public async uploadFile(file: UploadFileInput, subfolder?: string): Promise<StoredMediaDto> {
     return this.uploadImage(file, subfolder);
   }
 

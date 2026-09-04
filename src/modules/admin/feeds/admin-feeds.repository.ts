@@ -158,7 +158,10 @@ export class AdminFeedsRepository {
     });
   }
 
-  public async updatePostStatus(postId: string, status: 'DRAFT' | 'PUBLISHED' | 'HIDDEN' | 'DELETED') {
+  public async updatePostStatus(
+    postId: string,
+    status: 'DRAFT' | 'PUBLISHED' | 'HIDDEN' | 'DELETED',
+  ) {
     const isDeleted = status === 'DELETED';
 
     return prisma.post.update({

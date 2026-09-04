@@ -37,7 +37,11 @@ export const ItineraryDayInputSchema = z.object({
 });
 
 export const CreateItineraryDtoSchema = z.object({
-  title: z.string({ required_error: 'Title is required' }).trim().min(2, 'Itinerary title must be at least 2 characters').max(200),
+  title: z
+    .string({ required_error: 'Title is required' })
+    .trim()
+    .min(2, 'Itinerary title must be at least 2 characters')
+    .max(200),
   description: z.string().trim().max(2000).optional().nullable(),
   daysCount: z.coerce.number().int().min(1).max(30).optional(),
   totalDays: z.coerce.number().int().min(1).max(30).optional(),
@@ -85,25 +89,24 @@ export const UpdateDayDtoSchema = z.object({
   notes: z.string().trim().max(2000).optional().nullable(),
 });
 
-export const AddActivityDtoSchema = z.object({
-  destinationId: z.string().optional().nullable(),
-  customLocation: CustomLocationInputSchema.optional().nullable(),
-  customTitle: z.string().trim().max(150).optional().nullable(),
-  estimatedDurationMinutes: z.coerce.number().int().min(1).max(1440).default(60),
-  estimatedCost: z.coerce.number().min(0).default(0),
-  notes: z.string().trim().max(2000).optional().nullable(),
-  activityNotes: z.string().trim().max(2000).optional().nullable(),
-  startTime: z.string().trim().optional().nullable(),
-  endTime: z.string().trim().optional().nullable(),
-  timeSlot: z.string().trim().optional().nullable(),
-  orderIndex: z.coerce.number().int().min(0).optional(),
-}).refine(
-  (data) => !!data.destinationId || !!data.customLocation || !!data.customTitle,
-  {
+export const AddActivityDtoSchema = z
+  .object({
+    destinationId: z.string().optional().nullable(),
+    customLocation: CustomLocationInputSchema.optional().nullable(),
+    customTitle: z.string().trim().max(150).optional().nullable(),
+    estimatedDurationMinutes: z.coerce.number().int().min(1).max(1440).default(60),
+    estimatedCost: z.coerce.number().min(0).default(0),
+    notes: z.string().trim().max(2000).optional().nullable(),
+    activityNotes: z.string().trim().max(2000).optional().nullable(),
+    startTime: z.string().trim().optional().nullable(),
+    endTime: z.string().trim().optional().nullable(),
+    timeSlot: z.string().trim().optional().nullable(),
+    orderIndex: z.coerce.number().int().min(0).optional(),
+  })
+  .refine((data) => !!data.destinationId || !!data.customLocation || !!data.customTitle, {
     message: 'Either destinationId, customLocation, or customTitle must be provided',
     path: ['destinationId'],
-  },
-);
+  });
 
 export const UpdateActivityDtoSchema = z.object({
   destinationId: z.string().optional().nullable(),
@@ -189,8 +192,15 @@ export const BrowseItineraryQuerySchema = z.object({
 });
 
 export const ApplyTemplateDtoSchema = z.object({
-  templateId: z.string({ required_error: 'Template ID is required' }).min(1, 'Template ID is required'),
-  customTitle: z.string().trim().min(2, 'Custom title must be at least 2 characters').max(200).optional(),
+  templateId: z
+    .string({ required_error: 'Template ID is required' })
+    .min(1, 'Template ID is required'),
+  customTitle: z
+    .string()
+    .trim()
+    .min(2, 'Custom title must be at least 2 characters')
+    .max(200)
+    .optional(),
   startDate: z.string().optional().nullable(),
 });
 
@@ -418,4 +428,3 @@ export interface ItineraryTemplateDto {
   createdAt: string;
   updatedAt: string;
 }
-

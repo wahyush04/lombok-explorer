@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { LombokRegion, TravelStyle } from '@prisma/client';
-import { basicUsernameFormatSchema, usernameSchema } from '../../../common/validators/username.validator';
+import {
+  basicUsernameFormatSchema,
+  usernameSchema,
+} from '../../../common/validators/username.validator';
 
 export const CheckUsernameQuerySchema = z.object({
   username: basicUsernameFormatSchema,

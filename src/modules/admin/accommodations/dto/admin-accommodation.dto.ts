@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DestinationStatus, LombokRegion } from '@prisma/client';
+import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const AdminAccommodationFilterQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -63,8 +64,9 @@ export const CreateAccommodationSchema = z.object({
   region: z.nativeEnum(LombokRegion),
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
-  coverImageUrl: z.string().trim().url('Cover image URL must be a valid URL'),
-  images: z.array(z.string().trim()).default([]),
+  coverImage: CloudinaryAssetInputSchema.optional(),
+  coverImageUrl: z.string().trim().url('Cover image URL must be a valid URL').optional(),
+  images: z.array(z.union([CloudinaryAssetInputSchema, z.string().trim()])).default([]),
   facilities: z.array(z.string().trim()).optional(),
   amenities: z.array(z.string().trim()).optional(),
   contactPhone: z.string().trim().optional(),
@@ -84,8 +86,9 @@ export const UpdateAccommodationSchema = z.object({
   region: z.nativeEnum(LombokRegion).optional(),
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),
+  coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().trim().url().optional(),
-  images: z.array(z.string().trim()).optional(),
+  images: z.array(z.union([CloudinaryAssetInputSchema, z.string().trim()])).optional(),
   facilities: z.array(z.string().trim()).optional(),
   amenities: z.array(z.string().trim()).optional(),
   contactPhone: z.string().trim().optional(),
@@ -131,6 +134,7 @@ export interface AdminAccommodationDto {
   latitude: number;
   longitude: number;
   coverImageUrl: string;
+  coverImagePublicId?: string | null;
   images: string[];
   facilities: string[];
   amenities: string[];

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { BudgetLevel, TransportationMode, TravelStyle } from '@prisma/client';
+import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const AdminTemplateActivityInputSchema = z.object({
   id: z.string().optional(),
@@ -45,6 +46,7 @@ export const AdminTemplateDayInputSchema = z.object({
 export const CreateItineraryTemplateSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional().nullable(),
+  coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().url('Invalid cover image URL').optional().nullable(),
   totalDays: z.number().int().min(1).max(30).default(1),
   travelStyle: z.nativeEnum(TravelStyle).default(TravelStyle.BEACH_RELAXATION),
@@ -76,7 +78,9 @@ export const AdminTemplateFilterQuerySchema = z.object({
     .string()
     .transform((val) => val === 'true' || val === '1')
     .optional(),
-  sortBy: z.enum(['sortOrder', 'createdAt', 'updatedAt', 'title', 'totalDays']).default('sortOrder'),
+  sortBy: z
+    .enum(['sortOrder', 'createdAt', 'updatedAt', 'title', 'totalDays'])
+    .default('sortOrder'),
   order: z.enum(['asc', 'desc']).default('asc'),
 });
 

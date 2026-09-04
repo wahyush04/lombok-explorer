@@ -42,4 +42,3 @@ export interface IStorageProvider {
    */
   getProviderName(): string;
 }
-

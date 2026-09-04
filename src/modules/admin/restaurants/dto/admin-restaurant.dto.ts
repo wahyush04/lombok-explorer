@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DestinationStatus, LombokRegion } from '@prisma/client';
+import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const AdminRestaurantFilterQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -69,8 +70,9 @@ export const CreateRestaurantSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90),
   longitude: z.coerce.number().min(-180).max(180),
   openingHours: z.string().trim().min(3, 'Opening hours is required'),
-  coverImageUrl: z.string().trim().url('Cover image URL must be a valid URL'),
-  images: z.array(z.string().trim()).default([]),
+  coverImage: CloudinaryAssetInputSchema.optional(),
+  coverImageUrl: z.string().trim().url('Cover image URL must be a valid URL').optional(),
+  images: z.array(z.union([CloudinaryAssetInputSchema, z.string().trim()])).default([]),
   isHalalCertified: z.boolean().default(true),
   status: z.nativeEnum(DestinationStatus).default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().default(false),
@@ -90,8 +92,9 @@ export const UpdateRestaurantSchema = z.object({
   latitude: z.coerce.number().min(-90).max(90).optional(),
   longitude: z.coerce.number().min(-180).max(180).optional(),
   openingHours: z.string().trim().min(3).optional(),
+  coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().trim().url().optional(),
-  images: z.array(z.string().trim()).optional(),
+  images: z.array(z.union([CloudinaryAssetInputSchema, z.string().trim()])).optional(),
   isHalalCertified: z.boolean().optional(),
   status: z.nativeEnum(DestinationStatus).optional(),
   isFeatured: z.boolean().optional(),
@@ -137,6 +140,7 @@ export interface AdminRestaurantDto {
   longitude: number;
   openingHours: string;
   coverImageUrl: string;
+  coverImagePublicId?: string | null;
   images: string[];
   isHalalCertified: boolean;
   status: DestinationStatus;

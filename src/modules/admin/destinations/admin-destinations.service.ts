@@ -15,10 +15,14 @@ import { ConflictError, NotFoundError } from '../../../common/errors/app-error';
 import { destinationsService } from '../../destinations/destinations.service';
 import { prisma } from '../../../database/prisma';
 import { PaginationMeta } from '../../../common/types';
+import { cloudinaryService, CloudinaryService } from '../../cloudinary/cloudinary.service';
+import { logger } from '../../../common/utils/logger';
+import { CloudinaryAssetInput } from '../uploads/dto/admin-uploads.dto';
 
 export class AdminDestinationsService {
   constructor(
     private readonly repository: AdminDestinationsRepository = adminDestinationsRepository,
+    private readonly cloudinary: CloudinaryService = cloudinaryService,
   ) {}
 
   public slugify(text: string): string {
@@ -81,6 +85,7 @@ export class AdminDestinationsService {
       difficulty: destination.difficulty,
       tags: this.parseJsonArray(destination.tags),
       coverImageUrl: destination.coverImageUrl,
+      coverImagePublicId: destination.coverImagePublicId,
       images: imagesList,
       facilities: this.parseJsonArray(destination.facilities),
       tips: this.parseJsonArray(destination.tips),
@@ -147,7 +152,66 @@ export class AdminDestinationsService {
       slug = `${slug}-${Date.now().toString().slice(-4)}`;
     }
 
-    // 3. Prepare data fields
+    // 3. Resolve cover image & public ID
+    let coverImageUrl = dto.coverImageUrl || '';
+    let coverImagePublicId: string | null = null;
+
+    if (dto.coverImage && typeof dto.coverImage === 'object') {
+      coverImageUrl = dto.coverImage.secureUrl;
+      coverImagePublicId = dto.coverImage.publicId;
+      if (adminUserId && coverImagePublicId) {
+        this.cloudinary.validateAdminAssetOwnership(coverImagePublicId, adminUserId, 'DESTINATION');
+      }
+    }
+
+    // 4. Resolve multiple gallery images
+    const newPublicIds: string[] = [];
+    if (coverImagePublicId) {
+      newPublicIds.push(coverImagePublicId);
+    }
+
+    const imagesToCreate: Array<{
+      imageUrl: string;
+      imagePublicId?: string | null;
+      caption?: string | null;
+      altText?: string | null;
+      orderIndex: number;
+      isPrimary: boolean;
+    }> = [];
+
+    if (Array.isArray(dto.images) && dto.images.length > 0) {
+      dto.images.forEach((item, index) => {
+        if (typeof item === 'object' && item !== null) {
+          const asset = item as CloudinaryAssetInput;
+          if (asset.publicId) {
+            if (adminUserId) {
+              this.cloudinary.validateAdminAssetOwnership(
+                asset.publicId,
+                adminUserId,
+                'DESTINATION',
+              );
+            }
+            newPublicIds.push(asset.publicId);
+          }
+          imagesToCreate.push({
+            imageUrl: asset.secureUrl,
+            imagePublicId: asset.publicId || null,
+            caption: asset.caption || null,
+            altText: asset.altText || null,
+            orderIndex: asset.orderIndex !== undefined ? asset.orderIndex : index,
+            isPrimary: asset.isPrimary ?? false,
+          });
+        } else if (typeof item === 'string' && item.trim().length > 0) {
+          imagesToCreate.push({
+            imageUrl: item.trim(),
+            orderIndex: index,
+            isPrimary: false,
+          });
+        }
+      });
+    }
+
+    // 5. Prepare data fields
     const entranceFee = dto.ticketPrice !== undefined ? dto.ticketPrice : (dto.entranceFee ?? 0);
     const estimatedDuration =
       dto.estimatedDuration !== undefined
@@ -155,55 +219,64 @@ export class AdminDestinationsService {
         : (dto.estimatedDurationMinutes ?? 60);
     const shortDesc = dto.shortDescription || dto.description.slice(0, 160);
 
-    const created = await this.repository.create({
-      name: dto.name,
-      slug,
-      shortDescription: shortDesc,
-      description: dto.description,
-      category: { connect: { id: dto.categoryId } },
-      region: dto.region,
-      locationName: dto.locationName,
-      address: dto.address,
-      latitude: dto.latitude,
-      longitude: dto.longitude,
-      entranceFee,
-      currency: dto.currency || 'IDR',
-      openingHours: dto.openingHours || '08:00 - 17:00',
-      estimatedDurationMinutes: estimatedDuration,
-      bestVisitingTime: dto.bestVisitingTime || 'Pagi / Sore hari',
-      difficulty: dto.difficulty || 'EASY',
-      tags: JSON.stringify(dto.tags || []),
-      coverImageUrl: dto.coverImageUrl || '',
-      facilities: JSON.stringify(dto.facilities || []),
-      tips: JSON.stringify(dto.tips || []),
-      status: dto.status || 'PUBLISHED',
-      isFeatured: dto.isFeatured ?? false,
-      ...(Array.isArray(dto.images) &&
-        dto.images.length > 0 && {
+    try {
+      const created = await this.repository.create({
+        name: dto.name,
+        slug,
+        shortDescription: shortDesc,
+        description: dto.description,
+        category: { connect: { id: dto.categoryId } },
+        region: dto.region,
+        locationName: dto.locationName,
+        address: dto.address,
+        latitude: dto.latitude,
+        longitude: dto.longitude,
+        entranceFee,
+        currency: dto.currency || 'IDR',
+        openingHours: dto.openingHours || '08:00 - 17:00',
+        estimatedDurationMinutes: estimatedDuration,
+        bestVisitingTime: dto.bestVisitingTime || 'Pagi / Sore hari',
+        difficulty: dto.difficulty || 'EASY',
+        tags: JSON.stringify(dto.tags || []),
+        coverImageUrl,
+        coverImagePublicId,
+        facilities: JSON.stringify(dto.facilities || []),
+        tips: JSON.stringify(dto.tips || []),
+        status: dto.status || 'PUBLISHED',
+        isFeatured: dto.isFeatured ?? false,
+        ...(imagesToCreate.length > 0 && {
           images: {
-            create: dto.images.map((imgUrl, index) => ({
-              imageUrl: imgUrl,
-              orderIndex: index,
-            })),
+            create: imagesToCreate,
           },
         }),
-    });
+      });
 
-    // Invalidate public destinations cache
-    destinationsService.clearCache();
+      // Invalidate public destinations cache
+      destinationsService.clearCache();
 
-    // Audit Log
-    await this.repository.createAuditLog({
-      userId: adminUserId,
-      action: 'CREATE_DESTINATION',
-      entity: 'Destination',
-      entityId: created.id,
-      details: JSON.stringify({ name: created.name, slug: created.slug }),
-      ipAddress,
-      userAgent,
-    });
+      // Audit Log
+      await this.repository.createAuditLog({
+        userId: adminUserId,
+        action: 'CREATE_DESTINATION',
+        entity: 'Destination',
+        entityId: created.id,
+        details: JSON.stringify({ name: created.name, slug: created.slug }),
+        ipAddress,
+        userAgent,
+      });
 
-    return this.mapToAdminDto(created);
+      return this.mapToAdminDto(created);
+    } catch (error) {
+      // Rollback newly uploaded assets on database creation failure
+      if (newPublicIds.length > 0) {
+        logger.warn(
+          { newPublicIds, error },
+          'Rolling back Cloudinary assets due to Destination create failure',
+        );
+        await this.cloudinary.deleteMultipleAssets(newPublicIds).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   public async updateDestination(
@@ -246,6 +319,71 @@ export class AdminDestinationsService {
       slugToUpdate = formattedSlug;
     }
 
+    // 4. Resolve cover image & public ID
+    let coverImageUrlToUpdate: string | undefined = undefined;
+    let coverImagePublicIdToUpdate: string | null | undefined = undefined;
+    const newPublicIds: string[] = [];
+
+    if (dto.coverImage && typeof dto.coverImage === 'object') {
+      coverImageUrlToUpdate = dto.coverImage.secureUrl;
+      coverImagePublicIdToUpdate = dto.coverImage.publicId;
+      if (adminUserId && coverImagePublicIdToUpdate) {
+        this.cloudinary.validateAdminAssetOwnership(
+          coverImagePublicIdToUpdate,
+          adminUserId,
+          'DESTINATION',
+        );
+        newPublicIds.push(coverImagePublicIdToUpdate);
+      }
+    } else if (dto.coverImageUrl !== undefined) {
+      coverImageUrlToUpdate = dto.coverImageUrl;
+    }
+
+    // 5. Handle gallery images if provided
+    let imagesCreateData:
+      | Array<{
+          imageUrl: string;
+          imagePublicId?: string | null;
+          caption?: string | null;
+          altText?: string | null;
+          orderIndex: number;
+          isPrimary: boolean;
+        }>
+      | undefined = undefined;
+
+    if (Array.isArray(dto.images)) {
+      imagesCreateData = [];
+      dto.images.forEach((item, index) => {
+        if (typeof item === 'object' && item !== null) {
+          const asset = item as CloudinaryAssetInput;
+          if (asset.publicId) {
+            if (adminUserId) {
+              this.cloudinary.validateAdminAssetOwnership(
+                asset.publicId,
+                adminUserId,
+                'DESTINATION',
+              );
+            }
+            newPublicIds.push(asset.publicId);
+          }
+          imagesCreateData!.push({
+            imageUrl: asset.secureUrl,
+            imagePublicId: asset.publicId || null,
+            caption: asset.caption || null,
+            altText: asset.altText || null,
+            orderIndex: asset.orderIndex !== undefined ? asset.orderIndex : index,
+            isPrimary: asset.isPrimary ?? false,
+          });
+        } else if (typeof item === 'string' && item.trim().length > 0) {
+          imagesCreateData!.push({
+            imageUrl: item.trim(),
+            orderIndex: index,
+            isPrimary: false,
+          });
+        }
+      });
+    }
+
     const entranceFee =
       dto.ticketPrice !== undefined
         ? dto.ticketPrice
@@ -260,46 +398,80 @@ export class AdminDestinationsService {
           ? dto.estimatedDurationMinutes
           : undefined;
 
-    const updated = await this.repository.update(destination.id, {
-      ...(dto.name && { name: dto.name }),
-      ...(slugToUpdate && { slug: slugToUpdate }),
-      ...(dto.shortDescription !== undefined && { shortDescription: dto.shortDescription }),
-      ...(dto.description && { description: dto.description }),
-      ...(dto.categoryId && { category: { connect: { id: dto.categoryId } } }),
-      ...(dto.region && { region: dto.region }),
-      ...(dto.locationName && { locationName: dto.locationName }),
-      ...(dto.address !== undefined && { address: dto.address }),
-      ...(dto.latitude !== undefined && { latitude: dto.latitude }),
-      ...(dto.longitude !== undefined && { longitude: dto.longitude }),
-      ...(entranceFee !== undefined && { entranceFee }),
-      ...(dto.currency && { currency: dto.currency }),
-      ...(dto.openingHours && { openingHours: dto.openingHours }),
-      ...(estimatedDuration !== undefined && { estimatedDurationMinutes: estimatedDuration }),
-      ...(dto.bestVisitingTime && { bestVisitingTime: dto.bestVisitingTime }),
-      ...(dto.difficulty && { difficulty: dto.difficulty }),
-      ...(dto.tags && { tags: JSON.stringify(dto.tags) }),
-      ...(dto.coverImageUrl !== undefined && { coverImageUrl: dto.coverImageUrl }),
-      ...(dto.facilities && { facilities: JSON.stringify(dto.facilities) }),
-      ...(dto.tips && { tips: JSON.stringify(dto.tips) }),
-      ...(dto.status && { status: dto.status }),
-      ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
-    });
+    try {
+      const updated = await this.repository.update(destination.id, {
+        ...(dto.name && { name: dto.name }),
+        ...(slugToUpdate && { slug: slugToUpdate }),
+        ...(dto.shortDescription !== undefined && { shortDescription: dto.shortDescription }),
+        ...(dto.description && { description: dto.description }),
+        ...(dto.categoryId && { category: { connect: { id: dto.categoryId } } }),
+        ...(dto.region && { region: dto.region }),
+        ...(dto.locationName && { locationName: dto.locationName }),
+        ...(dto.address !== undefined && { address: dto.address }),
+        ...(dto.latitude !== undefined && { latitude: dto.latitude }),
+        ...(dto.longitude !== undefined && { longitude: dto.longitude }),
+        ...(entranceFee !== undefined && { entranceFee }),
+        ...(dto.currency && { currency: dto.currency }),
+        ...(dto.openingHours && { openingHours: dto.openingHours }),
+        ...(estimatedDuration !== undefined && { estimatedDurationMinutes: estimatedDuration }),
+        ...(dto.bestVisitingTime && { bestVisitingTime: dto.bestVisitingTime }),
+        ...(dto.difficulty && { difficulty: dto.difficulty }),
+        ...(dto.tags && { tags: JSON.stringify(dto.tags) }),
+        ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
+        ...(coverImagePublicIdToUpdate !== undefined && {
+          coverImagePublicId: coverImagePublicIdToUpdate,
+        }),
+        ...(dto.facilities && { facilities: JSON.stringify(dto.facilities) }),
+        ...(dto.tips && { tips: JSON.stringify(dto.tips) }),
+        ...(dto.status && { status: dto.status }),
+        ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+        ...(imagesCreateData !== undefined && {
+          images: {
+            deleteMany: {},
+            create: imagesCreateData,
+          },
+        }),
+      });
 
-    // Invalidate public destinations cache
-    destinationsService.clearCache();
+      // Clean up old cover asset if replaced post-commit
+      if (
+        coverImagePublicIdToUpdate &&
+        destination.coverImagePublicId &&
+        destination.coverImagePublicId !== coverImagePublicIdToUpdate
+      ) {
+        this.cloudinary.deleteAsset(destination.coverImagePublicId).catch((err) => {
+          logger.warn(
+            { err, oldPublicId: destination.coverImagePublicId },
+            'Failed to delete replaced cover asset',
+          );
+        });
+      }
 
-    // Audit Log
-    await this.repository.createAuditLog({
-      userId: adminUserId,
-      action: 'UPDATE_DESTINATION',
-      entity: 'Destination',
-      entityId: updated.id,
-      details: JSON.stringify({ name: updated.name, changes: Object.keys(dto) }),
-      ipAddress,
-      userAgent,
-    });
+      // Invalidate public destinations cache
+      destinationsService.clearCache();
 
-    return this.mapToAdminDto(updated);
+      // Audit Log
+      await this.repository.createAuditLog({
+        userId: adminUserId,
+        action: 'UPDATE_DESTINATION',
+        entity: 'Destination',
+        entityId: updated.id,
+        details: JSON.stringify({ name: updated.name, changes: Object.keys(dto) }),
+        ipAddress,
+        userAgent,
+      });
+
+      return this.mapToAdminDto(updated);
+    } catch (error) {
+      if (newPublicIds.length > 0) {
+        logger.warn(
+          { newPublicIds, error },
+          'Rolling back Cloudinary assets due to Destination update failure',
+        );
+        await this.cloudinary.deleteMultipleAssets(newPublicIds).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   public async updateDestinationStatus(
@@ -348,8 +520,22 @@ export class AdminDestinationsService {
       throw new NotFoundError(`Destination '${id}' not found`, 'DESTINATION_NOT_FOUND');
     }
 
+    const assetsToDelete: string[] = [];
     if (hardDelete) {
+      if (destination.coverImagePublicId) {
+        assetsToDelete.push(destination.coverImagePublicId);
+      }
+      if (Array.isArray(destination.images)) {
+        destination.images.forEach((img) => {
+          if (img.imagePublicId) {
+            assetsToDelete.push(img.imagePublicId);
+          }
+        });
+      }
       await this.repository.hardDelete(destination.id);
+      if (assetsToDelete.length > 0) {
+        this.cloudinary.deleteMultipleAssets(assetsToDelete).catch(() => {});
+      }
     } else {
       await this.repository.softDelete(destination.id);
     }
@@ -385,15 +571,34 @@ export class AdminDestinationsService {
       );
     }
 
-    // 2. Perform bulk deletion via Prisma transaction
+    // 2. If hard delete, gather publicIds before deletion
+    const assetsToDelete: string[] = [];
+    if (dto.hard) {
+      const destsWithImages = await prisma.destination.findMany({
+        where: { id: { in: dto.ids } },
+        include: { images: true },
+      });
+      destsWithImages.forEach((d) => {
+        if (d.coverImagePublicId) assetsToDelete.push(d.coverImagePublicId);
+        d.images.forEach((img) => {
+          if (img.imagePublicId) assetsToDelete.push(img.imagePublicId);
+        });
+      });
+    }
+
+    // 3. Perform bulk deletion via Prisma transaction
     const result = dto.hard
       ? await this.repository.bulkHardDelete(dto.ids)
       : await this.repository.bulkSoftDelete(dto.ids);
 
-    // 3. Invalidate public destinations cache
+    if (dto.hard && assetsToDelete.length > 0) {
+      this.cloudinary.deleteMultipleAssets(assetsToDelete).catch(() => {});
+    }
+
+    // 4. Invalidate public destinations cache
     destinationsService.clearCache();
 
-    // 4. Audit Log
+    // 5. Audit Log
     await this.repository.createAuditLog({
       userId: adminUserId,
       action: dto.hard ? 'BULK_HARD_DELETE_DESTINATIONS' : 'BULK_SOFT_DELETE_DESTINATIONS',

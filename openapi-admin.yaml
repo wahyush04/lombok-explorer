@@ -21,6 +21,8 @@ tags:
     description: Administrator authentication, token refresh, and session management
   - name: Admin Dashboard
     description: Administrative KPI metrics, counts, and system analytical overview
+  - name: Admin Media & Uploads
+    description: Cloudinary signed direct upload parameter generation and secure media lifecycle orchestration
   - name: Admin Destinations
     description: Full destination lifecycle management, bulk operations, and image gallery management
   - name: Admin Categories
@@ -42,7 +44,59 @@ tags:
 security:
   - BearerAuth: []
 paths:
+  /uploads/signature:
+    post:
+      summary: Generate Cloudinary Signed Upload Parameters
+      description: |
+        Generates cryptographic signed upload parameters for direct client-to-Cloudinary image uploads.
+        Forces folder isolation per administrator and resource type.
+        The backend never accepts binary image data for normal CMS operations; the Admin client uploads directly to Cloudinary and passes asset metadata to resource endpoints.
+      operationId: generateAdminUploadSignature
+      tags:
+        - Admin Media & Uploads
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminUploadSignatureRequest"
+      responses:
+        "200":
+          description: Upload signature generated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUploadSignatureResponse"
+        "400":
+          description: Invalid resource type or missing admin credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin access required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
   /auth/login:
+
+
     post:
       summary: Administrator Login
       description: |
@@ -575,8 +629,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
     post:
-      summary: Upload or Add Image to Destination
-      description: Adds a new image to destination gallery via multipart file upload or JSON payload with imageUrl reference.
+      summary: Add Image to Destination
+      description: Adds a new image to destination gallery via Cloudinary direct asset metadata or legacy image URL reference.
       operationId: createDestinationImage
       tags:
         - Admin Destinations
@@ -589,22 +643,8 @@ paths:
           schema:
             type: string
       requestBody:
+        required: true
         content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                image:
-                  type: string
-                  format: binary
-                caption:
-                  type: string
-                altText:
-                  type: string
-                orderIndex:
-                  type: integer
-                isPrimary:
-                  type: boolean
           application/json:
             schema:
               $ref: "#/components/schemas/CreateDestinationImageRequest"
@@ -630,7 +670,7 @@ paths:
   /destinations/{id}/images/{imageId}:
     put:
       summary: Update Destination Image
-      description: Updates image attributes (caption, altText, orderIndex, isPrimary) or replaces the image file.
+      description: Updates image attributes (caption, altText, orderIndex, isPrimary) or replaces the image with new Cloudinary asset metadata.
       operationId: updateDestinationImage
       tags:
         - Admin Destinations
@@ -648,22 +688,8 @@ paths:
           schema:
             type: string
       requestBody:
+        required: true
         content:
-          multipart/form-data:
-            schema:
-              type: object
-              properties:
-                image:
-                  type: string
-                  format: binary
-                caption:
-                  type: string
-                altText:
-                  type: string
-                orderIndex:
-                  type: integer
-                isPrimary:
-                  type: boolean
           application/json:
             schema:
               $ref: "#/components/schemas/UpdateDestinationImageRequest"
@@ -2665,6 +2691,140 @@ components:
           type: boolean
           description: Indicates whether there is a preceding page
           example: false
+    UploadResourceType:
+      type: string
+      enum:
+        - DESTINATION
+        - DESTINATION_IMAGE
+        - CATEGORY
+        - RESTAURANT
+        - ACCOMMODATION
+        - ITINERARY_TEMPLATE
+        - USER_AVATAR
+        - REVIEW
+        - FEED
+      example: DESTINATION
+    AdminUploadSignatureRequest:
+      type: object
+      required:
+        - resourceType
+      properties:
+        resourceType:
+          $ref: "#/components/schemas/UploadResourceType"
+        resourceId:
+          type: string
+          nullable: true
+          description: Optional existing entity ID for update workflows
+          example: dest_123e4567-e89b-12d3-a456-426614174000
+    AdminUploadSignatureData:
+      type: object
+      required:
+        - signature
+        - timestamp
+        - apiKey
+        - cloudName
+        - folder
+        - uploadUrl
+        - allowedFormats
+        - maxFileSize
+        - resourceType
+        - uploadSessionId
+      properties:
+        signature:
+          type: string
+          description: SHA-1 / SHA-256 cryptographic signature
+          example: 1a2b3c4d5e6f7g8h9i0j
+        timestamp:
+          type: integer
+          description: Unix timestamp in seconds
+          example: 1718000000
+        apiKey:
+          type: string
+          description: Cloudinary public API key
+          example: "123456789012345"
+        cloudName:
+          type: string
+          description: Cloudinary cloud name
+          example: lombok-explorer
+        folder:
+          type: string
+          description: Target Cloudinary folder
+          example: lombok-explorer/admin/usr_admin_01/destinations/sess_abc123
+        uploadUrl:
+          type: string
+          description: Direct upload endpoint URL to Cloudinary CDN
+          example: https://api.cloudinary.com/v1_1/lombok-explorer/image/upload
+        allowedFormats:
+          type: array
+          items:
+            type: string
+          example: ["jpg", "jpeg", "png", "webp"]
+        maxFileSize:
+          type: integer
+          description: Maximum allowed file size in bytes
+          example: 10485760
+        resourceType:
+          $ref: "#/components/schemas/UploadResourceType"
+        uploadSessionId:
+          type: string
+          description: Unique upload session ID
+          example: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+    AdminUploadSignatureResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Upload signature generated successfully
+        data:
+          $ref: "#/components/schemas/AdminUploadSignatureData"
+    CloudinaryAssetDto:
+      type: object
+      required:
+        - publicId
+        - secureUrl
+      properties:
+        publicId:
+          type: string
+          description: Cloudinary public ID
+          example: lombok-explorer/admin/usr_admin_01/destinations/sess_123/img_01
+        secureUrl:
+          type: string
+          description: HTTPS delivery URL
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/destinations/img_01.jpg
+        width:
+          type: integer
+          nullable: true
+          example: 1920
+        height:
+          type: integer
+          nullable: true
+          example: 1080
+        format:
+          type: string
+          nullable: true
+          example: webp
+        bytes:
+          type: integer
+          nullable: true
+          example: 245100
+        originalFilename:
+          type: string
+          nullable: true
+          example: pantai-merese.jpg
+    CloudinaryAssetInput:
+      description: Cloudinary uploaded asset object or legacy URL string
+      oneOf:
+        - $ref: "#/components/schemas/CloudinaryAssetDto"
+        - type: string
+          description: Fallback legacy direct URL string
+          example: https://res.cloudinary.com/demo/image/upload/v1/sample.jpg
     AdminAuditLogDto:
       $ref: "#/components/schemas/AdminAuditLogItem"
     AdminAuditLogItem:
@@ -3245,13 +3405,15 @@ components:
             - Sunset
             - Pantai
             - Bukit Merese
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
         images:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/CloudinaryAssetInput"
           example:
             - https://images.unsplash.com/photo-1544644181-1484b3fdfc62
         facilities:
@@ -3331,8 +3493,14 @@ components:
           type: array
           items:
             type: string
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/CloudinaryAssetInput"
         facilities:
           type: array
           items:
@@ -3516,6 +3684,8 @@ components:
         iconName:
           type: string
           example: agriculture
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1500937386664-56d1dfef3854
@@ -3530,6 +3700,8 @@ components:
           type: string
         iconName:
           type: string
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
     AdminCategoryDto:
@@ -3612,7 +3784,11 @@ components:
           example: dest_tanjung_aan
         imageUrl:
           type: string
-          example: /assets/image/tanjung-aan-sunset.jpg
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/destinations/tanjung-aan.jpg
+        imagePublicId:
+          type: string
+          nullable: true
+          example: lombok-explorer/admin/usr_admin_01/destinations/dest_tanjung_aan/img_01
         caption:
           type: string
           nullable: true
@@ -3627,6 +3803,22 @@ components:
         isPrimary:
           type: boolean
           example: true
+        width:
+          type: integer
+          nullable: true
+          example: 1920
+        height:
+          type: integer
+          nullable: true
+          example: 1080
+        format:
+          type: string
+          nullable: true
+          example: webp
+        bytes:
+          type: integer
+          nullable: true
+          example: 245100
         createdAt:
           type: string
           format: date-time
@@ -3636,9 +3828,26 @@ components:
     CreateDestinationImageRequest:
       type: object
       properties:
+        image:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
+        publicId:
+          type: string
+          example: lombok-explorer/admin/usr_admin_01/destinations/dest_tanjung_aan/img_01
+        secureUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/destinations/img_01.jpg
         imageUrl:
           type: string
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+        format:
+          type: string
+          example: webp
         caption:
           type: string
           example: Pantai pasir merica berpasir putih
@@ -3654,9 +3863,26 @@ components:
     UpdateDestinationImageRequest:
       type: object
       properties:
+        image:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
+        publicId:
+          type: string
+          example: lombok-explorer/admin/usr_admin_01/destinations/dest_tanjung_aan/img_01
+        secureUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/destinations/img_01.jpg
         imageUrl:
           type: string
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+        format:
+          type: string
+          example: webp
         caption:
           type: string
           example: Panorama sudut pandang baru
@@ -3835,13 +4061,15 @@ components:
         openingHours:
           type: string
           example: 08:00 - 21:00 WITA
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1544025162-d76694265947
         images:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/CloudinaryAssetInput"
         isHalalCertified:
           type: boolean
           example: true
@@ -3891,12 +4119,14 @@ components:
           type: number
         openingHours:
           type: string
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
         images:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/CloudinaryAssetInput"
         isHalalCertified:
           type: boolean
         status:
@@ -4087,13 +4317,15 @@ components:
         longitude:
           type: number
           example: 116.512
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1582719508461-905c673771fd
         images:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/CloudinaryAssetInput"
         facilities:
           type: array
           items:
@@ -4149,12 +4381,14 @@ components:
           type: number
         longitude:
           type: number
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
         images:
           type: array
           items:
-            type: string
+            $ref: "#/components/schemas/CloudinaryAssetInput"
         facilities:
           type: array
           items:
@@ -4232,6 +4466,8 @@ components:
         phone:
           type: string
           example: "+6281299998888"
+        avatar:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         avatarUrl:
           type: string
           example: https://images.unsplash.com/photo-1534528741775-53994a69daeb
@@ -4790,9 +5026,10 @@ components:
           type: string
           nullable: true
           example: Paket kurasi eksklusif tim Lombok Explorer untuk liburan pantai santai.
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
-          format: uri
           nullable: true
           example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
         totalDays:
@@ -4872,9 +5109,10 @@ components:
         description:
           type: string
           nullable: true
+        coverImage:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
-          format: uri
           nullable: true
         totalDays:
           type: integer

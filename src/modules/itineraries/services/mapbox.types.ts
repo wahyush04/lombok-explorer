@@ -27,10 +27,7 @@ export interface OptimizationResult {
 }
 
 export interface IMapboxMatrixService {
-  calculateMatrix(
-    coordinates: GeoCoordinate[],
-    mode?: TransportationMode,
-  ): Promise<MatrixResult>;
+  calculateMatrix(coordinates: GeoCoordinate[], mode?: TransportationMode): Promise<MatrixResult>;
 }
 
 export interface IMapboxOptimizationService {

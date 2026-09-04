@@ -10,6 +10,7 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
   let app: Application;
   let adminToken = '';
   let userToken = '';
+  let adminUserId = '';
   let createdImageId = '';
   let uploadedImageId = '';
   const testDestinationId = 'test_temp_admin_gallery';
@@ -44,19 +45,36 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
       },
     });
 
-    // 1. Admin login
-    const adminRes = await request(app).post('/api/v1/admin/auth/login').send({
-      email: 'admin@lombokexplorer.com',
-      password: 'Password123!',
-    });
-    adminToken = adminRes.body.data.accessToken;
+    const suffix = Date.now();
 
-    // 2. Regular user login
-    const userRes = await request(app).post('/api/v1/auth/login').send({
-      email: 'traveler@lombokexplorer.com',
+    // 1. Regular user registration
+    const userRes = await request(app).post('/api/v1/auth/register').send({
+      username: `trav_img_${suffix.toString().slice(-6)}`,
+      name: `Traveler ${suffix}`,
+      email: `traveler.img.${suffix}@lombokexplorer.com`,
       password: 'Password123!',
     });
     userToken = userRes.body.data.accessToken;
+
+    // 2. Admin registration & promotion
+    const adminEmail = `admin.img.${suffix}@lombokexplorer.com`;
+    await request(app).post('/api/v1/auth/register').send({
+      username: `adm_img_${suffix.toString().slice(-6)}`,
+      name: `Admin ${suffix}`,
+      email: adminEmail,
+      password: 'Password123!',
+    });
+    const updatedAdmin = await prisma.user.update({
+      where: { email: adminEmail },
+      data: { role: 'ADMIN' },
+    });
+    adminUserId = updatedAdmin.id;
+
+    const adminLogin = await request(app).post('/api/v1/admin/auth/login').send({
+      email: adminEmail,
+      password: 'Password123!',
+    });
+    adminToken = adminLogin.body.data.accessToken;
   });
 
   afterAll(async () => {
@@ -139,28 +157,30 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
       createdImageId = res.body.data.id;
     });
 
-    it('should upload image binary file via multipart/form-data and promote as primary image (201 Created)', async () => {
-      const validPngBuffer = Buffer.from(
-        'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
-        'base64',
-      );
-
+    it('should create image from Cloudinary asset JSON payload and promote as primary image (201 Created)', async () => {
       const res = await request(app)
         .post(`/api/v1/admin/destinations/${testDestinationId}/images`)
         .set('Authorization', `Bearer ${adminToken}`)
-        .field('caption', 'Pemandangan laut biru toska Tanjung Aan')
-        .field('altText', 'Hamparan pasir merica dan air laut jernih')
-        .field('orderIndex', '0')
-        .field('isPrimary', 'true')
-        .attach('image', validPngBuffer, {
-          filename: 'tanjung_aan_gallery.png',
-          contentType: 'image/png',
+        .send({
+          image: {
+            publicId: `lombok-explorer/admin/${adminUserId}/destinations/${testDestinationId}/sess_123/tanjung_aan_gallery`,
+            secureUrl:
+              `https://res.cloudinary.com/tzccdgab/image/upload/v1788267657/lombok-explorer/admin/${adminUserId}/destinations/tanjung_aan_gallery.webp`,
+            width: 1920,
+            height: 1080,
+            format: 'webp',
+          },
+          caption: 'Pemandangan laut biru toska Tanjung Aan',
+          altText: 'Hamparan pasir merica dan air laut jernih',
+          orderIndex: 0,
+          isPrimary: true,
         });
 
       expect(res.status).toBe(201);
       expect(res.body.success).toBe(true);
       expect(res.body.data).toHaveProperty('id');
-      expect(res.body.data.imageUrl).toMatch(/cloudinary\.com|\/assets\/image\//);
+      expect(res.body.data.imageUrl).toContain('tanjung_aan_gallery.webp');
+      expect(res.body.data.imagePublicId).toContain('tanjung_aan_gallery');
       expect(res.body.data.isPrimary).toBe(true);
       expect(res.body.data.orderIndex).toBe(0);
 
@@ -171,7 +191,7 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
         .get(`/api/v1/admin/destinations/${testDestinationId}`)
         .set('Authorization', `Bearer ${adminToken}`);
       expect(destRes.body.data.coverImageUrl).toBe(res.body.data.imageUrl);
-    }, 20000);
+    });
   });
 
   describe('PUT /api/v1/admin/destinations/:id/images/:imageId (Update Gallery Image)', () => {

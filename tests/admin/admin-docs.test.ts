@@ -50,6 +50,7 @@ describe('Admin OpenAPI / Swagger Documentation Suite (Phase 18)', () => {
     const requiredTags = [
       'Admin Authentication',
       'Admin Dashboard',
+      'Admin Media & Uploads',
       'Admin Destinations',
       'Admin Categories',
       'Admin Restaurants',

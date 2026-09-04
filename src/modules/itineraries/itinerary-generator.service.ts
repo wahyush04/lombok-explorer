@@ -6,11 +6,7 @@ import {
   TransportationType,
   TravelPace,
 } from './dto/itinerary-generator.dto';
-import {
-  ItineraryActivityDto,
-  ItineraryDayDto,
-  ItineraryDto,
-} from './dto/itinerary.dto';
+import { ItineraryActivityDto, ItineraryDayDto, ItineraryDto } from './dto/itinerary.dto';
 import { itinerariesRepository, ItinerariesRepository } from './itineraries.repository';
 
 interface GeoPoint {

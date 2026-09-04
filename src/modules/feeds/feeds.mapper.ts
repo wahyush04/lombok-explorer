@@ -194,19 +194,29 @@ export class FeedsMapper {
         isBookmarked,
       },
       status: post.status,
-      createdAt: post.createdAt instanceof Date ? post.createdAt.toISOString() : String(post.createdAt),
-      updatedAt: post.updatedAt instanceof Date ? post.updatedAt.toISOString() : String(post.updatedAt),
+      createdAt:
+        post.createdAt instanceof Date ? post.createdAt.toISOString() : String(post.createdAt),
+      updatedAt:
+        post.updatedAt instanceof Date ? post.updatedAt.toISOString() : String(post.updatedAt),
     };
   }
 
-  public static toCommentResponse(comment: PrismaCommentWithUser): import('./feeds.types').FeedCommentResponse {
+  public static toCommentResponse(
+    comment: PrismaCommentWithUser,
+  ): import('./feeds.types').FeedCommentResponse {
     return {
       id: comment.id,
       postId: comment.postId,
       user: this.toAuthor(comment.user),
       content: comment.content,
-      createdAt: comment.createdAt instanceof Date ? comment.createdAt.toISOString() : String(comment.createdAt),
-      updatedAt: comment.updatedAt instanceof Date ? comment.updatedAt.toISOString() : String(comment.updatedAt),
+      createdAt:
+        comment.createdAt instanceof Date
+          ? comment.createdAt.toISOString()
+          : String(comment.createdAt),
+      updatedAt:
+        comment.updatedAt instanceof Date
+          ? comment.updatedAt.toISOString()
+          : String(comment.updatedAt),
     };
   }
 }

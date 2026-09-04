@@ -20,7 +20,10 @@ export class UsersRepository {
     });
   }
 
-  public async findByUsernameExcludingUser(username: string, excludeUserId: string): Promise<User | null> {
+  public async findByUsernameExcludingUser(
+    username: string,
+    excludeUserId: string,
+  ): Promise<User | null> {
     return prisma.user.findFirst({
       where: {
         username: username.toLowerCase().trim(),

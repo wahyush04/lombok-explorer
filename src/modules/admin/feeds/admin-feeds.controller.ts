@@ -20,7 +20,12 @@ export class AdminFeedsController {
   public getReportById = async (req: Request, res: Response): Promise<Response> => {
     const id = String(req.params.id);
     const data = await this.service.getReportById(id);
-    return ResponseUtil.sendSuccess(res, data, 'Feed post report detail retrieved successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      data,
+      'Feed post report detail retrieved successfully',
+      HttpStatus.OK,
+    );
   };
 
   public updateReportStatus = async (req: Request, res: Response): Promise<Response> => {
@@ -36,7 +41,12 @@ export class AdminFeedsController {
     const body = req.body as AdminUpdatePostStatusDto;
     const adminId = req.user?.userId;
     const data = await this.service.updatePostStatus(postId, body, adminId);
-    return ResponseUtil.sendSuccess(res, data, 'Feed post status updated successfully', HttpStatus.OK);
+    return ResponseUtil.sendSuccess(
+      res,
+      data,
+      'Feed post status updated successfully',
+      HttpStatus.OK,
+    );
   };
 }
 

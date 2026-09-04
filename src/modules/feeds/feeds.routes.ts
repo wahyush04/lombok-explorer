@@ -9,10 +9,7 @@ import {
   SearchDestinationQuerySchema,
   UpdatePostDtoSchema,
 } from './dto/feed-post.dto';
-import {
-  CommentQueryDtoSchema,
-  CreateCommentDtoSchema,
-} from './dto/feed-comment.dto';
+import { CommentQueryDtoSchema, CreateCommentDtoSchema } from './dto/feed-comment.dto';
 import { BookmarkQueryDtoSchema } from './dto/feed-bookmark.dto';
 import { CreateReportDtoSchema } from './dto/feed-report.dto';
 
@@ -53,7 +50,12 @@ router.get(
 );
 
 // 4. Feed Timeline (Cursor-based infinite scroll)
-router.get('/', optionalAuthenticate, validate({ query: FeedQueryDtoSchema }), feedsController.getFeeds);
+router.get(
+  '/',
+  optionalAuthenticate,
+  validate({ query: FeedQueryDtoSchema }),
+  feedsController.getFeeds,
+);
 
 // 5. Post CRUD (supports both POST /feeds and POST /feeds/posts)
 router.post(
@@ -75,33 +77,13 @@ router.post(
 router.get('/posts/:id', optionalAuthenticate, feedsController.getPostById);
 router.get('/:id', optionalAuthenticate, feedsController.getPostById);
 
-router.patch(
-  '/posts/:id',
-  authenticate,
-  validate(UpdatePostDtoSchema),
-  feedsController.updatePost,
-);
+router.patch('/posts/:id', authenticate, validate(UpdatePostDtoSchema), feedsController.updatePost);
 
-router.patch(
-  '/:id',
-  authenticate,
-  validate(UpdatePostDtoSchema),
-  feedsController.updatePost,
-);
+router.patch('/:id', authenticate, validate(UpdatePostDtoSchema), feedsController.updatePost);
 
-router.put(
-  '/posts/:id',
-  authenticate,
-  validate(UpdatePostDtoSchema),
-  feedsController.updatePost,
-);
+router.put('/posts/:id', authenticate, validate(UpdatePostDtoSchema), feedsController.updatePost);
 
-router.put(
-  '/:id',
-  authenticate,
-  validate(UpdatePostDtoSchema),
-  feedsController.updatePost,
-);
+router.put('/:id', authenticate, validate(UpdatePostDtoSchema), feedsController.updatePost);
 
 router.delete('/posts/:id', authenticate, feedsController.deletePost);
 router.delete('/:id', authenticate, feedsController.deletePost);
@@ -115,7 +97,12 @@ router.delete('/:id/like', authenticate, feedActionLimiter, feedsController.unli
 // 7. Bookmark / Unbookmark Post
 router.post('/posts/:id/bookmark', authenticate, feedActionLimiter, feedsController.bookmarkPost);
 router.post('/:id/bookmark', authenticate, feedActionLimiter, feedsController.bookmarkPost);
-router.delete('/posts/:id/bookmark', authenticate, feedActionLimiter, feedsController.unbookmarkPost);
+router.delete(
+  '/posts/:id/bookmark',
+  authenticate,
+  feedActionLimiter,
+  feedsController.unbookmarkPost,
+);
 router.delete('/:id/bookmark', authenticate, feedActionLimiter, feedsController.unbookmarkPost);
 
 // 8. Share Post

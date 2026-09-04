@@ -59,6 +59,9 @@ export const basicUsernameFormatSchema = z
     message: 'Username cannot contain consecutive underscores',
   });
 
-export const usernameSchema = basicUsernameFormatSchema.refine((val) => !RESERVED_USERNAMES.has(val), {
-  message: 'This username is reserved and cannot be used',
-});
+export const usernameSchema = basicUsernameFormatSchema.refine(
+  (val) => !RESERVED_USERNAMES.has(val),
+  {
+    message: 'This username is reserved and cannot be used',
+  },
+);

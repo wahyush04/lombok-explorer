@@ -37,7 +37,8 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
     const tour: number[] = [fixedStartIndex];
     visited.add(fixedStartIndex);
 
-    const hasFixedEnd = typeof fixedEndIndex === 'number' && fixedEndIndex >= 0 && fixedEndIndex < n;
+    const hasFixedEnd =
+      typeof fixedEndIndex === 'number' && fixedEndIndex >= 0 && fixedEndIndex < n;
     if (hasFixedEnd && fixedEndIndex !== fixedStartIndex) {
       visited.add(fixedEndIndex);
     }
@@ -188,7 +189,12 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
         fixedStartIndex,
         fixedEndIndex,
       );
-      return this.buildResultFromOrder(localOrder, coordinates, matrix.distancesKm, matrix.durationsMinutes);
+      return this.buildResultFromOrder(
+        localOrder,
+        coordinates,
+        matrix.distancesKm,
+        matrix.durationsMinutes,
+      );
     }
 
     // Step 2: Try Mapbox Optimization API
@@ -214,7 +220,12 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
           fixedStartIndex,
           fixedEndIndex,
         );
-        return this.buildResultFromOrder(localOrder, coordinates, matrix.distancesKm, matrix.durationsMinutes);
+        return this.buildResultFromOrder(
+          localOrder,
+          coordinates,
+          matrix.distancesKm,
+          matrix.durationsMinutes,
+        );
       }
 
       const data = (await response.json()) as {
@@ -229,7 +240,12 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
           fixedStartIndex,
           fixedEndIndex,
         );
-        return this.buildResultFromOrder(localOrder, coordinates, matrix.distancesKm, matrix.durationsMinutes);
+        return this.buildResultFromOrder(
+          localOrder,
+          coordinates,
+          matrix.distancesKm,
+          matrix.durationsMinutes,
+        );
       }
 
       // Map waypoints back to input coordinate indices in optimized visit order
@@ -238,7 +254,12 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
         .sort((a, b) => a.visitOrder - b.visitOrder)
         .map((item) => item.origIdx);
 
-      return this.buildResultFromOrder(orderedIndices, coordinates, matrix.distancesKm, matrix.durationsMinutes);
+      return this.buildResultFromOrder(
+        orderedIndices,
+        coordinates,
+        matrix.distancesKm,
+        matrix.durationsMinutes,
+      );
     } catch (_error) {
       logger.error('Mapbox Optimization API network error; using 2-Opt local optimizer fallback');
       const localOrder = this.solveLocalTsp(
@@ -247,7 +268,12 @@ export class MapboxOptimizationService implements IMapboxOptimizationService {
         fixedStartIndex,
         fixedEndIndex,
       );
-      return this.buildResultFromOrder(localOrder, coordinates, matrix.distancesKm, matrix.durationsMinutes);
+      return this.buildResultFromOrder(
+        localOrder,
+        coordinates,
+        matrix.distancesKm,
+        matrix.durationsMinutes,
+      );
     }
   }
 }

@@ -212,11 +212,7 @@ export class DestinationsService {
     const radiusKm = query.radius_km ?? query.radius ?? 25;
     const limit = query.limit || 10;
 
-    const allDestinations = await this.repository.findAllForGeospatial(
-      query.category,
-      200,
-      userId,
-    );
+    const allDestinations = await this.repository.findAllForGeospatial(query.category, 200, userId);
 
     const destinationsWithDistance: NearbyDestinationDto[] = allDestinations
       .map((dest: DestinationWithRelations) => {

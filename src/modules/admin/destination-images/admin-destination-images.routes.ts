@@ -8,7 +8,6 @@ import {
 import { destinationImageParamsSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
-import { uploadSingleImageField } from '../../storage/storage.middleware';
 
 const router = Router({ mergeParams: true });
 
@@ -22,21 +21,17 @@ router.get(
   asyncHandler(adminDestinationImagesController.getImages),
 );
 
-// 2. Add an image to destination (accepts multipart/form-data with 'image' field or JSON with imageUrl)
+// 2. Add an image to destination (accepts JSON asset metadata)
 router.post(
   '/',
-  validate({ params: destinationImageParamsSchema }),
-  uploadSingleImageField('image'),
-  validate({ body: CreateDestinationImageSchema }),
+  validate({ params: destinationImageParamsSchema, body: CreateDestinationImageSchema }),
   asyncHandler(adminDestinationImagesController.createImage),
 );
 
-// 3. Update an image (caption, altText, orderIndex, isPrimary, or new file upload)
+// 3. Update an image (caption, altText, orderIndex, isPrimary, or new asset metadata)
 router.put(
   '/:imageId',
-  validate({ params: destinationImageParamsSchema }),
-  uploadSingleImageField('image'),
-  validate({ body: UpdateDestinationImageSchema }),
+  validate({ params: destinationImageParamsSchema, body: UpdateDestinationImageSchema }),
   asyncHandler(adminDestinationImagesController.updateImage),
 );
 

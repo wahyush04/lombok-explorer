@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { DestinationStatus } from '@prisma/client';
+import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const AdminCategoryFilterQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
@@ -32,6 +33,7 @@ export const CreateCategorySchema = z.object({
   slug: z.string().trim().optional(),
   description: z.string().min(5, 'Description must be at least 5 characters'),
   iconName: z.string().min(1, 'Icon name is required'),
+  coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().optional().default(''),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),
 });
@@ -68,6 +70,7 @@ export interface AdminCategoryDto {
   description: string;
   iconName: string;
   coverImageUrl: string;
+  coverImagePublicId?: string | null;
   status: DestinationStatus;
   destinationsCount: number;
   createdAt: Date;

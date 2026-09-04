@@ -1,19 +1,9 @@
 import { z } from 'zod';
 import { ReportReasonEnum } from '../../../feeds/dto/feed-report.dto';
 
-export const ReportStatusEnum = z.enum([
-  'PENDING',
-  'REVIEWED',
-  'RESOLVED',
-  'DISMISSED',
-]);
+export const ReportStatusEnum = z.enum(['PENDING', 'REVIEWED', 'RESOLVED', 'DISMISSED']);
 
-export const PostStatusEnum = z.enum([
-  'DRAFT',
-  'PUBLISHED',
-  'HIDDEN',
-  'DELETED',
-]);
+export const PostStatusEnum = z.enum(['DRAFT', 'PUBLISHED', 'HIDDEN', 'DELETED']);
 
 export const AdminReportFilterQuerySchema = z.object({
   status: ReportStatusEnum.optional(),

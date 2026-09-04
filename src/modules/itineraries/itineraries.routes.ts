@@ -45,11 +45,7 @@ router.get(
   itinerariesController.browseTemplates,
 );
 
-router.get(
-  '/templates/:id',
-  optionalAuthenticate,
-  itinerariesController.getTemplateById,
-);
+router.get('/templates/:id', optionalAuthenticate, itinerariesController.getTemplateById);
 
 router.post(
   '/apply',
@@ -77,17 +73,9 @@ router.post(
 );
 
 // Active trip card summary for Android Home Screen
-router.get(
-  '/active',
-  optionalAuthenticate,
-  itinerariesController.getActiveTrip,
-);
+router.get('/active', optionalAuthenticate, itinerariesController.getActiveTrip);
 
-router.get(
-  '/active-trip',
-  optionalAuthenticate,
-  itinerariesController.getActiveTrip,
-);
+router.get('/active-trip', optionalAuthenticate, itinerariesController.getActiveTrip);
 
 // ==========================================
 // 4. TRIP MASTER CRUD
@@ -138,11 +126,7 @@ router.patch(
   itinerariesController.updateDay,
 );
 
-router.delete(
-  '/:id/days/:dayId',
-  authenticate,
-  itinerariesController.deleteDay,
-);
+router.delete('/:id/days/:dayId', authenticate, itinerariesController.deleteDay);
 
 // ==========================================
 // 5. ACTIVITY / STOP MANAGEMENT

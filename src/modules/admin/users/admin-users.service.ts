@@ -10,9 +10,14 @@ import {
   UpdateUserStatusDto,
 } from './dto/admin-user.dto';
 import { ForbiddenError, NotFoundError } from '../../../common/errors/app-error';
+import { cloudinaryService, CloudinaryService } from '../../cloudinary/cloudinary.service';
+import { logger } from '../../../common/utils/logger';
 
 export class AdminUsersService {
-  constructor(private readonly repository: AdminUsersRepository = adminUsersRepository) {}
+  constructor(
+    private readonly repository: AdminUsersRepository = adminUsersRepository,
+    private readonly cloudinary: CloudinaryService = cloudinaryService,
+  ) {}
 
   public mapToDto = (user: UserWithStats): AdminUserDto => {
     return {
@@ -21,6 +26,7 @@ export class AdminUsersService {
       email: user.email,
       name: user.name,
       avatarUrl: user.avatarUrl,
+      avatarPublicId: user.avatarPublicId,
       phone: user.phone,
       role: user.role,
       status: user.status,
@@ -90,32 +96,69 @@ export class AdminUsersService {
       }
     }
 
-    const updated = await this.repository.update(existing.id, {
-      ...(dto.name && { name: dto.name }),
-      ...(dto.role && { role: dto.role }),
-      ...(dto.status && {
-        status: dto.status,
-        ...(dto.status === 'SUSPENDED' ? { refreshToken: null } : {}),
-      }),
-      ...(dto.phone !== undefined && { phone: dto.phone }),
-      ...(dto.avatarUrl !== undefined && { avatarUrl: dto.avatarUrl }),
-      ...(dto.travelStyle !== undefined && { travelStyle: dto.travelStyle }),
-      ...(dto.preferredRegion !== undefined && { preferredRegion: dto.preferredRegion }),
-      ...(dto.isEmailVerified !== undefined && { isEmailVerified: dto.isEmailVerified }),
-    });
+    let avatarUrlToUpdate: string | null | undefined = undefined;
+    let avatarPublicIdToUpdate: string | null | undefined = undefined;
+    let newPublicId: string | null = null;
 
-    // Audit log
-    await this.repository.createAuditLog({
-      userId: adminUserId,
-      action: 'UPDATE_USER',
-      entity: 'User',
-      entityId: updated.id,
-      details: JSON.stringify({ changes: dto }),
-      ipAddress,
-      userAgent,
-    });
+    if (dto.avatar && typeof dto.avatar === 'object') {
+      avatarUrlToUpdate = dto.avatar.secureUrl;
+      avatarPublicIdToUpdate = dto.avatar.publicId;
+      newPublicId = dto.avatar.publicId;
+      if (adminUserId && newPublicId) {
+        this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'USER');
+      }
+    } else if (dto.avatarUrl !== undefined) {
+      avatarUrlToUpdate = dto.avatarUrl;
+    }
 
-    return this.mapToDto(updated);
+    try {
+      const updated = await this.repository.update(existing.id, {
+        ...(dto.name && { name: dto.name }),
+        ...(dto.role && { role: dto.role }),
+        ...(dto.status && {
+          status: dto.status,
+          ...(dto.status === 'SUSPENDED' ? { refreshToken: null } : {}),
+        }),
+        ...(dto.phone !== undefined && { phone: dto.phone }),
+        ...(avatarUrlToUpdate !== undefined && { avatarUrl: avatarUrlToUpdate }),
+        ...(avatarPublicIdToUpdate !== undefined && { avatarPublicId: avatarPublicIdToUpdate }),
+        ...(dto.travelStyle !== undefined && { travelStyle: dto.travelStyle }),
+        ...(dto.preferredRegion !== undefined && { preferredRegion: dto.preferredRegion }),
+        ...(dto.isEmailVerified !== undefined && { isEmailVerified: dto.isEmailVerified }),
+      });
+
+      // Post-commit cleanup of old avatar asset
+      if (newPublicId && existing.avatarPublicId && existing.avatarPublicId !== newPublicId) {
+        this.cloudinary.deleteAsset(existing.avatarPublicId).catch((err) => {
+          logger.warn(
+            { err, oldPublicId: existing.avatarPublicId },
+            'Failed to delete replaced user avatar asset',
+          );
+        });
+      }
+
+      // Audit log
+      await this.repository.createAuditLog({
+        userId: adminUserId,
+        action: 'UPDATE_USER',
+        entity: 'User',
+        entityId: updated.id,
+        details: JSON.stringify({ changes: dto }),
+        ipAddress,
+        userAgent,
+      });
+
+      return this.mapToDto(updated);
+    } catch (error) {
+      if (newPublicId) {
+        logger.warn(
+          { newPublicId, error },
+          'Rolling back Cloudinary asset due to User update failure',
+        );
+        await this.cloudinary.deleteAsset(newPublicId).catch(() => {});
+      }
+      throw error;
+    }
   }
 
   public async updateUserStatus(
@@ -174,6 +217,9 @@ export class AdminUsersService {
 
     if (hard) {
       await this.repository.hardDelete(existing.id);
+      if (existing.avatarPublicId) {
+        this.cloudinary.deleteAsset(existing.avatarPublicId).catch(() => {});
+      }
     } else {
       await this.repository.softDelete(existing.id);
     }
