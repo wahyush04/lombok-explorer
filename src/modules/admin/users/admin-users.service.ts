@@ -104,7 +104,7 @@ export class AdminUsersService {
       avatarUrlToUpdate = dto.avatar.secureUrl;
       avatarPublicIdToUpdate = dto.avatar.publicId;
       newPublicId = dto.avatar.publicId;
-      if (adminUserId && newPublicId) {
+      if (adminUserId && newPublicId && newPublicId !== existing.avatarPublicId) {
         this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'USER');
       }
     } else if (dto.avatarUrl !== undefined) {

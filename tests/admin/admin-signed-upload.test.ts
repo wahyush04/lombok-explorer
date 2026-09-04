@@ -165,7 +165,7 @@ describe('Admin Cloudinary Signed Upload & Asset Security Suite', () => {
         .post('/api/v1/admin/categories')
         .set('Authorization', `Bearer ${adminToken}`)
         .send({
-          name: 'Hacked Category',
+          name: `Hacked Category ${Date.now()}`,
           description: 'Testing unauthorized publicId',
           iconName: 'category',
           coverImage: {

@@ -217,17 +217,34 @@ export class CloudinaryService {
       ? `admin/${expectedAdminId}/${folderName}/`
       : `admin/${expectedAdminId}/`;
 
-    // Also support legacy / existing assets that might be in standard folders if previously uploaded
-    const isValidAdminAsset =
-      publicId.startsWith(adminRootWithFolder) ||
-      publicId.startsWith(fallbackAdminRootWithFolder) ||
-      publicId.startsWith(`${this.rootFolder}/admin/${expectedAdminId}/`) ||
-      publicId.startsWith(`admin/${expectedAdminId}/`);
+    // 1. If publicId is in an admin-isolated folder (/admin/), verify it belongs to this admin
+    const isInAdminFolder = publicId.includes('/admin/') || publicId.startsWith('admin/');
+    if (isInAdminFolder) {
+      const isOwnedByAdmin =
+        publicId.startsWith(adminRootWithFolder) ||
+        publicId.startsWith(fallbackAdminRootWithFolder) ||
+        publicId.startsWith(`${this.rootFolder}/admin/${expectedAdminId}/`) ||
+        publicId.startsWith(`admin/${expectedAdminId}/`);
 
-    if (!isValidAdminAsset) {
+      if (!isOwnedByAdmin) {
+        logger.warn(
+          { publicId, expectedAdminId, resourceType, adminRootWithFolder },
+          '⛔ Security Violation: Admin attempted to use a Cloudinary asset belonging to another admin folder',
+        );
+        throw new ForbiddenError(
+          'You are not authorized to use or link this image asset',
+          'UNAUTHORIZED_ASSET_ACCESS',
+        );
+      }
+      return true;
+    }
+
+    // 2. Reject linking standard traveler user feed assets to CMS resources
+    const isInFeedsFolder = publicId.includes('/feeds/') || publicId.startsWith('feeds/');
+    if (isInFeedsFolder) {
       logger.warn(
-        { publicId, expectedAdminId, resourceType, adminRootWithFolder },
-        '⛔ Security Violation: Admin attempted to use a Cloudinary asset not belonging to their admin folder',
+        { publicId, expectedAdminId, resourceType },
+        '⛔ Security Violation: Attempted to link user feed asset to admin CMS resource',
       );
       throw new ForbiddenError(
         'You are not authorized to use or link this image asset',
@@ -235,6 +252,7 @@ export class CloudinaryService {
       );
     }
 
+    // 3. Standard / legacy / seeded master assets (e.g. categories/beach, lombok-explorer/categories/beach) are permitted
     return true;
   }
 

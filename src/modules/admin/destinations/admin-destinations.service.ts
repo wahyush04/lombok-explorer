@@ -327,7 +327,11 @@ export class AdminDestinationsService {
     if (dto.coverImage && typeof dto.coverImage === 'object') {
       coverImageUrlToUpdate = dto.coverImage.secureUrl;
       coverImagePublicIdToUpdate = dto.coverImage.publicId;
-      if (adminUserId && coverImagePublicIdToUpdate) {
+      if (
+        adminUserId &&
+        coverImagePublicIdToUpdate &&
+        coverImagePublicIdToUpdate !== destination.coverImagePublicId
+      ) {
         this.cloudinary.validateAdminAssetOwnership(
           coverImagePublicIdToUpdate,
           adminUserId,
@@ -351,20 +355,24 @@ export class AdminDestinationsService {
         }>
       | undefined = undefined;
 
+    const existingImagePublicIds = new Set(
+      (destination.images || []).map((img) => img.imagePublicId).filter(Boolean),
+    );
+
     if (Array.isArray(dto.images)) {
       imagesCreateData = [];
       dto.images.forEach((item, index) => {
         if (typeof item === 'object' && item !== null) {
           const asset = item as CloudinaryAssetInput;
           if (asset.publicId) {
-            if (adminUserId) {
+            if (adminUserId && !existingImagePublicIds.has(asset.publicId)) {
               this.cloudinary.validateAdminAssetOwnership(
                 asset.publicId,
                 adminUserId,
                 'DESTINATION',
               );
+              newPublicIds.push(asset.publicId);
             }
-            newPublicIds.push(asset.publicId);
           }
           imagesCreateData!.push({
             imageUrl: asset.secureUrl,

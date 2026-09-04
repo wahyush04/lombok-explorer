@@ -97,7 +97,7 @@ export class AdminItineraryTemplatesService {
       coverImageUrl = data.coverImage.secureUrl;
       coverImagePublicId = data.coverImage.publicId;
       newPublicId = data.coverImage.publicId;
-      if (adminUserId && newPublicId) {
+      if (adminUserId && newPublicId && newPublicId !== existing.coverImagePublicId) {
         this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'ITINERARY_TEMPLATE');
       }
     }

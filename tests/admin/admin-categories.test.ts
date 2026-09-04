@@ -202,6 +202,40 @@ describe('Admin Categories Management API Suite (Phase 5)', () => {
       expect(res.body.data.description).toBe('Eksplorasi gua dan bebatuan karst eksotis di Lombok.');
     });
 
+    it('should allow updating category name while preserving existing coverImage payload without 403 Forbidden (200 OK)', async () => {
+      // Fetch category to get existing coverImageUrl and coverImagePublicId
+      const detailRes = await request(app)
+        .get('/api/v1/admin/categories/cat_beach')
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(detailRes.status).toBe(200);
+      const existingCat = detailRes.body.data;
+
+      // Update name while passing back the existing coverImage
+      const res = await request(app)
+        .put('/api/v1/admin/categories/cat_beach')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Pantai & Pesisir Eksotis',
+          coverImage: {
+            publicId: existingCat.coverImagePublicId || 'lombok-explorer/categories/beach',
+            secureUrl: existingCat.coverImageUrl,
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.name).toBe('Pantai & Pesisir Eksotis');
+
+      // Revert name back to standard
+      await request(app)
+        .put('/api/v1/admin/categories/cat_beach')
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Pantai & Pesisir',
+        });
+    });
+
     it('should reject update if new name collides with existing category (409 Conflict)', async () => {
       const res = await request(app)
         .put(`/api/v1/admin/categories/${createdCategoryId}`)

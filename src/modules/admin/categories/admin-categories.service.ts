@@ -205,7 +205,7 @@ export class AdminCategoriesService {
       coverImageUrlToUpdate = dto.coverImage.secureUrl;
       coverImagePublicIdToUpdate = dto.coverImage.publicId;
       newPublicId = dto.coverImage.publicId;
-      if (adminUserId && newPublicId) {
+      if (adminUserId && newPublicId && newPublicId !== category.coverImagePublicId) {
         this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'CATEGORY');
       }
     } else if (dto.coverImageUrl !== undefined) {
