@@ -323,15 +323,18 @@ export class AdminDestinationsService {
     let coverImageUrlToUpdate: string | undefined = undefined;
     let coverImagePublicIdToUpdate: string | null | undefined = undefined;
     const newPublicIds: string[] = [];
+    let isCoverUnchanged = false;
 
     if (dto.coverImage && typeof dto.coverImage === 'object') {
       coverImageUrlToUpdate = dto.coverImage.secureUrl;
       coverImagePublicIdToUpdate = dto.coverImage.publicId;
-      if (
-        adminUserId &&
-        coverImagePublicIdToUpdate &&
-        coverImagePublicIdToUpdate !== destination.coverImagePublicId
-      ) {
+      isCoverUnchanged = Boolean(
+        (destination.coverImagePublicId &&
+          destination.coverImagePublicId === coverImagePublicIdToUpdate) ||
+        (destination.coverImageUrl && destination.coverImageUrl === coverImageUrlToUpdate),
+      );
+
+      if (adminUserId && coverImagePublicIdToUpdate && !isCoverUnchanged) {
         this.cloudinary.validateAdminAssetOwnership(
           coverImagePublicIdToUpdate,
           adminUserId,
@@ -358,21 +361,23 @@ export class AdminDestinationsService {
     const existingImagePublicIds = new Set(
       (destination.images || []).map((img) => img.imagePublicId).filter(Boolean),
     );
+    const existingImageUrls = new Set(
+      (destination.images || []).map((img) => img.imageUrl).filter(Boolean),
+    );
 
     if (Array.isArray(dto.images)) {
       imagesCreateData = [];
       dto.images.forEach((item, index) => {
         if (typeof item === 'object' && item !== null) {
           const asset = item as CloudinaryAssetInput;
-          if (asset.publicId) {
-            if (adminUserId && !existingImagePublicIds.has(asset.publicId)) {
-              this.cloudinary.validateAdminAssetOwnership(
-                asset.publicId,
-                adminUserId,
-                'DESTINATION',
-              );
-              newPublicIds.push(asset.publicId);
-            }
+          const isExistingGalleryImage = Boolean(
+            (asset.publicId && existingImagePublicIds.has(asset.publicId)) ||
+            (asset.secureUrl && existingImageUrls.has(asset.secureUrl)),
+          );
+
+          if (asset.publicId && adminUserId && !isExistingGalleryImage) {
+            this.cloudinary.validateAdminAssetOwnership(asset.publicId, adminUserId, 'DESTINATION');
+            newPublicIds.push(asset.publicId);
           }
           imagesCreateData!.push({
             imageUrl: asset.secureUrl,
@@ -444,6 +449,7 @@ export class AdminDestinationsService {
       // Clean up old cover asset if replaced post-commit
       if (
         coverImagePublicIdToUpdate &&
+        !isCoverUnchanged &&
         destination.coverImagePublicId &&
         destination.coverImagePublicId !== coverImagePublicIdToUpdate
       ) {

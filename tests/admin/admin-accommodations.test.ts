@@ -227,6 +227,35 @@ describe('Admin Accommodation Management API Suite (Phase 8)', () => {
       expect(res.body.data.facilities.length).toBe(6);
     });
 
+    it('should allow updating accommodation fields while preserving existing coverImage and gallery images payload (200 OK)', async () => {
+      const getRes = await request(app)
+        .get(`/api/v1/admin/accommodations/${createdAccommodationId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      const acc = getRes.body.data;
+
+      const res = await request(app)
+        .put(`/api/v1/admin/accommodations/${createdAccommodationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `The Oberoi Beach Resort Updated ${testSuffix}`,
+          coverImage: {
+            publicId: acc.coverImagePublicId || 'lombok-explorer/accommodations/oberoi_cover',
+            secureUrl: acc.coverImageUrl,
+          },
+          images: [
+            {
+              publicId: 'lombok-explorer/accommodations/oberoi_gallery_1',
+              secureUrl: 'https://images.unsplash.com/photo-oberoi-1',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
     it('should reject update if new slug collides with existing accommodation (409 Conflict)', async () => {
       const res = await request(app)
         .put(`/api/v1/admin/accommodations/${createdAccommodationId}`)

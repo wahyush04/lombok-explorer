@@ -223,6 +223,23 @@ describe('Admin Destination Images Management API Suite (Phase 6)', () => {
       expect(res.body.data.altText).toBe('Pemandangan golden hour bukit merese');
       expect(res.body.data.orderIndex).toBe(5);
     });
+
+    it('should allow updating destination image caption/altText while passing back existing image payload without 403 Forbidden (200 OK)', async () => {
+      const res = await request(app)
+        .put(`/api/v1/admin/destinations/${testDestinationId}/images/${createdImageId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          caption: 'Sunset Magis Bukit Merese Pasir Putih',
+          image: {
+            publicId: 'lombok-explorer/destinations/merese_sample_img',
+            secureUrl: 'https://images.unsplash.com/photo-1544644181-1484b3fdfc62',
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.caption).toBe('Sunset Magis Bukit Merese Pasir Putih');
+    });
   });
 
   describe('DELETE /api/v1/admin/destinations/:id/images/:imageId (Delete Gallery Image)', () => {

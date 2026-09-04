@@ -232,15 +232,18 @@ export class AdminRestaurantsService {
     let coverImageUrlToUpdate: string | undefined = undefined;
     let coverImagePublicIdToUpdate: string | null | undefined = undefined;
     const newPublicIds: string[] = [];
+    let isCoverUnchanged = false;
 
     if (dto.coverImage && typeof dto.coverImage === 'object') {
       coverImageUrlToUpdate = dto.coverImage.secureUrl;
       coverImagePublicIdToUpdate = dto.coverImage.publicId;
-      if (
-        adminUserId &&
-        coverImagePublicIdToUpdate &&
-        coverImagePublicIdToUpdate !== existing.coverImagePublicId
-      ) {
+      isCoverUnchanged = Boolean(
+        (existing.coverImagePublicId &&
+          existing.coverImagePublicId === coverImagePublicIdToUpdate) ||
+        (existing.coverImageUrl && existing.coverImageUrl === coverImageUrlToUpdate),
+      );
+
+      if (adminUserId && coverImagePublicIdToUpdate && !isCoverUnchanged) {
         this.cloudinary.validateAdminAssetOwnership(
           coverImagePublicIdToUpdate,
           adminUserId,
@@ -254,20 +257,28 @@ export class AdminRestaurantsService {
 
     // Resolve gallery images
     let imagesJsonToUpdate: string | undefined = undefined;
+    let existingImagesList: string[] = [];
+    if (existing.images) {
+      try {
+        existingImagesList = JSON.parse(existing.images);
+      } catch {
+        existingImagesList = [existing.images];
+      }
+    }
+    const existingImagesSet = new Set(existingImagesList.filter(Boolean));
+
     if (Array.isArray(dto.images)) {
       const imagesList: string[] = [];
       dto.images.forEach((item) => {
         if (typeof item === 'object' && item !== null) {
           const asset = item as CloudinaryAssetInput;
-          if (asset.publicId) {
-            if (adminUserId && !existing.images?.includes(asset.secureUrl)) {
-              this.cloudinary.validateAdminAssetOwnership(
-                asset.publicId,
-                adminUserId,
-                'RESTAURANT',
-              );
-              newPublicIds.push(asset.publicId);
-            }
+          const isExistingGalleryImage = Boolean(
+            asset.secureUrl && existingImagesSet.has(asset.secureUrl),
+          );
+
+          if (asset.publicId && adminUserId && !isExistingGalleryImage) {
+            this.cloudinary.validateAdminAssetOwnership(asset.publicId, adminUserId, 'RESTAURANT');
+            newPublicIds.push(asset.publicId);
           }
           imagesList.push(asset.secureUrl);
         } else if (typeof item === 'string' && item.trim().length > 0) {
@@ -302,9 +313,10 @@ export class AdminRestaurantsService {
         ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
       });
 
-      // Post-commit cleanup of old cover asset if replaced
+      // Post-commit cleanup of old cover asset
       if (
         coverImagePublicIdToUpdate &&
+        !isCoverUnchanged &&
         existing.coverImagePublicId &&
         existing.coverImagePublicId !== coverImagePublicIdToUpdate
       ) {

@@ -148,6 +148,30 @@ describe('Admin User Management API Suite (Phase 9)', () => {
       expect(res.body.data.travelStyle).toBe('NATURE_ADVENTURE');
     });
 
+    it('should update user profile while preserving existing avatar payload without 403 Forbidden (200 OK)', async () => {
+      const getRes = await request(app)
+        .get(`/api/v1/admin/users/${targetUserId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      const user = getRes.body.data;
+
+      const res = await request(app)
+        .put(`/api/v1/admin/users/${targetUserId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Updated Target User Avatar Kept ${testSuffix}`,
+          avatar: {
+            publicId: user.avatarPublicId || 'lombok-explorer/users/target_user_avatar',
+            secureUrl: user.avatarUrl || 'https://images.unsplash.com/photo-user',
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.name).toBe(`Updated Target User Avatar Kept ${testSuffix}`);
+    });
+
     it('should prevent admin from demoting own admin role (403 Forbidden)', async () => {
       const res = await request(app)
         .put(`/api/v1/admin/users/${adminUserId}`)

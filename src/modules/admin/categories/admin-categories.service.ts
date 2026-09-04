@@ -200,12 +200,18 @@ export class AdminCategoriesService {
     let coverImageUrlToUpdate: string | undefined = undefined;
     let coverImagePublicIdToUpdate: string | null | undefined = undefined;
     let newPublicId: string | null = null;
+    let isCoverUnchanged = false;
 
     if (dto.coverImage && typeof dto.coverImage === 'object') {
       coverImageUrlToUpdate = dto.coverImage.secureUrl;
       coverImagePublicIdToUpdate = dto.coverImage.publicId;
       newPublicId = dto.coverImage.publicId;
-      if (adminUserId && newPublicId && newPublicId !== category.coverImagePublicId) {
+      isCoverUnchanged = Boolean(
+        (category.coverImagePublicId && category.coverImagePublicId === newPublicId) ||
+        (category.coverImageUrl && category.coverImageUrl === coverImageUrlToUpdate),
+      );
+
+      if (adminUserId && newPublicId && !isCoverUnchanged) {
         this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'CATEGORY');
       }
     } else if (dto.coverImageUrl !== undefined) {
@@ -229,6 +235,7 @@ export class AdminCategoriesService {
       // Clean up old cover asset if replaced post-commit
       if (
         newPublicId &&
+        !isCoverUnchanged &&
         category.coverImagePublicId &&
         category.coverImagePublicId !== newPublicId
       ) {
@@ -257,7 +264,7 @@ export class AdminCategoriesService {
 
       return this.mapToAdminDto(updated);
     } catch (error) {
-      if (newPublicId) {
+      if (newPublicId && !isCoverUnchanged) {
         logger.warn(
           { newPublicId, error },
           'Rolling back Cloudinary asset due to Category update failure',

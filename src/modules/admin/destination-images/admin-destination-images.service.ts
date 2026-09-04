@@ -186,7 +186,11 @@ export class AdminDestinationImagesService {
     }
 
     const newPublicId = incomingPublicId;
-    const isNewAsset = Boolean(newPublicId && newPublicId !== image.imagePublicId);
+    const isImageUnchanged = Boolean(
+      (image.imagePublicId && image.imagePublicId === newPublicId) ||
+      (image.imageUrl && image.imageUrl === incomingUrl),
+    );
+    const isNewAsset = Boolean(newPublicId && !isImageUnchanged);
 
     if (isNewAsset && newPublicId && adminUserId) {
       this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'DESTINATION');

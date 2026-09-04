@@ -211,6 +211,36 @@ describe('Admin Destinations Management API Suite (Phase 4)', () => {
       expect(res.body.data.shortDescription).toBe('Updated short description for Semeti beach');
     });
 
+    it('should allow updating destination fields while preserving existing coverImage and gallery images payload (200 OK)', async () => {
+      const getRes = await request(app)
+        .get(`/api/v1/admin/destinations/${createdDestinationId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      const dest = getRes.body.data;
+
+      const res = await request(app)
+        .put(`/api/v1/admin/destinations/${createdDestinationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: 'Pantai Semeti Hidden Paradise Updated',
+          coverImage: {
+            publicId: dest.coverImagePublicId || 'lombok-explorer/destinations/semeti_cover',
+            secureUrl: dest.coverImageUrl || 'https://images.unsplash.com/photo-semeti',
+          },
+          images: [
+            {
+              publicId: 'lombok-explorer/destinations/semeti_gallery_1',
+              secureUrl: 'https://images.unsplash.com/photo-semeti-1',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.name).toBe('Pantai Semeti Hidden Paradise Updated');
+    });
+
     it('should return 404 when updating non-existent destination', async () => {
       const res = await request(app)
         .put('/api/v1/admin/destinations/non_existent_123')

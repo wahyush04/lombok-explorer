@@ -92,12 +92,18 @@ export class AdminItineraryTemplatesService {
     let coverImageUrl = data.coverImageUrl;
     let coverImagePublicId: string | null | undefined = undefined;
     let newPublicId: string | null = null;
+    let isCoverUnchanged = false;
 
     if (data.coverImage && typeof data.coverImage === 'object') {
       coverImageUrl = data.coverImage.secureUrl;
       coverImagePublicId = data.coverImage.publicId;
       newPublicId = data.coverImage.publicId;
-      if (adminUserId && newPublicId && newPublicId !== existing.coverImagePublicId) {
+      isCoverUnchanged = Boolean(
+        (existing.coverImagePublicId && existing.coverImagePublicId === newPublicId) ||
+        (existing.coverImageUrl && existing.coverImageUrl === coverImageUrl),
+      );
+
+      if (adminUserId && newPublicId && !isCoverUnchanged) {
         this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'ITINERARY_TEMPLATE');
       }
     }
@@ -113,6 +119,7 @@ export class AdminItineraryTemplatesService {
       // Post-commit cleanup of old cover asset
       if (
         newPublicId &&
+        !isCoverUnchanged &&
         existing.coverImagePublicId &&
         existing.coverImagePublicId !== newPublicId
       ) {
@@ -126,7 +133,7 @@ export class AdminItineraryTemplatesService {
 
       return updated;
     } catch (error) {
-      if (newPublicId) {
+      if (newPublicId && !isCoverUnchanged) {
         logger.warn(
           { newPublicId, error },
           'Rolling back Cloudinary asset due to ItineraryTemplate update failure',

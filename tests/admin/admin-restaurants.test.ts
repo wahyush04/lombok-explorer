@@ -240,6 +240,35 @@ describe('Admin Restaurant Management API Suite (Phase 7)', () => {
       expect(res.body.data.minPrice).toBe(25000);
     });
 
+    it('should allow updating restaurant fields while preserving existing coverImage and gallery images payload (200 OK)', async () => {
+      const getRes = await request(app)
+        .get(`/api/v1/admin/restaurants/${createdRestaurantId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      const rest = getRes.body.data;
+
+      const res = await request(app)
+        .put(`/api/v1/admin/restaurants/${createdRestaurantId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          name: `Warung Nasi Balap Updated ${testSuffix}`,
+          coverImage: {
+            publicId: rest.coverImagePublicId || 'lombok-explorer/restaurants/puyung_cover',
+            secureUrl: rest.coverImageUrl,
+          },
+          images: [
+            {
+              publicId: 'lombok-explorer/restaurants/puyung_gallery_1',
+              secureUrl: 'https://images.unsplash.com/photo-puyung-1',
+            },
+          ],
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+    });
+
     it('should reject update if new slug collides with existing restaurant (409 Conflict)', async () => {
       const res = await request(app)
         .put(`/api/v1/admin/restaurants/${createdRestaurantId}`)

@@ -99,12 +99,18 @@ export class AdminUsersService {
     let avatarUrlToUpdate: string | null | undefined = undefined;
     let avatarPublicIdToUpdate: string | null | undefined = undefined;
     let newPublicId: string | null = null;
+    let isAvatarUnchanged = false;
 
     if (dto.avatar && typeof dto.avatar === 'object') {
       avatarUrlToUpdate = dto.avatar.secureUrl;
       avatarPublicIdToUpdate = dto.avatar.publicId;
       newPublicId = dto.avatar.publicId;
-      if (adminUserId && newPublicId && newPublicId !== existing.avatarPublicId) {
+      isAvatarUnchanged = Boolean(
+        (existing.avatarPublicId && existing.avatarPublicId === newPublicId) ||
+        (existing.avatarUrl && existing.avatarUrl === avatarUrlToUpdate),
+      );
+
+      if (adminUserId && newPublicId && !isAvatarUnchanged) {
         this.cloudinary.validateAdminAssetOwnership(newPublicId, adminUserId, 'USER');
       }
     } else if (dto.avatarUrl !== undefined) {
@@ -128,7 +134,12 @@ export class AdminUsersService {
       });
 
       // Post-commit cleanup of old avatar asset
-      if (newPublicId && existing.avatarPublicId && existing.avatarPublicId !== newPublicId) {
+      if (
+        newPublicId &&
+        !isAvatarUnchanged &&
+        existing.avatarPublicId &&
+        existing.avatarPublicId !== newPublicId
+      ) {
         this.cloudinary.deleteAsset(existing.avatarPublicId).catch((err) => {
           logger.warn(
             { err, oldPublicId: existing.avatarPublicId },
@@ -150,7 +161,7 @@ export class AdminUsersService {
 
       return this.mapToDto(updated);
     } catch (error) {
-      if (newPublicId) {
+      if (newPublicId && !isAvatarUnchanged) {
         logger.warn(
           { newPublicId, error },
           'Rolling back Cloudinary asset due to User update failure',

@@ -198,6 +198,30 @@ describe('Admin Curated Itinerary Templates API (/api/v1/admin/itinerary-templat
       expect(res.body.data.sortOrder).toBe(10);
     });
 
+    it('should update template via PUT preserving existing coverImage payload (200 OK)', async () => {
+      const getRes = await request(app)
+        .get(`/api/v1/admin/itinerary-templates/${createdTemplateId}`)
+        .set('Authorization', `Bearer ${adminToken}`);
+
+      expect(getRes.status).toBe(200);
+      const tpl = getRes.body.data;
+
+      const res = await request(app)
+        .put(`/api/v1/admin/itinerary-templates/${createdTemplateId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          title: '3 Hari Jelajah Mandalika & Tanjung Aan',
+          coverImage: {
+            publicId: tpl.coverImagePublicId || 'lombok-explorer/itinerary-templates/mandalika',
+            secureUrl: tpl.coverImageUrl || 'https://images.unsplash.com/photo-tpl',
+          },
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.title).toBe('3 Hari Jelajah Mandalika & Tanjung Aan');
+    });
+
     it('should soft delete curated template', async () => {
       const res = await request(app)
         .delete(`/api/v1/admin/itinerary-templates/${createdTemplateId}`)
