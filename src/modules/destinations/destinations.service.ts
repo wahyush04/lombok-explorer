@@ -242,15 +242,30 @@ export class DestinationsService {
     data: DestinationDto[];
     meta: PaginationMeta;
   }> {
-    const searchTerm = query.q || query.query || query.keyword || '';
+    const searchTerm = query.q || query.query || query.keyword || query.search || '';
     const page = query.page || 1;
     const limit = query.limit || 10;
+    const sortBy = query.sort_by || query.sortBy || 'relevance';
+    const order = query.order || 'desc';
+    const minRating = query.min_rating ?? query.minRating;
+    const minPrice = query.min_price ?? query.minPrice;
+    const maxPrice = query.max_price ?? query.maxPrice;
 
     const { items, total } = await this.repository.findMany(
       {
         page,
         limit,
         search: searchTerm,
+        category: query.category,
+        region: query.region,
+        difficulty: query.difficulty,
+        minRating,
+        minPrice,
+        maxPrice,
+        isFeatured: query.is_featured,
+        tag: query.tag,
+        sortBy,
+        order,
       },
       userId,
     );

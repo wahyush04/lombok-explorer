@@ -26,10 +26,11 @@ export class JournalsRepository {
     }
 
     if (filters.search) {
+      const searchTerm = filters.search.trim();
       where.OR = [
-        { title: { contains: filters.search } },
-        { content: { contains: filters.search } },
-        { locationName: { contains: filters.search } },
+        { title: { contains: searchTerm, mode: 'insensitive' } },
+        { content: { contains: searchTerm, mode: 'insensitive' } },
+        { locationName: { contains: searchTerm, mode: 'insensitive' } },
       ];
     }
 

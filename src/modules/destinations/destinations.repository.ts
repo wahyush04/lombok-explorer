@@ -1,5 +1,8 @@
 import { DifficultyLevel, LombokRegion, Prisma } from '@prisma/client';
 import { prisma } from '../../database/prisma';
+import { destinationsSearchService, DestinationWithRelations } from './destinations.search';
+
+export { DestinationWithRelations };
 
 export interface DestinationQueryFilters {
   search?: string;
@@ -29,7 +32,7 @@ export class DestinationsRepository {
       where.OR = [
         { categoryId: filters.category },
         { category: { slug: filters.category.toLowerCase().trim() } },
-        { category: { name: { contains: filters.category } } },
+        { category: { name: { contains: filters.category, mode: 'insensitive' } } },
       ];
     }
 
@@ -56,24 +59,8 @@ export class DestinationsRepository {
       where.isFeatured = filters.isFeatured;
     }
 
-    if (filters.search) {
-      const searchTerm = filters.search.trim();
-      where.AND = [
-        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
-        {
-          OR: [
-            { name: { contains: searchTerm } },
-            { description: { contains: searchTerm } },
-            { shortDescription: { contains: searchTerm } },
-            { locationName: { contains: searchTerm } },
-            { tags: { contains: searchTerm } },
-          ],
-        },
-      ];
-    }
-
     if (filters.tag) {
-      where.tags = { contains: filters.tag };
+      where.tags = { contains: filters.tag, mode: 'insensitive' };
     }
 
     return where;
@@ -100,7 +87,30 @@ export class DestinationsRepository {
     }
   }
 
-  public async findMany(filters: DestinationQueryFilters, userId?: string) {
+  public async findMany(
+    filters: DestinationQueryFilters,
+    userId?: string,
+  ): Promise<{ items: DestinationWithRelations[]; total: number }> {
+    // If search term is present, utilize PostgreSQL Full-Text Search + pg_trgm similarity engine
+    if (filters.search && filters.search.trim().length > 0) {
+      return destinationsSearchService.search({
+        search: filters.search.trim(),
+        category: filters.category,
+        region: filters.region,
+        difficulty: filters.difficulty,
+        minRating: filters.minRating,
+        minPrice: filters.minPrice,
+        maxPrice: filters.maxPrice,
+        isFeatured: filters.isFeatured,
+        tag: filters.tag,
+        sortBy: filters.sortBy,
+        order: filters.order,
+        page: filters.page,
+        limit: filters.limit,
+        userId,
+      });
+    }
+
     const where = this.buildWhereClause(filters);
     const orderBy = this.buildOrderBy(filters.sortBy, filters.order);
     const skip = (filters.page - 1) * filters.limit;
@@ -126,7 +136,7 @@ export class DestinationsRepository {
       prisma.destination.count({ where }),
     ]);
 
-    return { items, total };
+    return { items: items as unknown as DestinationWithRelations[], total };
   }
 
   public async findByIdOrSlug(idOrSlug: string, userId?: string) {

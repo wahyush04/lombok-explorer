@@ -1,5 +1,6 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../../database/prisma';
+import { destinationsSearchService } from '../destinations/destinations.search';
 import { CreatePostDto, UpdatePostDto } from './dto/feed-post.dto';
 import { CursorPayload, FeedViewerResponse } from './feeds.types';
 import { PrismaPostWithRelations } from './feeds.mapper';
@@ -315,19 +316,32 @@ export class FeedsRepository {
    * Searches published destinations by query string.
    */
   public async searchDestinations(q: string, limit = 10) {
+    const cleanQ = q.trim();
+    if (cleanQ) {
+      const { items } = await destinationsSearchService.search({
+        search: cleanQ,
+        limit: Math.min(30, limit),
+        page: 1,
+        status: 'PUBLISHED',
+      });
+
+      return items.map((d) => ({
+        id: d.id,
+        name: d.name,
+        slug: d.slug,
+        locationName: d.locationName,
+        latitude: d.latitude,
+        longitude: d.longitude,
+        address: d.address,
+        rating: d.rating,
+        coverImageUrl: d.coverImageUrl,
+      }));
+    }
+
     return prisma.destination.findMany({
       where: {
         status: 'PUBLISHED',
         deletedAt: null,
-        ...(q.trim()
-          ? {
-              OR: [
-                { name: { contains: q.trim(), mode: 'insensitive' } },
-                { locationName: { contains: q.trim(), mode: 'insensitive' } },
-                { slug: { contains: q.trim().toLowerCase(), mode: 'insensitive' } },
-              ],
-            }
-          : {}),
       },
       take: Math.min(30, limit),
       orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],

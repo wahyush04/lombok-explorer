@@ -20,9 +20,11 @@ export const DestinationFilterQuerySchema = z.object({
     .transform((val) => val === 'true' || val === '1')
     .optional(),
   sort_by: z
-    .enum(['popular', 'rating', 'name', 'price_asc', 'price_desc', 'newest'])
+    .enum(['popular', 'rating', 'name', 'price_asc', 'price_desc', 'newest', 'relevance'])
     .default('popular'),
-  sortBy: z.enum(['popular', 'rating', 'name', 'price_asc', 'price_desc', 'newest']).optional(),
+  sortBy: z
+    .enum(['popular', 'rating', 'name', 'price_asc', 'price_desc', 'newest', 'relevance'])
+    .optional(),
   order: z.enum(['asc', 'desc']).default('desc'),
 });
 
@@ -51,12 +53,33 @@ export const SearchDestinationQuerySchema = z
     q: z.string().trim().optional(),
     query: z.string().trim().optional(),
     keyword: z.string().trim().optional(),
+    search: z.string().trim().optional(),
     category: z.string().trim().optional(),
+    region: z.nativeEnum(LombokRegion).optional(),
+    difficulty: z.nativeEnum(DifficultyLevel).optional(),
+    min_rating: z.coerce.number().min(0).max(5).optional(),
+    minRating: z.coerce.number().min(0).max(5).optional(),
+    max_price: z.coerce.number().min(0).optional(),
+    maxPrice: z.coerce.number().min(0).optional(),
+    min_price: z.coerce.number().min(0).optional(),
+    minPrice: z.coerce.number().min(0).optional(),
+    tag: z.string().trim().optional(),
+    is_featured: z
+      .string()
+      .transform((val) => val === 'true' || val === '1')
+      .optional(),
+    sort_by: z
+      .enum(['relevance', 'popular', 'rating', 'name', 'price_asc', 'price_desc', 'newest'])
+      .default('relevance'),
+    sortBy: z
+      .enum(['relevance', 'popular', 'rating', 'name', 'price_asc', 'price_desc', 'newest'])
+      .optional(),
+    order: z.enum(['asc', 'desc']).default('desc'),
     page: z.coerce.number().int().min(1).default(1),
-    limit: z.coerce.number().int().min(1).max(50).default(10),
+    limit: z.coerce.number().int().min(1).max(100).default(10),
   })
-  .refine((data) => Boolean(data.q || data.query || data.keyword), {
-    message: 'Search query parameter (q, query, or keyword) is required',
+  .refine((data) => Boolean(data.q || data.query || data.keyword || data.search), {
+    message: 'Search query parameter (q, query, keyword, or search) is required',
   });
 
 export const DestinationParamSchema = z.object({
