@@ -58,9 +58,10 @@ describe('Admin OpenAPI / Swagger Documentation Suite (Phase 18)', () => {
       'Admin Reviews',
       'Admin Audit Logs',
       'Admin Feeds & Moderation',
+      'Admin Itinerary Templates',
     ];
 
-    it('should contain all 10 required administrative tags', async () => {
+    it('should contain all 11 required administrative tags', async () => {
       const res = await request(app).get('/api/docs/admin/json');
       const doc = res.body;
 
@@ -110,6 +111,7 @@ describe('Admin OpenAPI / Swagger Documentation Suite (Phase 18)', () => {
       expect(doc.components.schemas).toHaveProperty('AdminUserDto');
       expect(doc.components.schemas).toHaveProperty('AdminReviewDto');
       expect(doc.components.schemas).toHaveProperty('AdminAuditLogDto');
+      expect(doc.components.schemas).toHaveProperty('AdminItineraryTemplateDto');
     });
   });
 });

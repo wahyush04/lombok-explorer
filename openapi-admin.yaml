@@ -37,6 +37,8 @@ tags:
     description: Sensitive administrative operation trail logs and audit tracking
   - name: Admin Feeds & Moderation
     description: Feeds moderation, reported posts review and resolution, and post status controls
+  - name: Admin Itinerary Templates
+    description: Master curated itinerary templates and travel packages administration
 security:
   - BearerAuth: []
 paths:
@@ -1903,6 +1905,58 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /reviews/{id}/status:
+    patch:
+      summary: Moderate Review Status (Alias)
+      description: Alias endpoint for `/reviews/{id}/moderate`. Updates the moderation status of a review (APPROVED, REJECTED, PENDING) with optional moderation notes.
+      operationId: updateAdminReviewStatus
+      tags:
+        - Admin Reviews
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReviewModerationRequest"
+      responses:
+        "200":
+          description: Review moderation status updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminReviewDetailResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Review not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /audit-logs:
     get:
       summary: List Audit Logs (Admin)
@@ -2190,6 +2244,321 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Post not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /itinerary-templates:
+    get:
+      summary: List and Filter Curated Itinerary Templates (Admin)
+      description: Returns a paginated list of curated itinerary templates with optional filters for published status, featured status, travel style, budget level, and search keyword.
+      operationId: getAdminItineraryTemplates
+      tags:
+        - Admin Itinerary Templates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: travelStyle
+          in: query
+          schema:
+            type: string
+            enum:
+              - NATURE_ADVENTURE
+              - BEACH_RELAXATION
+              - CULTURAL_HISTORICAL
+              - CULINARY_EXPLORATION
+              - RELAXED_LEISURE
+              - BACKPACKER_BUDGET
+        - name: budgetLevel
+          in: query
+          schema:
+            type: string
+            enum:
+              - BUDGET
+              - MID_RANGE
+              - LUXURY
+        - name: isPublished
+          in: query
+          schema:
+            type: boolean
+        - name: isFeatured
+          in: query
+          schema:
+            type: boolean
+        - name: sortBy
+          in: query
+          schema:
+            type: string
+            enum:
+              - sortOrder
+              - createdAt
+              - updatedAt
+              - title
+              - totalDays
+            default: sortOrder
+        - name: order
+          in: query
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+      responses:
+        "200":
+          description: Curated itinerary templates retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplateListResponse"
+        "401":
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      summary: Create Curated Itinerary Template
+      description: Creates a new curated master itinerary template with days and individual scheduled destination activities.
+      operationId: createAdminItineraryTemplate
+      tags:
+        - Admin Itinerary Templates
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateItineraryTemplateRequest"
+      responses:
+        "201":
+          description: Curated itinerary template created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplateDetailResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /itinerary-templates/{id}:
+    get:
+      summary: Get Curated Itinerary Template Details (Admin)
+      description: Retrieves complete details of a curated itinerary template including days and activities breakdown.
+      operationId: getAdminItineraryTemplateById
+      tags:
+        - Admin Itinerary Templates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Itinerary template retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplateDetailResponse"
+        "401":
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Itinerary template not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    patch:
+      summary: Partially Update Curated Itinerary Template
+      description: Partially updates fields of a curated itinerary template (e.g. title, coverImageUrl, sortOrder, isPublished, isFeatured, days, activities).
+      operationId: patchAdminItineraryTemplate
+      tags:
+        - Admin Itinerary Templates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItineraryTemplateRequest"
+      responses:
+        "200":
+          description: Itinerary template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplateDetailResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Itinerary template not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      summary: Replace / Update Curated Itinerary Template
+      description: Updates or replaces fields of a curated itinerary template.
+      operationId: updateAdminItineraryTemplate
+      tags:
+        - Admin Itinerary Templates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateItineraryTemplateRequest"
+      responses:
+        "200":
+          description: Itinerary template updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTemplateDetailResponse"
+        "400":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Itinerary template not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    delete:
+      summary: Delete Curated Itinerary Template (Admin)
+      description: Soft-deletes a curated itinerary template.
+      operationId: deleteAdminItineraryTemplate
+      tags:
+        - Admin Itinerary Templates
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Itinerary template deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardActionResponse"
+        "401":
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Non-admin token rejected
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Itinerary template not found
           content:
             application/json:
               schema:
@@ -4300,4 +4669,388 @@ components:
             updatedAt:
               type: string
               format: date-time
+
+    # --- ADMIN ITINERARY TEMPLATES SCHEMAS ---
+    AdminTemplateActivityInput:
+      type: object
+      properties:
+        id:
+          type: string
+          example: act_123e4567-e89b-12d3-a456-426614174000
+        destinationId:
+          type: string
+          nullable: true
+          example: dest_123e4567-e89b-12d3-a456-426614174000
+        customLocation:
+          oneOf:
+            - type: string
+              example: '{"name":"Bukit Merese Sunset Point","latitude":-8.915,"longitude":116.325}'
+            - type: object
+              required:
+                - name
+                - latitude
+                - longitude
+              properties:
+                name:
+                  type: string
+                  example: Bukit Merese Sunset Point
+                latitude:
+                  type: number
+                  example: -8.915
+                longitude:
+                  type: number
+                  example: 116.325
+                address:
+                  type: string
+                  nullable: true
+                  example: Pujut, Lombok Tengah
+        customTitle:
+          type: string
+          nullable: true
+          example: Sunset Coffee Break & Photo Spot
+        orderIndex:
+          type: integer
+          default: 0
+          example: 0
+        startTime:
+          type: string
+          nullable: true
+          example: "08:30"
+        endTime:
+          type: string
+          nullable: true
+          example: "11:00"
+        activityNotes:
+          type: string
+          nullable: true
+          example: Gunakan pakaian nyaman dan alas kaki anti slip
+        estimatedDurationMinutes:
+          type: integer
+          default: 60
+          example: 120
+        estimatedCost:
+          type: number
+          default: 0
+          example: 50000
+        distanceFromPrevKm:
+          type: number
+          default: 0
+          example: 12.5
+        travelTimeFromPrevMinutes:
+          type: integer
+          default: 0
+          example: 30
+
+    AdminTemplateDayInput:
+      type: object
+      required:
+        - dayNumber
+        - title
+      properties:
+        id:
+          type: string
+          example: day_123e4567-e89b-12d3-a456-426614174000
+        dayNumber:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: "Hari 1: Eksplorasi Mandalika & Tanjung Aan"
+        notes:
+          type: string
+          nullable: true
+          example: Siapkan topi, tabir surya, dan kamera
+        totalDistanceKm:
+          type: number
+          default: 0
+          example: 25.5
+        totalDurationMinutes:
+          type: integer
+          default: 0
+          example: 180
+        estimatedBudget:
+          type: number
+          default: 0
+          example: 450000
+        activities:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTemplateActivityInput"
+
+    CreateItineraryTemplateRequest:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          minLength: 3
+          example: 3 Hari Eksplorasi Teluk Mandalika & Pantai Selatan
+        description:
+          type: string
+          nullable: true
+          example: Paket kurasi eksklusif tim Lombok Explorer untuk liburan pantai santai.
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        totalDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 1
+          example: 3
+        travelStyle:
+          type: string
+          enum:
+            - NATURE_ADVENTURE
+            - BEACH_RELAXATION
+            - CULTURAL_HISTORICAL
+            - CULINARY_EXPLORATION
+            - RELAXED_LEISURE
+            - BACKPACKER_BUDGET
+          default: BEACH_RELAXATION
+          example: BEACH_RELAXATION
+        budgetLevel:
+          type: string
+          enum:
+            - BUDGET
+            - MID_RANGE
+            - LUXURY
+          default: MID_RANGE
+          example: MID_RANGE
+        transportationMode:
+          type: string
+          enum:
+            - MOTORCYCLE
+            - CAR
+            - PUBLIC_TRANSPORT
+            - WALKING
+          default: CAR
+          example: CAR
+        transportPaceNote:
+          type: string
+          nullable: true
+          example: Mobil Sewa • Santai & Menyenangkan
+        totalEstimatedBudget:
+          type: number
+          default: 0
+          example: 1500000
+        totalDistanceKm:
+          type: number
+          default: 0
+          example: 85.0
+        totalDurationMinutes:
+          type: integer
+          default: 0
+          example: 480
+        isPublished:
+          type: boolean
+          default: true
+          example: true
+        isFeatured:
+          type: boolean
+          default: false
+          example: true
+        sortOrder:
+          type: integer
+          default: 0
+          example: 1
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTemplateDayInput"
+
+    UpdateItineraryTemplateRequest:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 3
+          example: 3 Hari Eksplorasi Teluk Mandalika & Pantai Selatan (Updated)
+        description:
+          type: string
+          nullable: true
+        coverImageUrl:
+          type: string
+          format: uri
+          nullable: true
+        totalDays:
+          type: integer
+          minimum: 1
+          maximum: 30
+        travelStyle:
+          type: string
+          enum:
+            - NATURE_ADVENTURE
+            - BEACH_RELAXATION
+            - CULTURAL_HISTORICAL
+            - CULINARY_EXPLORATION
+            - RELAXED_LEISURE
+            - BACKPACKER_BUDGET
+        budgetLevel:
+          type: string
+          enum:
+            - BUDGET
+            - MID_RANGE
+            - LUXURY
+        transportationMode:
+          type: string
+          enum:
+            - MOTORCYCLE
+            - CAR
+            - PUBLIC_TRANSPORT
+            - WALKING
+        transportPaceNote:
+          type: string
+          nullable: true
+        totalEstimatedBudget:
+          type: number
+        totalDistanceKm:
+          type: number
+        totalDurationMinutes:
+          type: integer
+        isPublished:
+          type: boolean
+        isFeatured:
+          type: boolean
+        sortOrder:
+          type: integer
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTemplateDayInput"
+
+    AdminItineraryTemplateDto:
+      type: object
+      required:
+        - id
+        - title
+        - totalDays
+        - travelStyle
+        - budgetLevel
+        - transportationMode
+        - isPublished
+        - isFeatured
+        - sortOrder
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          example: tmpl_123e4567-e89b-12d3-a456-426614174000
+        title:
+          type: string
+          example: 3 Hari Jelajah Teluk Mandalika
+        description:
+          type: string
+          nullable: true
+          example: Paket rekomendasi eksklusif kurasi tim Lombok Explorer
+        coverImageUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1544644181-1484b3fdfc62
+        totalDays:
+          type: integer
+          example: 3
+        travelStyle:
+          type: string
+          enum:
+            - NATURE_ADVENTURE
+            - BEACH_RELAXATION
+            - CULTURAL_HISTORICAL
+            - CULINARY_EXPLORATION
+            - RELAXED_LEISURE
+            - BACKPACKER_BUDGET
+          example: BEACH_RELAXATION
+        budgetLevel:
+          type: string
+          enum:
+            - BUDGET
+            - MID_RANGE
+            - LUXURY
+          example: MID_RANGE
+        transportationMode:
+          type: string
+          enum:
+            - MOTORCYCLE
+            - CAR
+            - PUBLIC_TRANSPORT
+            - WALKING
+          example: CAR
+        transportPaceNote:
+          type: string
+          nullable: true
+          example: Mobil Sewa • Santai & Menyenangkan
+        totalEstimatedBudget:
+          type: number
+          example: 1200000
+        totalDistanceKm:
+          type: number
+          example: 65.5
+        totalDurationMinutes:
+          type: integer
+          example: 360
+        isPublished:
+          type: boolean
+          example: true
+        isFeatured:
+          type: boolean
+          example: true
+        sortOrder:
+          type: integer
+          example: 1
+        days:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTemplateDayInput"
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        deletedAt:
+          type: string
+          format: date-time
+          nullable: true
+
+    AdminTemplateListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Itinerary templates retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminItineraryTemplateDto"
+        meta:
+          $ref: "#/components/schemas/PaginationMeta"
+
+    AdminTemplateDetailResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Itinerary template retrieved successfully
+        data:
+          $ref: "#/components/schemas/AdminItineraryTemplateDto"
+
 
