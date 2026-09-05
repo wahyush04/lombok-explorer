@@ -18,6 +18,8 @@ import { mediaRoutes, storageRoutes } from '../../modules/storage/storage.routes
 import { uploadRoutes } from '../../modules/uploads';
 import { feedRoutes } from '../../modules/feeds';
 import { userRoutes } from '../../modules/users/users.routes';
+import { deviceRoutes } from '../../modules/devices/devices.routes';
+import { notificationRoutes } from '../../modules/notifications/notifications.routes';
 import { adminRoutes } from '../admin/admin.routes';
 
 const router = Router();
@@ -72,6 +74,12 @@ router.use('/uploads', uploadRoutes);
 
 // 14. Feeds & Community Social Module
 router.use('/feeds', feedRoutes);
+
+// 14b. Device Management & Push Tokens (FCM)
+router.use('/devices', deviceRoutes);
+
+// 14c. Notifications Module (In-App & Push Notifications)
+router.use('/notifications', notificationRoutes);
 
 // 15. User Management & Profile Resources
 router.use('/users', userRoutes);

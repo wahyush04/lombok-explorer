@@ -407,11 +407,11 @@ export class FeedsRepository {
   public async addLike(
     userId: string,
     postId: string,
-  ): Promise<{ isLiked: boolean; likeCount: number }> {
+  ): Promise<{ isLiked: boolean; likeCount: number; isNewlyLiked: boolean; postAuthorId: string }> {
     return prisma.$transaction(async (tx) => {
       const post = await tx.post.findFirst({
         where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
-        select: { id: true, likeCount: true },
+        select: { id: true, userId: true, likeCount: true },
       });
 
       if (!post) {
@@ -435,10 +435,20 @@ export class FeedsRepository {
           select: { likeCount: true },
         });
 
-        return { isLiked: true, likeCount: updated.likeCount };
+        return {
+          isLiked: true,
+          likeCount: updated.likeCount,
+          isNewlyLiked: true,
+          postAuthorId: post.userId,
+        };
       }
 
-      return { isLiked: true, likeCount: post.likeCount };
+      return {
+        isLiked: true,
+        likeCount: post.likeCount,
+        isNewlyLiked: false,
+        postAuthorId: post.userId,
+      };
     });
   }
 
@@ -493,7 +503,7 @@ export class FeedsRepository {
     return prisma.$transaction(async (tx) => {
       const post = await tx.post.findFirst({
         where: { id: postId, deletedAt: null, status: { not: 'DELETED' } },
-        select: { id: true },
+        select: { id: true, userId: true },
       });
 
       if (!post) {
@@ -523,7 +533,10 @@ export class FeedsRepository {
         data: { commentCount: { increment: 1 } },
       });
 
-      return comment;
+      return {
+        ...comment,
+        postAuthorId: post.userId,
+      };
     });
   }
 

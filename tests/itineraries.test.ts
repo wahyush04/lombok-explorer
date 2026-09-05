@@ -821,5 +821,182 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(templateCheck.body.data.id).toBe(templateId);
     });
   });
+
+  // =======================================================
+  // 12. FIRST-CLASS RESTAURANT & ACCOMMODATION STOPS
+  // =======================================================
+  describe('12. First-Class Restaurant & Accommodation Stops', () => {
+    let customTripId = '';
+    let customDayId = '';
+    let testRestId = '';
+    let testAccomId = '';
+
+    beforeAll(async () => {
+      const suffix = `rest_accom_${Date.now()}`;
+      // 1. Create dedicated trip for restaurant & accommodation testing
+      const tripRes = await request(app)
+        .post('/api/v1/itineraries')
+        .set('Authorization', `Bearer ${userTokenA}`)
+        .send({
+          title: 'Trip Kuliner & Staycation Mandalika',
+          description: 'Testing first-class culinary and hotel integration',
+          daysCount: 1,
+          travelStyle: 'CULINARY_EXPLORER',
+          transportationMode: 'CAR',
+        });
+      customTripId = tripRes.body.data.id;
+      customDayId = tripRes.body.data.days[0].id;
+
+      // 2. Seed test Restaurant
+      const rest = await prisma.restaurant.create({
+        data: {
+          name: 'Ayam Taliwang Asli Sasak',
+          slug: `ayam-taliwang-${suffix}`,
+          description: 'Restoran khas Sasak otentik dan pedas nikmat',
+          cuisineType: 'Sasak Traditional',
+          specialtyDish: 'Ayam Taliwang Bakar',
+          priceRange: 'Rp 40.000 - Rp 80.000',
+          minPrice: 40000,
+          maxPrice: 80000,
+          rating: 4.8,
+          address: 'Jl. Ade Irma Suryani No. 12, Mataram',
+          region: 'LOMBOK_BARAT',
+          latitude: -8.5833,
+          longitude: 116.1167,
+          openingHours: '10:00 - 22:00',
+          coverImageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5',
+          images: '[]',
+          isHalalCertified: true,
+        },
+      });
+      testRestId = rest.id;
+
+      // 3. Seed test Accommodation
+      const accom = await prisma.accommodation.create({
+        data: {
+          name: 'Mandalika Luxury Villa & Resort',
+          slug: `mandalika-resort-${suffix}`,
+          type: 'resort',
+          description: 'Resort bintang 5 menghadap pantai Mandalika',
+          pricePerNight: 1500000,
+          rating: 4.9,
+          address: 'Kawasan Ekonomi Khusus Mandalika, Kuta',
+          region: 'LOMBOK_SELATAN',
+          latitude: -8.892,
+          longitude: 116.295,
+          coverImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945',
+          images: '[]',
+          amenities: '["Infinity Pool", "Free Breakfast", "Beach Access"]',
+        },
+      });
+      testAccomId = accom.id;
+    });
+
+    it('should add a restaurant stop using restaurantId with rich metadata and correct itemType', async () => {
+      const res = await request(app)
+        .post(`/api/v1/itineraries/${customTripId}/days/${customDayId}/activities`)
+        .set('Authorization', `Bearer ${userTokenA}`)
+        .send({
+          restaurantId: testRestId,
+          activityNotes: 'Makan siang ayam taliwang bakar khas Lombok',
+          estimatedDurationMinutes: 60,
+          estimatedCost: 65000,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+
+      const day = res.body.data.days.find((d: any) => d.id === customDayId);
+      expect(day.activities.length).toBe(1);
+
+      const act = day.activities[0];
+      expect(act.itemType).toBe('RESTAURANT');
+      expect(act.restaurantId).toBe(testRestId);
+      expect(act.restaurant).toBeDefined();
+      expect(act.restaurant.name).toBe('Ayam Taliwang Asli Sasak');
+      expect(act.restaurant.cuisineType).toBe('Sasak Traditional');
+      expect(act.restaurant.isHalalCertified).toBe(true);
+      expect(act.destinationName).toBe('Ayam Taliwang Asli Sasak');
+      expect(act.destinationCategory).toBe('Sasak Traditional');
+      expect(act.coverImageUrl).toContain('images.unsplash.com');
+      expect(act.estimatedCost).toBe(65000);
+    });
+
+    it('should add an accommodation stop using accommodationId and recalculate route transit', async () => {
+      const res = await request(app)
+        .post(`/api/v1/itineraries/${customTripId}/days/${customDayId}/activities`)
+        .set('Authorization', `Bearer ${userTokenA}`)
+        .send({
+          accommodationId: testAccomId,
+          activityNotes: 'Check in resort sore dan istirahat',
+          estimatedDurationMinutes: 120,
+          estimatedCost: 1500000,
+        });
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+
+      const day = res.body.data.days.find((d: any) => d.id === customDayId);
+      expect(day.activities.length).toBe(2);
+
+      const accomAct = day.activities[1];
+      expect(accomAct.itemType).toBe('ACCOMMODATION');
+      expect(accomAct.accommodationId).toBe(testAccomId);
+      expect(accomAct.accommodation).toBeDefined();
+      expect(accomAct.accommodation.name).toBe('Mandalika Luxury Villa & Resort');
+      expect(accomAct.accommodation.type).toBe('resort');
+      expect(accomAct.destinationName).toBe('Mandalika Luxury Villa & Resort');
+      expect(accomAct.destinationCategory).toBe('resort');
+      expect(accomAct.distanceFromPrevKm).toBeGreaterThan(0);
+      expect(accomAct.travelTimeFromPrevMinutes).toBeGreaterThan(0);
+      expect(day.segments.length).toBe(1);
+    });
+
+    it('should reject non-existent restaurantId with 404 RESTAURANT_NOT_FOUND', async () => {
+      const res = await request(app)
+        .post(`/api/v1/itineraries/${customTripId}/days/${customDayId}/activities`)
+        .set('Authorization', `Bearer ${userTokenA}`)
+        .send({
+          restaurantId: '00000000-0000-0000-0000-000000000000',
+        });
+
+      expect(res.status).toBe(404);
+      expect(res.body.errorCode).toBe('RESTAURANT_NOT_FOUND');
+    });
+
+    it('should reject non-existent accommodationId with 404 ACCOMMODATION_NOT_FOUND', async () => {
+      const res = await request(app)
+        .post(`/api/v1/itineraries/${customTripId}/days/${customDayId}/activities`)
+        .set('Authorization', `Bearer ${userTokenA}`)
+        .send({
+          accommodationId: '00000000-0000-0000-0000-000000000000',
+        });
+
+      expect(res.status).toBe(404);
+      expect(res.body.errorCode).toBe('ACCOMMODATION_NOT_FOUND');
+    });
+
+    it('should retrieve full itinerary details with populated restaurant and accommodation objects', async () => {
+      const res = await request(app)
+        .get(`/api/v1/itineraries/${customTripId}`)
+        .set('Authorization', `Bearer ${userTokenA}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+
+      const trip = res.body.data;
+      const acts = trip.days[0].activities;
+      expect(acts.length).toBe(2);
+
+      const restAct = acts.find((a: any) => a.itemType === 'RESTAURANT');
+      expect(restAct).toBeDefined();
+      expect(restAct.restaurant.name).toBe('Ayam Taliwang Asli Sasak');
+
+      const accomAct = acts.find((a: any) => a.itemType === 'ACCOMMODATION');
+      expect(accomAct).toBeDefined();
+      expect(accomAct.accommodation.name).toBe('Mandalika Luxury Villa & Resort');
+    });
+  });
 });
+
 

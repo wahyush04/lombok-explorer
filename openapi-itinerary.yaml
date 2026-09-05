@@ -1290,6 +1290,101 @@ components:
               type: string
               example: pantai-bahari
 
+    ItineraryItemType:
+      type: string
+      enum:
+        - DESTINATION
+        - RESTAURANT
+        - ACCOMMODATION
+        - CUSTOM
+      example: DESTINATION
+
+    RestaurantSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: rest_123456
+        name:
+          type: string
+          example: Ayam Taliwang Irama
+        slug:
+          type: string
+          example: ayam-taliwang-irama
+        cuisineType:
+          type: string
+          example: Sasak Traditional
+        specialtyDish:
+          type: string
+          example: Ayam Taliwang Bakar Pedas
+        priceRange:
+          type: string
+          example: Rp 35.000 - Rp 75.000
+        rating:
+          type: number
+          example: 4.7
+        isHalalCertified:
+          type: boolean
+          example: true
+        coverImageUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1555396273-367ea4eb4db5
+        address:
+          type: string
+          nullable: true
+          example: Jl. Ade Irma Suryani No. 10, Mataram
+        region:
+          type: string
+          nullable: true
+          example: LOMBOK_BARAT
+        latitude:
+          type: number
+          example: -8.5833
+        longitude:
+          type: number
+          example: 116.1167
+
+    AccommodationSummary:
+      type: object
+      properties:
+        id:
+          type: string
+          example: accom_123456
+        name:
+          type: string
+          example: Novotel Lombok Resort & Villas
+        slug:
+          type: string
+          example: novotel-lombok-resort
+        type:
+          type: string
+          example: resort
+        pricePerNight:
+          type: number
+          example: 1200000
+        rating:
+          type: number
+          example: 4.8
+        coverImageUrl:
+          type: string
+          nullable: true
+          example: https://images.unsplash.com/photo-1566073771259-6a8506099945
+        address:
+          type: string
+          nullable: true
+          example: Pantai Mandalika, Kuta, Lombok Tengah
+        region:
+          type: string
+          nullable: true
+          example: LOMBOK_SELATAN
+        latitude:
+          type: number
+          example: -8.892
+        longitude:
+          type: number
+          example: 116.295
+
     ItineraryActivityResponse:
       type: object
       properties:
@@ -1299,6 +1394,8 @@ components:
         dayId:
           type: string
           example: day_123456
+        itemType:
+          $ref: '#/components/schemas/ItineraryItemType'
         orderIndex:
           type: integer
           example: 0
@@ -1320,6 +1417,18 @@ components:
           example: dest_123456
         destination:
           $ref: '#/components/schemas/DestinationSummary'
+        restaurantId:
+          type: string
+          nullable: true
+          example: rest_123456
+        restaurant:
+          $ref: '#/components/schemas/RestaurantSummary'
+        accommodationId:
+          type: string
+          nullable: true
+          example: accom_123456
+        accommodation:
+          $ref: '#/components/schemas/AccommodationSummary'
         destinationName:
           type: string
           example: Pantai Tanjung Aan
@@ -1624,10 +1733,20 @@ components:
     AddActivityRequest:
       type: object
       properties:
+        itemType:
+          $ref: '#/components/schemas/ItineraryItemType'
         destinationId:
           type: string
-          description: ID Destinasi dari katalog wisata
+          description: ID Destinasi dari katalog wisata (jika jenis destinasi)
           example: dest_123456
+        restaurantId:
+          type: string
+          description: ID Restoran dari katalog kuliner (jika jenis kuliner/restoran)
+          example: rest_123456
+        accommodationId:
+          type: string
+          description: ID Akomodasi/Hotel dari katalog (jika jenis penginapan)
+          example: accom_123456
         customLocation:
           $ref: '#/components/schemas/CustomLocation'
         customTitle:
@@ -1659,7 +1778,13 @@ components:
     UpdateActivityRequest:
       type: object
       properties:
+        itemType:
+          $ref: '#/components/schemas/ItineraryItemType'
         destinationId:
+          type: string
+        restaurantId:
+          type: string
+        accommodationId:
           type: string
         customLocation:
           $ref: '#/components/schemas/CustomLocation'
@@ -1955,6 +2080,8 @@ components:
           example: act_123_456
         templateDayId:
           type: string
+        itemType:
+          $ref: '#/components/schemas/ItineraryItemType'
         orderIndex:
           type: integer
           example: 0
@@ -1997,6 +2124,16 @@ components:
           nullable: true
         destination:
           $ref: '#/components/schemas/DestinationSummary'
+        restaurantId:
+          type: string
+          nullable: true
+        restaurant:
+          $ref: '#/components/schemas/RestaurantSummary'
+        accommodationId:
+          type: string
+          nullable: true
+        accommodation:
+          $ref: '#/components/schemas/AccommodationSummary'
 
     ApplyTemplateRequest:
       type: object

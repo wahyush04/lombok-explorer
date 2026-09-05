@@ -38,6 +38,10 @@ tags:
     description: Destination reviews and ratings
   - name: Feeds & Community
     description: Social feeds timeline, travel posts, media attachments, likes, comments, bookmarks, and sharing
+  - name: Device Tokens
+    description: Registration and management of FCM device tokens for mobile push notifications
+  - name: Notifications
+    description: In-app user notifications, unread count tracking, and read state synchronization
   - name: Users
     description: User profile management, username availability checks, and profile feeds
   - name: Media Storage
@@ -2448,6 +2452,210 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '404':
           $ref: '#/components/responses/NotFoundError'
+
+  # ==========================================
+  # DEVICE MANAGEMENT & FCM PUSH NOTIFICATIONS
+  # ==========================================
+  /devices/fcm-token:
+    post:
+      summary: Register or refresh FCM device token
+      description: |
+        Mendaftarkan atau memperbarui Firebase Cloud Messaging (FCM) device token milik pengguna yang sedang login.
+        Mendukung multi-device, upsert token otomatis, dan pelacakan platform (`ANDROID`, `IOS`, `WEB`).
+      operationId: registerDeviceToken
+      tags:
+        - Device Tokens
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RegisterDeviceTokenRequest'
+      responses:
+        '200':
+          description: Device token registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceTokenResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+    delete:
+      summary: Deactivate or remove FCM device token
+      description: |
+        Menonaktifkan token perangkat saat pengguna logout atau mematikan notifikasi pada perangkat tersebut.
+      operationId: deactivateDeviceToken
+      tags:
+        - Device Tokens
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeactivateDeviceTokenRequest'
+      responses:
+        '200':
+          description: Device token deactivated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+        '400':
+          $ref: '#/components/responses/ValidationError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  # ==========================================
+  # IN-APP NOTIFICATIONS & READ STATES
+  # ==========================================
+  /notifications:
+    get:
+      summary: Get user notifications (Paginated, Unread Filter)
+      description: |
+        Mengambil daftar notifikasi in-app untuk pengguna yang sedang login, terurut dari yang paling baru.
+        Mendukung filter `unreadOnly=true` serta paginasi (`page` & `limit`).
+      operationId: getUserNotifications
+      tags:
+        - Notifications
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          description: Halaman data (dimulai dari 1)
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+        - name: limit
+          in: query
+          description: Jumlah notifikasi per halaman (maksimum 50)
+          schema:
+            type: integer
+            default: 20
+            maximum: 50
+        - name: unreadOnly
+          in: query
+          description: Filter hanya notifikasi yang belum dibaca (`true`/`false`)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotificationListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /notifications/unread-count:
+    get:
+      summary: Get unread notifications count
+      description: |
+        Mengambil jumlah total notifikasi yang belum dibaca oleh pengguna login untuk badge counter pada aplikasi mobile / frontend.
+      operationId: getUnreadNotificationCount
+      tags:
+        - Notifications
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Unread count retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnreadNotificationCountResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /notifications/{id}/read:
+    patch:
+      summary: Mark single notification as read
+      description: |
+        Menandai sebuah notifikasi spesifik milik pengguna sebagai telah dibaca (`isRead: true`).
+      operationId: markNotificationAsRead
+      tags:
+        - Notifications
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: ID notifikasi
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Notification marked as read
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Notification marked as read
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: "c4b12345-6789-abcd-ef01-23456789abcd"
+                      isRead:
+                        type: boolean
+                        example: true
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+
+  /notifications/read-all:
+    patch:
+      summary: Mark all unread notifications as read
+      description: |
+        Menandai seluruh notifikasi milik pengguna yang belum dibaca menjadi telah dibaca sekaligus.
+      operationId: markAllNotificationsAsRead
+      tags:
+        - Notifications
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: All notifications marked as read successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: All notifications marked as read successfully
+                  data:
+                    type: object
+                    properties:
+                      count:
+                        type: integer
+                        example: 5
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
 
   # ==========================================
   # CENTRALIZED MEDIA STORAGE & CLOUDINARY
@@ -4994,6 +5202,238 @@ components:
               type: string
               nullable: true
               example: Post contains affiliate promo links spam.
+
+    # ==========================================
+    # DEVICE TOKENS & FCM SCHEMAS
+    # ==========================================
+    RegisterDeviceTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: Firebase Cloud Messaging (FCM) registration token
+          example: "fK3xZ_8sQ...d9v8w1A2"
+        platform:
+          type: string
+          enum: [ANDROID, IOS, WEB]
+          default: ANDROID
+          example: ANDROID
+        deviceId:
+          type: string
+          nullable: true
+          description: Unique hardware device identifier or model name
+          example: "samsung-sm-g998b"
+
+    DeactivateDeviceTokenRequest:
+      type: object
+      required:
+        - token
+      properties:
+        token:
+          type: string
+          description: FCM token to deactivate
+          example: "fK3xZ_8sQ...d9v8w1A2"
+
+    DeviceTokenResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Device token registered successfully
+        data:
+          type: object
+          required:
+            - id
+            - userId
+            - token
+            - platform
+            - isActive
+            - lastUsedAt
+            - createdAt
+            - updatedAt
+          properties:
+            id:
+              type: string
+              example: "d1234567-e89b-12d3-a456-426614174000"
+            userId:
+              type: string
+              example: "u1234567-e89b-12d3-a456-426614174000"
+            token:
+              type: string
+              example: "fK3xZ_8sQ...d9v8w1A2"
+            platform:
+              type: string
+              example: "ANDROID"
+            deviceId:
+              type: string
+              nullable: true
+              example: "samsung-sm-g998b"
+            isActive:
+              type: boolean
+              example: true
+            lastUsedAt:
+              type: string
+              format: date-time
+              example: "2026-09-05T12:00:00.000Z"
+            createdAt:
+              type: string
+              format: date-time
+              example: "2026-09-05T12:00:00.000Z"
+            updatedAt:
+              type: string
+              format: date-time
+              example: "2026-09-05T12:00:00.000Z"
+
+    # ==========================================
+    # NOTIFICATIONS SCHEMAS
+    # ==========================================
+    NotificationActorDto:
+      type: object
+      required:
+        - id
+        - displayName
+      properties:
+        id:
+          type: string
+          example: "u1234567-e89b-12d3-a456-426614174000"
+        username:
+          type: string
+          nullable: true
+          example: "wahyutraveler"
+        displayName:
+          type: string
+          example: "Wahyu Saputra"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v1/avatar.webp"
+
+    NotificationDto:
+      type: object
+      required:
+        - id
+        - type
+        - title
+        - body
+        - actor
+        - isRead
+        - createdAt
+      properties:
+        id:
+          type: string
+          example: "notif_123e4567-e89b-12d3-a456-426614174000"
+        type:
+          type: string
+          enum: [POST_LIKED, POST_COMMENTED, COMMENT_REPLIED, MENTIONED]
+          example: POST_LIKED
+        title:
+          type: string
+          example: "Wahyu Saputra menyukai postingan Anda"
+        body:
+          type: string
+          example: "Ketuk untuk melihat postingan Anda"
+        actor:
+          $ref: '#/components/schemas/NotificationActorDto'
+        postId:
+          type: string
+          nullable: true
+          example: "773efbdc-6bf1-4dd7-9c0f-d9c92a303988"
+        commentId:
+          type: string
+          nullable: true
+          example: "c73efbdc-6bf1-4dd7-9c0f-d9c92a303988"
+        isRead:
+          type: boolean
+          example: false
+        readAt:
+          type: string
+          format: date-time
+          nullable: true
+          example: null
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-05T12:00:00.000Z"
+
+    NotificationListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Notifications retrieved successfully
+        data:
+          type: object
+          required:
+            - items
+            - pagination
+          properties:
+            items:
+              type: array
+              items:
+                $ref: '#/components/schemas/NotificationDto'
+            pagination:
+              type: object
+              required:
+                - page
+                - limit
+                - totalItems
+                - totalPages
+                - hasNext
+              properties:
+                page:
+                  type: integer
+                  example: 1
+                limit:
+                  type: integer
+                  example: 20
+                totalItems:
+                  type: integer
+                  example: 1
+                totalPages:
+                  type: integer
+                  example: 1
+                hasNext:
+                  type: boolean
+                  example: false
+
+    UnreadNotificationCountResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Unread notification count retrieved successfully
+        data:
+          type: object
+          required:
+            - unreadCount
+          properties:
+            unreadCount:
+              type: integer
+              example: 3
+
 
 
 

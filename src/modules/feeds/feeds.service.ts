@@ -11,17 +11,22 @@ import { FeedsMapper, PrismaPostWithRelations } from './feeds.mapper';
 import { decodeCursor, encodeCursor } from './utils/cursor.util';
 import { CursorPaginatedData, FeedPostResponse } from './feeds.types';
 import { cloudinaryService, CloudinaryService } from '../cloudinary/cloudinary.service';
+import { notificationsService, NotificationsService } from '../notifications/notifications.service';
+import { logger } from '../../common/utils/logger';
 
 export class FeedsService {
   private readonly repository: FeedsRepository;
   private readonly cloudinary: CloudinaryService;
+  private readonly notifications: NotificationsService;
 
   constructor(
     repository: FeedsRepository = feedsRepository,
     cloudinary: CloudinaryService = cloudinaryService,
+    notifications: NotificationsService = notificationsService,
   ) {
     this.repository = repository;
     this.cloudinary = cloudinary;
+    this.notifications = notifications;
   }
 
   /**
@@ -297,7 +302,35 @@ export class FeedsService {
    */
   public async likePost(userId: string, postId: string) {
     try {
-      return await this.repository.addLike(userId, postId);
+      const result = await this.repository.addLike(userId, postId);
+
+      if (result.isNewlyLiked && result.postAuthorId && result.postAuthorId !== userId) {
+        // Fetch actor details to generate dynamic notification text
+        const actor = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { name: true, username: true },
+        });
+
+        const actorName = actor?.name || actor?.username || 'Seseorang';
+        try {
+          await this.notifications.createNotification({
+            recipientId: result.postAuthorId,
+            actorId: userId,
+            type: 'POST_LIKED',
+            postId,
+            title: `${actorName} menyukai postingan Anda`,
+            body: 'Ketuk untuk melihat postingan Anda',
+            data: {
+              postId,
+              actorId: userId,
+            },
+          });
+        } catch (err) {
+          logger.error({ err, postId, userId }, 'Failed to create POST_LIKED notification');
+        }
+      }
+
+      return { isLiked: result.isLiked, likeCount: result.likeCount };
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'POST_NOT_FOUND') {
         throw new NotFoundError('Feed post not found', 'POST_NOT_FOUND');
@@ -372,6 +405,35 @@ export class FeedsService {
   ) {
     try {
       const comment = await this.repository.createComment(userId, postId, data.content);
+
+      if (comment.postAuthorId && comment.postAuthorId !== userId) {
+        const actorName = comment.user?.name || comment.user?.username || 'Seseorang';
+        const truncatedContent =
+          comment.content.length > 80 ? `${comment.content.slice(0, 77)}...` : comment.content;
+
+        try {
+          await this.notifications.createNotification({
+            recipientId: comment.postAuthorId,
+            actorId: userId,
+            type: 'POST_COMMENTED',
+            postId,
+            commentId: comment.id,
+            title: `${actorName} mengomentari postingan Anda`,
+            body: `"${truncatedContent}"`,
+            data: {
+              postId,
+              commentId: comment.id,
+              actorId: userId,
+            },
+          });
+        } catch (err) {
+          logger.error(
+            { err, postId, commentId: comment.id, userId },
+            'Failed to create POST_COMMENTED notification',
+          );
+        }
+      }
+
       return FeedsMapper.toCommentResponse(comment);
     } catch (err: unknown) {
       if (err instanceof Error && err.message === 'POST_NOT_FOUND') {

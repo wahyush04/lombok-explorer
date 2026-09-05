@@ -1,5 +1,8 @@
 import { z } from 'zod';
-import { BudgetLevel, TransportationMode, TravelStyle } from '@prisma/client';
+import { BudgetLevel, ItineraryItemType, TransportationMode, TravelStyle } from '@prisma/client';
+
+export { ItineraryItemType };
+export const ItineraryItemTypeEnum = z.nativeEnum(ItineraryItemType);
 
 export const CustomLocationInputSchema = z.object({
   name: z.string({ required_error: 'Location name is required' }).trim().min(1).max(150),
@@ -10,7 +13,10 @@ export const CustomLocationInputSchema = z.object({
 
 export const ItineraryItemInputSchema = z.object({
   id: z.string().optional(),
+  itemType: ItineraryItemTypeEnum.optional().default(ItineraryItemType.DESTINATION),
   destinationId: z.string().optional().nullable(),
+  restaurantId: z.string().optional().nullable(),
+  accommodationId: z.string().optional().nullable(),
   customLocation: CustomLocationInputSchema.optional().nullable(),
   customTitle: z.string().trim().optional().nullable(),
   orderIndex: z.coerce.number().int().min(0).optional(),
@@ -91,7 +97,10 @@ export const UpdateDayDtoSchema = z.object({
 
 export const AddActivityDtoSchema = z
   .object({
+    itemType: ItineraryItemTypeEnum.optional(),
     destinationId: z.string().optional().nullable(),
+    restaurantId: z.string().optional().nullable(),
+    accommodationId: z.string().optional().nullable(),
     customLocation: CustomLocationInputSchema.optional().nullable(),
     customTitle: z.string().trim().max(150).optional().nullable(),
     estimatedDurationMinutes: z.coerce.number().int().min(1).max(1440).default(60),
@@ -103,13 +112,25 @@ export const AddActivityDtoSchema = z
     timeSlot: z.string().trim().optional().nullable(),
     orderIndex: z.coerce.number().int().min(0).optional(),
   })
-  .refine((data) => !!data.destinationId || !!data.customLocation || !!data.customTitle, {
-    message: 'Either destinationId, customLocation, or customTitle must be provided',
-    path: ['destinationId'],
-  });
+  .refine(
+    (data) =>
+      !!data.destinationId ||
+      !!data.restaurantId ||
+      !!data.accommodationId ||
+      !!data.customLocation ||
+      !!data.customTitle,
+    {
+      message:
+        'Either destinationId, restaurantId, accommodationId, customLocation, or customTitle must be provided',
+      path: ['destinationId'],
+    },
+  );
 
 export const UpdateActivityDtoSchema = z.object({
+  itemType: ItineraryItemTypeEnum.optional(),
   destinationId: z.string().optional().nullable(),
+  restaurantId: z.string().optional().nullable(),
+  accommodationId: z.string().optional().nullable(),
   customLocation: CustomLocationInputSchema.optional().nullable(),
   customTitle: z.string().trim().max(150).optional().nullable(),
   estimatedDurationMinutes: z.coerce.number().int().min(1).max(1440).optional(),
@@ -254,15 +275,50 @@ export interface BrowseTemplatesResponseDto {
   pagination: PaginationMetadataDto;
 }
 
+export interface RestaurantSummaryDto {
+  id: string;
+  name: string;
+  slug?: string;
+  cuisineType?: string;
+  specialtyDish?: string;
+  priceRange?: string;
+  rating?: number;
+  isHalalCertified?: boolean;
+  coverImageUrl?: string | null;
+  address?: string | null;
+  region?: string | null;
+  latitude?: number;
+  longitude?: number;
+}
+
+export interface AccommodationSummaryDto {
+  id: string;
+  name: string;
+  slug?: string;
+  type?: string;
+  pricePerNight?: number;
+  rating?: number;
+  coverImageUrl?: string | null;
+  address?: string | null;
+  region?: string | null;
+  latitude?: number;
+  longitude?: number;
+}
+
 export interface ItineraryActivityDto {
   id: string;
   dayId: string;
+  itemType: ItineraryItemType;
   orderIndex: number;
   timeSlot: string | null;
   startTime: string | null;
   endTime: string | null;
   destinationId: string | null;
   destination: DestinationSummaryDto | null;
+  restaurantId?: string | null;
+  restaurant?: RestaurantSummaryDto | null;
+  accommodationId?: string | null;
+  accommodation?: AccommodationSummaryDto | null;
   destinationName?: string;
   destinationCategory?: string;
   imageUrl?: string | null;
@@ -373,6 +429,7 @@ export interface ActiveTripResponseDto {
 export interface TemplateActivityDto {
   id: string;
   templateDayId: string;
+  itemType?: ItineraryItemType;
   orderIndex: number;
   startTime: string | null;
   endTime: string | null;
@@ -388,6 +445,10 @@ export interface TemplateActivityDto {
   destinationCategory?: string;
   imageUrl?: string | null;
   destination: DestinationSummaryDto | null;
+  restaurantId?: string | null;
+  restaurant?: RestaurantSummaryDto | null;
+  accommodationId?: string | null;
+  accommodation?: AccommodationSummaryDto | null;
   customLocation?: CustomLocation | null;
   customTitle?: string | null;
 }

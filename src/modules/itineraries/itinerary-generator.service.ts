@@ -338,6 +338,7 @@ export class ItineraryGeneratorService {
           dayActivities.push({
             id: `act_gen_lunch_d${currentDayNumber}`,
             dayId: `day_gen_${currentDayNumber}`,
+            itemType: 'RESTAURANT',
             orderIndex: orderIndex++,
             timeSlot: `${lunchStart} - ${lunchEnd}`,
             startTime: lunchStart,
@@ -426,6 +427,7 @@ export class ItineraryGeneratorService {
         dayActivities.push({
           id: `act_gen_${chosen.id}_d${currentDayNumber}`,
           dayId: `day_gen_${currentDayNumber}`,
+          itemType: 'DESTINATION',
           orderIndex: orderIndex++,
           timeSlot: `${startTimeStr} - ${endTimeStr}`,
           startTime: startTimeStr,

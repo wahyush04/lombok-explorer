@@ -1,16 +1,20 @@
 import * as crypto from 'crypto';
 import {
+  Accommodation,
   Category,
   Destination,
   Itinerary,
   ItineraryDay,
   ItineraryItem,
+  ItineraryItemType,
+  Restaurant,
   TransportationMode,
 } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors/app-error';
 import { itinerariesRepository, ItinerariesRepository } from './itineraries.repository';
 import {
+  AccommodationSummaryDto,
   ActiveTripResponseDto,
   AddActivityDto,
   AddDayDto,
@@ -28,6 +32,7 @@ import {
   OptimizeItineraryDto,
   RecommendationsQuery,
   ReorderActivitiesDto,
+  RestaurantSummaryDto,
   RouteSegmentDto,
   TemplateActivityDto,
   UpdateActivityDto,
@@ -44,6 +49,8 @@ import { GeoCoordinate } from './services/mapbox.types';
 
 export type ItineraryItemWithDestination = ItineraryItem & {
   destination?: (Destination & { category?: Category | null }) | null;
+  restaurant?: Restaurant | null;
+  accommodation?: Accommodation | null;
 };
 
 export type ItineraryDayWithItems = ItineraryDay & {
@@ -129,6 +136,8 @@ export class ItinerariesService {
               });
             }
 
+            const itemType = item.itemType || 'DESTINATION';
+
             const categoryObj = item.destination?.category
               ? {
                   id: item.destination.category.id,
@@ -136,8 +145,9 @@ export class ItinerariesService {
                   slug: item.destination.category.slug,
                 }
               : null;
-            const categoryName = item.destination?.category?.name || 'Aktivitas Wisata';
-            const imgUrl = item.destination?.coverImageUrl || null;
+            let categoryName = item.destination?.category?.name || 'Aktivitas Wisata';
+            let imgUrl = item.destination?.coverImageUrl || null;
+            let activityName = item.destination?.name;
 
             const destinationSummary: DestinationSummaryDto | null = item.destination
               ? {
@@ -155,17 +165,66 @@ export class ItinerariesService {
                 }
               : null;
 
+            const restaurantSummary: RestaurantSummaryDto | null = item.restaurant
+              ? {
+                  id: item.restaurant.id,
+                  name: item.restaurant.name,
+                  slug: item.restaurant.slug,
+                  cuisineType: item.restaurant.cuisineType,
+                  specialtyDish: item.restaurant.specialtyDish,
+                  priceRange: item.restaurant.priceRange,
+                  rating: item.restaurant.rating,
+                  isHalalCertified: item.restaurant.isHalalCertified,
+                  coverImageUrl: item.restaurant.coverImageUrl,
+                  address: item.restaurant.address,
+                  region: item.restaurant.region,
+                  latitude: item.restaurant.latitude,
+                  longitude: item.restaurant.longitude,
+                }
+              : null;
+
+            const accommodationSummary: AccommodationSummaryDto | null = item.accommodation
+              ? {
+                  id: item.accommodation.id,
+                  name: item.accommodation.name,
+                  slug: item.accommodation.slug,
+                  type: item.accommodation.type,
+                  pricePerNight: Number(item.accommodation.pricePerNight),
+                  rating: item.accommodation.rating,
+                  coverImageUrl: item.accommodation.coverImageUrl,
+                  address: item.accommodation.address,
+                  region: item.accommodation.region,
+                  latitude: item.accommodation.latitude,
+                  longitude: item.accommodation.longitude,
+                }
+              : null;
+
+            if (itemType === 'RESTAURANT' && item.restaurant) {
+              activityName = item.restaurant.name;
+              imgUrl = item.restaurant.coverImageUrl || imgUrl;
+              categoryName = item.restaurant.cuisineType || 'Restoran & Kuliner';
+            } else if (itemType === 'ACCOMMODATION' && item.accommodation) {
+              activityName = item.accommodation.name;
+              imgUrl = item.accommodation.coverImageUrl || imgUrl;
+              categoryName = item.accommodation.type || 'Penginapan';
+            }
+
             return {
               id: item.id,
               dayId: item.itineraryDayId,
+              itemType,
               orderIndex: item.orderIndex,
               timeSlot,
               startTime,
               endTime,
               destinationId: item.destinationId,
               destination: destinationSummary,
+              restaurantId: item.restaurantId,
+              restaurant: restaurantSummary,
+              accommodationId: item.accommodationId,
+              accommodation: accommodationSummary,
               destinationName:
-                item.destination?.name || customLoc?.name || item.customTitle || 'Aktivitas Trip',
+                activityName || customLoc?.name || item.customTitle || 'Aktivitas Trip',
               destinationCategory: categoryName,
               imageUrl: imgUrl,
               coverImageUrl: imgUrl,
@@ -292,6 +351,20 @@ export class ItinerariesService {
           name: item.destination.name,
           latitude: item.destination.latitude,
           longitude: item.destination.longitude,
+        });
+      } else if (item.restaurant?.latitude && item.restaurant?.longitude) {
+        coordinates.push({
+          id: item.id,
+          name: item.restaurant.name,
+          latitude: item.restaurant.latitude,
+          longitude: item.restaurant.longitude,
+        });
+      } else if (item.accommodation?.latitude && item.accommodation?.longitude) {
+        coordinates.push({
+          id: item.id,
+          name: item.accommodation.name,
+          latitude: item.accommodation.latitude,
+          longitude: item.accommodation.longitude,
         });
       } else if (item.customLocation) {
         const parsed = this.parseLocation(item.customLocation);
@@ -814,10 +887,49 @@ export class ItinerariesService {
       }
     }
 
+    // If restaurantId provided, validate existence
+    if (dto.restaurantId) {
+      const rest = await prisma.restaurant.findUnique({
+        where: { id: dto.restaurantId },
+        select: { id: true, name: true, status: true },
+      });
+      if (!rest) {
+        throw new NotFoundError(
+          `Restaurant '${dto.restaurantId}' not found`,
+          'RESTAURANT_NOT_FOUND',
+        );
+      }
+    }
+
+    // If accommodationId provided, validate existence
+    if (dto.accommodationId) {
+      const accom = await prisma.accommodation.findUnique({
+        where: { id: dto.accommodationId },
+        select: { id: true, name: true, status: true },
+      });
+      if (!accom) {
+        throw new NotFoundError(
+          `Accommodation '${dto.accommodationId}' not found`,
+          'ACCOMMODATION_NOT_FOUND',
+        );
+      }
+    }
+
+    let inferredType: ItineraryItemType = dto.itemType || 'DESTINATION';
+    if (!dto.itemType) {
+      if (dto.restaurantId) inferredType = 'RESTAURANT';
+      else if (dto.accommodationId) inferredType = 'ACCOMMODATION';
+      else if (dto.destinationId) inferredType = 'DESTINATION';
+      else if (dto.customLocation || dto.customTitle) inferredType = 'CUSTOM';
+    }
+
     const customLocationStr = dto.customLocation ? JSON.stringify(dto.customLocation) : null;
 
     await this.repository.addActivity(dayId, {
+      itemType: inferredType,
       destinationId: dto.destinationId,
+      restaurantId: dto.restaurantId,
+      accommodationId: dto.accommodationId,
       customLocation: customLocationStr,
       customTitle: dto.customTitle,
       orderIndex: dto.orderIndex,
@@ -862,6 +974,45 @@ export class ItinerariesService {
       );
     }
 
+    if (dto.destinationId) {
+      const dest = await prisma.destination.findUnique({
+        where: { id: dto.destinationId },
+        select: { id: true },
+      });
+      if (!dest) {
+        throw new NotFoundError(
+          `Destination '${dto.destinationId}' not found`,
+          'DESTINATION_NOT_FOUND',
+        );
+      }
+    }
+
+    if (dto.restaurantId) {
+      const rest = await prisma.restaurant.findUnique({
+        where: { id: dto.restaurantId },
+        select: { id: true },
+      });
+      if (!rest) {
+        throw new NotFoundError(
+          `Restaurant '${dto.restaurantId}' not found`,
+          'RESTAURANT_NOT_FOUND',
+        );
+      }
+    }
+
+    if (dto.accommodationId) {
+      const accom = await prisma.accommodation.findUnique({
+        where: { id: dto.accommodationId },
+        select: { id: true },
+      });
+      if (!accom) {
+        throw new NotFoundError(
+          `Accommodation '${dto.accommodationId}' not found`,
+          'ACCOMMODATION_NOT_FOUND',
+        );
+      }
+    }
+
     const customLocationStr =
       dto.customLocation !== undefined
         ? dto.customLocation
@@ -870,7 +1021,10 @@ export class ItinerariesService {
         : undefined;
 
     await this.repository.updateActivity(activityId, {
+      itemType: dto.itemType,
       destinationId: dto.destinationId,
+      restaurantId: dto.restaurantId,
+      accommodationId: dto.accommodationId,
       customLocation: customLocationStr,
       customTitle: dto.customTitle,
       estimatedDurationMinutes: dto.estimatedDurationMinutes,
@@ -1216,10 +1370,10 @@ export class ItinerariesService {
       totalDestCount += activities.length;
 
       const mappedActivities: TemplateActivityDto[] = activities.map((act: any) => {
-        const destName = act.destination?.name || act.customTitle || 'Aktivitas';
-        if (destNames.length < 3) {
-          destNames.push(destName);
-        }
+        const itemType = act.itemType || 'DESTINATION';
+        let destName = act.destination?.name || act.customTitle || 'Aktivitas';
+        let categoryName = act.destination?.category?.name || 'Aktivitas Wisata';
+        let imgUrl = act.destination?.coverImageUrl || null;
 
         const categoryObj = act.destination?.category
           ? {
@@ -1228,8 +1382,6 @@ export class ItinerariesService {
               slug: act.destination.category.slug,
             }
           : null;
-        const categoryName = act.destination?.category?.name || 'Aktivitas Wisata';
-        const imgUrl = act.destination?.coverImageUrl || null;
 
         const destSummary: DestinationSummaryDto | null = act.destination
           ? {
@@ -1246,11 +1398,60 @@ export class ItinerariesService {
             }
           : null;
 
+        const restaurantSummary: RestaurantSummaryDto | null = act.restaurant
+          ? {
+              id: act.restaurant.id,
+              name: act.restaurant.name,
+              slug: act.restaurant.slug,
+              cuisineType: act.restaurant.cuisineType,
+              specialtyDish: act.restaurant.specialtyDish,
+              priceRange: act.restaurant.priceRange,
+              rating: act.restaurant.rating,
+              isHalalCertified: act.restaurant.isHalalCertified,
+              coverImageUrl: act.restaurant.coverImageUrl,
+              address: act.restaurant.address,
+              region: act.restaurant.region,
+              latitude: act.restaurant.latitude,
+              longitude: act.restaurant.longitude,
+            }
+          : null;
+
+        const accommodationSummary: AccommodationSummaryDto | null = act.accommodation
+          ? {
+              id: act.accommodation.id,
+              name: act.accommodation.name,
+              slug: act.accommodation.slug,
+              type: act.accommodation.type,
+              pricePerNight: Number(act.accommodation.pricePerNight),
+              rating: act.accommodation.rating,
+              coverImageUrl: act.accommodation.coverImageUrl,
+              address: act.accommodation.address,
+              region: act.accommodation.region,
+              latitude: act.accommodation.latitude,
+              longitude: act.accommodation.longitude,
+            }
+          : null;
+
+        if (itemType === 'RESTAURANT' && act.restaurant) {
+          destName = act.restaurant.name;
+          imgUrl = act.restaurant.coverImageUrl || imgUrl;
+          categoryName = act.restaurant.cuisineType || 'Restoran & Kuliner';
+        } else if (itemType === 'ACCOMMODATION' && act.accommodation) {
+          destName = act.accommodation.name;
+          imgUrl = act.accommodation.coverImageUrl || imgUrl;
+          categoryName = act.accommodation.type || 'Penginapan';
+        }
+
+        if (destNames.length < 3) {
+          destNames.push(destName);
+        }
+
         const dur = Number(act.travelTimeFromPrevMinutes) || 0;
 
         return {
           id: act.id,
           templateDayId: act.templateDayId,
+          itemType,
           orderIndex: act.orderIndex,
           startTime: act.startTime,
           endTime: act.endTime,
@@ -1269,6 +1470,10 @@ export class ItinerariesService {
           destinationCategory: categoryName,
           imageUrl: imgUrl,
           destination: destSummary,
+          restaurantId: act.restaurantId || (act.restaurant ? act.restaurant.id : null),
+          restaurant: restaurantSummary,
+          accommodationId: act.accommodationId || (act.accommodation ? act.accommodation.id : null),
+          accommodation: accommodationSummary,
           customLocation: act.customLocation ? this.parseLocation(act.customLocation) : null,
           customTitle: act.customTitle,
         };

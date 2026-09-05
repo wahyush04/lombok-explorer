@@ -1,10 +1,13 @@
 import { z } from 'zod';
-import { BudgetLevel, TransportationMode, TravelStyle } from '@prisma/client';
+import { BudgetLevel, ItineraryItemType, TransportationMode, TravelStyle } from '@prisma/client';
 import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
 
 export const AdminTemplateActivityInputSchema = z.object({
   id: z.string().optional(),
+  itemType: z.nativeEnum(ItineraryItemType).optional().default(ItineraryItemType.DESTINATION),
   destinationId: z.string().optional().nullable(),
+  restaurantId: z.string().optional().nullable(),
+  accommodationId: z.string().optional().nullable(),
   customLocation: z
     .union([
       z.string(),

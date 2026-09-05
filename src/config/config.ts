@@ -61,6 +61,18 @@ export const config = {
       env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET,
     ),
   },
+  firebase: {
+    projectId: env.FIREBASE_PROJECT_ID,
+    clientEmail: env.FIREBASE_CLIENT_EMAIL,
+    privateKey: env.FIREBASE_PRIVATE_KEY
+      ? env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n')
+      : undefined,
+    serviceAccountKey: env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    isConfigured: Boolean(
+      (env.FIREBASE_PROJECT_ID && env.FIREBASE_CLIENT_EMAIL && env.FIREBASE_PRIVATE_KEY) ||
+      env.FIREBASE_SERVICE_ACCOUNT_KEY,
+    ),
+  },
 } as const;
 
 export type AppConfig = typeof config;

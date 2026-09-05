@@ -1,4 +1,10 @@
-import { BudgetLevel, Prisma, TransportationMode, TravelStyle } from '@prisma/client';
+import {
+  BudgetLevel,
+  ItineraryItemType,
+  Prisma,
+  TransportationMode,
+  TravelStyle,
+} from '@prisma/client';
 import { prisma } from '../../database/prisma';
 
 export interface ItineraryFilterOptions {
@@ -23,6 +29,8 @@ export type TemplateWithRelations = Prisma.ItineraryTemplateGetPayload<{
                 category: true;
               };
             };
+            restaurant: true;
+            accommodation: true;
           };
         };
       };
@@ -74,6 +82,8 @@ export class ItinerariesRepository {
                   destination: {
                     include: { category: true },
                   },
+                  restaurant: true,
+                  accommodation: true,
                 },
               },
             },
@@ -102,6 +112,8 @@ export class ItinerariesRepository {
                 destination: {
                   include: { category: true },
                 },
+                restaurant: true,
+                accommodation: true,
               },
             },
           },
@@ -126,6 +138,8 @@ export class ItinerariesRepository {
                 destination: {
                   include: { category: true },
                 },
+                restaurant: true,
+                accommodation: true,
               },
             },
           },
@@ -145,6 +159,8 @@ export class ItinerariesRepository {
             destination: {
               include: { category: true },
             },
+            restaurant: true,
+            accommodation: true,
           },
         },
       },
@@ -163,6 +179,8 @@ export class ItinerariesRepository {
         destination: {
           include: { category: true },
         },
+        restaurant: true,
+        accommodation: true,
       },
     });
   }
@@ -248,10 +266,24 @@ export class ItinerariesRepository {
               : JSON.stringify(item.customLocation)
             : null;
 
+          let inferredType: ItineraryItemType = 'DESTINATION';
+          if (item.itemType) {
+            inferredType = item.itemType as ItineraryItemType;
+          } else if (item.restaurantId) {
+            inferredType = 'RESTAURANT';
+          } else if (item.accommodationId) {
+            inferredType = 'ACCOMMODATION';
+          } else if (item.customLocation || item.customTitle) {
+            inferredType = 'CUSTOM';
+          }
+
           await tx.itineraryItem.create({
             data: {
               itineraryDayId: day.id,
+              itemType: inferredType,
               destinationId: (item.destinationId as string) || null,
+              restaurantId: (item.restaurantId as string) || null,
+              accommodationId: (item.accommodationId as string) || null,
               customLocation: customLocationStr,
               customTitle: (item.customTitle as string) || null,
               orderIndex: typeof item.orderIndex === 'number' ? item.orderIndex : itemIdx,
@@ -395,7 +427,10 @@ export class ItinerariesRepository {
   public async addActivity(
     dayId: string,
     activityData: {
+      itemType?: ItineraryItemType;
       destinationId?: string | null;
+      restaurantId?: string | null;
+      accommodationId?: string | null;
       customLocation?: string | null;
       customTitle?: string | null;
       orderIndex?: number;
@@ -421,10 +456,21 @@ export class ItinerariesRepository {
         finalOrderIndex = (maxActivity?.orderIndex ?? -1) + 1;
       }
 
+      let inferredType: ItineraryItemType = activityData.itemType || 'DESTINATION';
+      if (!activityData.itemType) {
+        if (activityData.restaurantId) inferredType = 'RESTAURANT';
+        else if (activityData.accommodationId) inferredType = 'ACCOMMODATION';
+        else if (activityData.destinationId) inferredType = 'DESTINATION';
+        else if (activityData.customLocation || activityData.customTitle) inferredType = 'CUSTOM';
+      }
+
       return tx.itineraryItem.create({
         data: {
           itineraryDayId: dayId,
+          itemType: inferredType,
           destinationId: activityData.destinationId || null,
+          restaurantId: activityData.restaurantId || null,
+          accommodationId: activityData.accommodationId || null,
           customLocation: activityData.customLocation || null,
           customTitle: activityData.customTitle || null,
           orderIndex: finalOrderIndex,
@@ -441,6 +487,8 @@ export class ItinerariesRepository {
           destination: {
             include: { category: true },
           },
+          restaurant: true,
+          accommodation: true,
         },
       });
     });
@@ -452,7 +500,10 @@ export class ItinerariesRepository {
   public async updateActivity(
     activityId: string,
     data: {
+      itemType?: ItineraryItemType;
       destinationId?: string | null;
+      restaurantId?: string | null;
+      accommodationId?: string | null;
       customLocation?: string | null;
       customTitle?: string | null;
       orderIndex?: number;
@@ -470,7 +521,10 @@ export class ItinerariesRepository {
     return prisma.itineraryItem.update({
       where: { id: activityId },
       data: {
+        ...(data.itemType !== undefined && { itemType: data.itemType }),
         ...(data.destinationId !== undefined && { destinationId: data.destinationId }),
+        ...(data.restaurantId !== undefined && { restaurantId: data.restaurantId }),
+        ...(data.accommodationId !== undefined && { accommodationId: data.accommodationId }),
         ...(data.customLocation !== undefined && { customLocation: data.customLocation }),
         ...(data.customTitle !== undefined && { customTitle: data.customTitle }),
         ...(data.orderIndex !== undefined && { orderIndex: data.orderIndex }),
@@ -496,6 +550,8 @@ export class ItinerariesRepository {
         destination: {
           include: { category: true },
         },
+        restaurant: true,
+        accommodation: true,
       },
     });
   }
@@ -641,6 +697,8 @@ export class ItinerariesRepository {
                     category: true,
                   },
                 },
+                restaurant: true,
+                accommodation: true,
               },
             },
           },
@@ -817,6 +875,8 @@ export class ItinerariesRepository {
                     category: true,
                   },
                 },
+                restaurant: true,
+                accommodation: true,
               },
             },
           },
@@ -884,7 +944,10 @@ export class ItinerariesRepository {
                 estimatedBudget: day.estimatedBudget,
                 items: {
                   create: day.activities.map((act) => ({
+                    itemType: act.itemType || 'DESTINATION',
                     destinationId: act.destinationId,
+                    restaurantId: act.restaurantId,
+                    accommodationId: act.accommodationId,
                     customLocation: act.customLocation,
                     customTitle: act.customTitle,
                     orderIndex: act.orderIndex,
@@ -916,6 +979,8 @@ export class ItinerariesRepository {
                       category: true,
                     },
                   },
+                  restaurant: true,
+                  accommodation: true,
                 },
               },
             },

@@ -102,6 +102,11 @@ export const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional().default(''),
   CLOUDINARY_API_SECRET: z.string().optional().default(''),
   CLOUDINARY_FOLDER: z.string().optional().default('lombok-explorer'),
+
+  FIREBASE_PROJECT_ID: z.string().optional().default(''),
+  FIREBASE_CLIENT_EMAIL: z.string().optional().default(''),
+  FIREBASE_PRIVATE_KEY: z.string().optional().default(''),
+  FIREBASE_SERVICE_ACCOUNT_KEY: z.string().optional().default(''),
 });
 
 export type Env = z.infer<typeof envSchema>;
