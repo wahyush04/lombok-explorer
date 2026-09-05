@@ -710,20 +710,80 @@ export class ItinerariesRepository {
   public async findRecommendations(filter: {
     travel_style?: TravelStyle;
     travelStyle?: TravelStyle;
+    style?: TravelStyle;
+    budget_level?: BudgetLevel;
+    budgetLevel?: BudgetLevel;
+    budget?: BudgetLevel;
     duration_days?: number;
     durationDays?: number;
+    duration?: number;
+    days?: number;
+    totalDays?: number;
+    total_days?: number;
+    duration_filter?:
+      'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
+    durationFilter?:
+      'ALL' | '1_DAY' | '2_3_DAYS' | '4_PLUS_DAYS' | '1_3_DAYS' | '4_7_DAYS' | 'MORE_7_DAYS';
+    category?: string;
+    categoryId?: string;
+    category_id?: string;
     limit?: number;
   }) {
-    const travelStyle = filter.travel_style || filter.travelStyle;
-    const durationDays = filter.duration_days || filter.durationDays;
+    const travelStyle = filter.travel_style || filter.travelStyle || filter.style;
+    const budgetLevel = filter.budget_level || filter.budgetLevel || filter.budget;
+    const durationDays =
+      filter.duration_days ||
+      filter.durationDays ||
+      filter.duration ||
+      filter.days ||
+      filter.totalDays ||
+      filter.total_days;
+    const durationFilter = filter.duration_filter || filter.durationFilter;
+    const category = filter.category || filter.categoryId || filter.category_id;
     const limit = filter.limit || 6;
 
     const where: Prisma.ItineraryTemplateWhereInput = {
       isPublished: true,
       deletedAt: null,
       ...(travelStyle && { travelStyle }),
+      ...(budgetLevel && { budgetLevel }),
       ...(durationDays && { totalDays: durationDays }),
     };
+
+    if (durationFilter) {
+      if (durationFilter === '1_3_DAYS') {
+        where.totalDays = { gte: 1, lte: 3 };
+      } else if (durationFilter === '4_7_DAYS') {
+        where.totalDays = { gte: 4, lte: 7 };
+      } else if (durationFilter === 'MORE_7_DAYS') {
+        where.totalDays = { gt: 7 };
+      } else if (durationFilter === '1_DAY') {
+        where.totalDays = 1;
+      } else if (durationFilter === '2_3_DAYS') {
+        where.totalDays = { in: [2, 3] };
+      } else if (durationFilter === '4_PLUS_DAYS') {
+        where.totalDays = { gte: 4 };
+      }
+    }
+
+    if (category && category.trim().length > 0) {
+      const catTerm = category.trim().toLowerCase();
+      where.days = {
+        some: {
+          activities: {
+            some: {
+              destination: {
+                OR: [
+                  { categoryId: category },
+                  { category: { slug: catTerm } },
+                  { category: { name: { contains: category, mode: 'insensitive' } } },
+                ],
+              },
+            },
+          },
+        },
+      };
+    }
 
     return prisma.itineraryTemplate.findMany({
       where,
@@ -748,6 +808,8 @@ export class ItinerariesRepository {
                     category: { select: { id: true, name: true, slug: true } },
                   },
                 },
+                restaurant: true,
+                accommodation: true,
               },
             },
           },

@@ -179,24 +179,35 @@ export const ItineraryQuerySchema = z.object({
   search: z.string().trim().optional(),
 });
 
+import { ZodBudgetLevelSchema, ZodTravelStyleSchema } from '../../../common/utils/enum.util';
+
+export const DurationFilterEnum = z.preprocess(
+  (val) => (typeof val === 'string' ? val.trim().toUpperCase() : val),
+  z.enum(['ALL', '1_DAY', '2_3_DAYS', '4_PLUS_DAYS', '1_3_DAYS', '4_7_DAYS', 'MORE_7_DAYS']),
+);
+export type DurationFilterType = z.infer<typeof DurationFilterEnum>;
+
 export const RecommendationsQuerySchema = z.object({
-  travel_style: z.nativeEnum(TravelStyle).optional(),
-  travelStyle: z.nativeEnum(TravelStyle).optional(),
+  travel_style: ZodTravelStyleSchema,
+  travelStyle: ZodTravelStyleSchema,
+  style: ZodTravelStyleSchema,
+  budget_level: ZodBudgetLevelSchema,
+  budgetLevel: ZodBudgetLevelSchema,
+  budget: ZodBudgetLevelSchema,
   duration_days: z.coerce.number().int().min(1).max(30).optional(),
   durationDays: z.coerce.number().int().min(1).max(30).optional(),
-  limit: z.coerce.number().int().min(1).max(50).default(6),
+  duration: z.coerce.number().int().min(1).max(30).optional(),
+  days: z.coerce.number().int().min(1).max(30).optional(),
+  totalDays: z.coerce.number().int().min(1).max(30).optional(),
+  total_days: z.coerce.number().int().min(1).max(30).optional(),
+  duration_filter: DurationFilterEnum.optional(),
+  durationFilter: DurationFilterEnum.optional(),
+  category: z.string().trim().optional(),
+  categoryId: z.string().trim().optional(),
+  category_id: z.string().trim().optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(6),
+  page: z.coerce.number().int().min(1).default(1),
 });
-
-export const DurationFilterEnum = z.enum([
-  'ALL',
-  '1_DAY',
-  '2_3_DAYS',
-  '4_PLUS_DAYS',
-  '1_3_DAYS',
-  '4_7_DAYS',
-  'MORE_7_DAYS',
-]);
-export type DurationFilterType = z.infer<typeof DurationFilterEnum>;
 
 export const BrowseItineraryQuerySchema = z.object({
   query: z.string().trim().optional(),
@@ -204,12 +215,14 @@ export const BrowseItineraryQuerySchema = z.object({
   search: z.string().trim().optional(),
   duration_filter: DurationFilterEnum.default('ALL'),
   durationFilter: DurationFilterEnum.optional(),
-  travel_style: z.nativeEnum(TravelStyle).optional(),
-  travelStyle: z.nativeEnum(TravelStyle).optional(),
-  budget_level: z.nativeEnum(BudgetLevel).optional(),
-  budgetLevel: z.nativeEnum(BudgetLevel).optional(),
+  travel_style: ZodTravelStyleSchema,
+  travelStyle: ZodTravelStyleSchema,
+  style: ZodTravelStyleSchema,
+  budget_level: ZodBudgetLevelSchema,
+  budgetLevel: ZodBudgetLevelSchema,
+  budget: ZodBudgetLevelSchema,
   page: z.coerce.number().int().min(1).default(1),
-  limit: z.coerce.number().int().min(1).max(50).default(10),
+  limit: z.coerce.number().int().min(1).max(100).default(10),
 });
 
 export const ApplyTemplateDtoSchema = z.object({
