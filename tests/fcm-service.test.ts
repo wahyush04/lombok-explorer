@@ -35,6 +35,9 @@ describe('FCM and Push Notification Services', () => {
     });
 
     it('should handle unconfigured Firebase Admin gracefully in mock mode', async () => {
+      // Force unconfigured / mock mode on this instance
+      (fcmService as any).isInitialized = false;
+
       const result = await fcmService.sendMulticast({
         tokens: ['token_1', 'token_2'],
         title: 'Hello Lombok',
@@ -48,6 +51,18 @@ describe('FCM and Push Notification Services', () => {
       expect(result.successCount).toBe(2);
       expect(result.failureCount).toBe(0);
       expect(result.invalidTokens).toEqual([]);
+    });
+
+    it('should detect invalid tokens when calling live Firebase with invalid token strings', async () => {
+      const result = await fcmService.sendMulticast({
+        tokens: ['fake_dummy_token_123'],
+        title: 'Test Live Token',
+        body: 'Test Body',
+      });
+
+      expect(result.successCount).toBe(0);
+      expect(result.failureCount).toBe(1);
+      expect(result.invalidTokens).toContain('fake_dummy_token_123');
     });
   });
 
