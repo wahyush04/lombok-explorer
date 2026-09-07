@@ -140,6 +140,29 @@ export class AdminItineraryTemplatesRepository {
                   })),
                 }
               : undefined,
+          ...(translations && translations.length > 0
+            ? {
+                translations: {
+                  create: translations.map((t) => ({
+                    locale: t.locale,
+                    title: t.title,
+                    description: t.description || null,
+                    transportPaceNote: t.transportPaceNote || null,
+                  })),
+                },
+              }
+            : {
+                translations: {
+                  create: [
+                    {
+                      locale: 'id-ID',
+                      title: templateFields.title,
+                      description: templateFields.description || null,
+                      transportPaceNote: templateFields.transportPaceNote || null,
+                    },
+                  ],
+                },
+              }),
         },
         include: {
           days: {
@@ -206,6 +229,31 @@ export class AdminItineraryTemplatesRepository {
         }
       }
 
+      if (translations && translations.length > 0) {
+        for (const t of translations) {
+          await tx.itineraryTemplateTranslation.upsert({
+            where: {
+              templateId_locale: {
+                templateId: id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              templateId: id,
+              locale: t.locale,
+              title: t.title,
+              description: t.description || null,
+              transportPaceNote: t.transportPaceNote || null,
+            },
+            update: {
+              title: t.title,
+              description: t.description || null,
+              transportPaceNote: t.transportPaceNote || null,
+            },
+          });
+        }
+      }
+
       return tx.itineraryTemplate.update({
         where: { id },
         data: templateFields,
@@ -221,6 +269,7 @@ export class AdminItineraryTemplatesRepository {
               },
             },
           },
+          translations: true,
         },
       });
     });

@@ -167,52 +167,57 @@ export class AdminRestaurantsService {
     }
 
     try {
-      // 4. Create restaurant
-      const created = await this.repository.create({
-        name: dto.name,
-        slug,
-        description: dto.description,
-        cuisineType: dto.cuisineType,
-        specialtyDish: dto.specialtyDish,
-        priceRange: dto.priceRange,
-        minPrice: dto.minPrice,
-        maxPrice: dto.maxPrice,
-        address: dto.address,
-        region: dto.region,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        openingHours: dto.openingHours,
-        coverImageUrl,
-        coverImagePublicId,
-        images: JSON.stringify(imagesList),
-        isHalalCertified: dto.isHalalCertified,
-        status: dto.status,
-        isFeatured: dto.isFeatured,
+      // 4. Create restaurant atomically with translations
+      const created = await prisma.$transaction(async (tx) => {
+        const res = await tx.restaurant.create({
+          data: {
+            name: dto.name,
+            slug,
+            description: dto.description,
+            cuisineType: dto.cuisineType,
+            specialtyDish: dto.specialtyDish,
+            priceRange: dto.priceRange,
+            minPrice: dto.minPrice,
+            maxPrice: dto.maxPrice,
+            address: dto.address,
+            region: dto.region,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            openingHours: dto.openingHours,
+            coverImageUrl,
+            coverImagePublicId,
+            images: JSON.stringify(imagesList),
+            isHalalCertified: dto.isHalalCertified,
+            status: dto.status,
+            isFeatured: dto.isFeatured,
+            ...(dto.translations && dto.translations.length > 0
+              ? {
+                  translations: {
+                    create: dto.translations.map((t) => ({
+                      locale: t.locale,
+                      name: t.name,
+                      description: t.description,
+                    })),
+                  },
+                }
+              : {
+                  translations: {
+                    create: [
+                      {
+                        locale: 'id-ID',
+                        name: dto.name,
+                        description: dto.description,
+                      },
+                    ],
+                  },
+                }),
+          },
+          include: {
+            translations: true,
+          },
+        });
+        return res;
       });
-
-      // Upsert translations if provided
-      if (dto.translations && dto.translations.length > 0) {
-        for (const t of dto.translations) {
-          await prisma.restaurantTranslation.upsert({
-            where: {
-              restaurantId_locale: {
-                restaurantId: created.id,
-                locale: t.locale,
-              },
-            },
-            create: {
-              restaurantId: created.id,
-              locale: t.locale,
-              name: t.name,
-              description: t.description,
-            },
-            update: {
-              name: t.name,
-              description: t.description,
-            },
-          });
-        }
-      }
 
       const refreshed = await this.repository.findByIdOrSlug(created.id, true);
 
@@ -331,28 +336,59 @@ export class AdminRestaurantsService {
     }
 
     try {
-      const updated = await this.repository.update(existing.id, {
-        ...(dto.name && { name: dto.name }),
-        ...(slug && { slug }),
-        ...(dto.description && { description: dto.description }),
-        ...(dto.cuisineType && { cuisineType: dto.cuisineType }),
-        ...(dto.specialtyDish && { specialtyDish: dto.specialtyDish }),
-        ...(dto.priceRange && { priceRange: dto.priceRange }),
-        ...(dto.minPrice !== undefined && { minPrice: dto.minPrice }),
-        ...(dto.maxPrice !== undefined && { maxPrice: dto.maxPrice }),
-        ...(dto.address && { address: dto.address }),
-        ...(dto.region && { region: dto.region }),
-        ...(dto.latitude !== undefined && { latitude: dto.latitude }),
-        ...(dto.longitude !== undefined && { longitude: dto.longitude }),
-        ...(dto.openingHours && { openingHours: dto.openingHours }),
-        ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
-        ...(coverImagePublicIdToUpdate !== undefined && {
-          coverImagePublicId: coverImagePublicIdToUpdate,
-        }),
-        ...(imagesJsonToUpdate !== undefined && { images: imagesJsonToUpdate }),
-        ...(dto.isHalalCertified !== undefined && { isHalalCertified: dto.isHalalCertified }),
-        ...(dto.status && { status: dto.status }),
-        ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+      const updated = await prisma.$transaction(async (tx) => {
+        const res = await tx.restaurant.update({
+          where: { id: existing.id },
+          data: {
+            ...(dto.name && { name: dto.name }),
+            ...(slug && { slug }),
+            ...(dto.description && { description: dto.description }),
+            ...(dto.cuisineType && { cuisineType: dto.cuisineType }),
+            ...(dto.specialtyDish && { specialtyDish: dto.specialtyDish }),
+            ...(dto.priceRange && { priceRange: dto.priceRange }),
+            ...(dto.minPrice !== undefined && { minPrice: dto.minPrice }),
+            ...(dto.maxPrice !== undefined && { maxPrice: dto.maxPrice }),
+            ...(dto.address && { address: dto.address }),
+            ...(dto.region && { region: dto.region }),
+            ...(dto.latitude !== undefined && { latitude: dto.latitude }),
+            ...(dto.longitude !== undefined && { longitude: dto.longitude }),
+            ...(dto.openingHours && { openingHours: dto.openingHours }),
+            ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
+            ...(coverImagePublicIdToUpdate !== undefined && {
+              coverImagePublicId: coverImagePublicIdToUpdate,
+            }),
+            ...(imagesJsonToUpdate !== undefined && { images: imagesJsonToUpdate }),
+            ...(dto.isHalalCertified !== undefined && { isHalalCertified: dto.isHalalCertified }),
+            ...(dto.status && { status: dto.status }),
+            ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+          },
+        });
+
+        // Upsert translations if provided
+        if (dto.translations && dto.translations.length > 0) {
+          for (const t of dto.translations) {
+            await tx.restaurantTranslation.upsert({
+              where: {
+                restaurantId_locale: {
+                  restaurantId: existing.id,
+                  locale: t.locale,
+                },
+              },
+              create: {
+                restaurantId: existing.id,
+                locale: t.locale,
+                name: t.name,
+                description: t.description,
+              },
+              update: {
+                name: t.name,
+                description: t.description,
+              },
+            });
+          }
+        }
+
+        return res;
       });
 
       // Post-commit cleanup of old cover asset
@@ -368,30 +404,6 @@ export class AdminRestaurantsService {
             'Failed to delete replaced restaurant cover asset',
           );
         });
-      }
-
-      // Upsert translations if provided
-      if (dto.translations && dto.translations.length > 0) {
-        for (const t of dto.translations) {
-          await prisma.restaurantTranslation.upsert({
-            where: {
-              restaurantId_locale: {
-                restaurantId: existing.id,
-                locale: t.locale,
-              },
-            },
-            create: {
-              restaurantId: existing.id,
-              locale: t.locale,
-              name: t.name,
-              description: t.description,
-            },
-            update: {
-              name: t.name,
-              description: t.description,
-            },
-          });
-        }
       }
 
       const refreshed = await this.repository.findByIdOrSlug(existing.id, true);

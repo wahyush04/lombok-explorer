@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DestinationStatus, LombokRegion } from '@prisma/client';
 import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
+import { validateUniqueLocales } from '../../../../i18n/content-fallback.util';
 
 export const AdminAccommodationFilterQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -79,7 +80,12 @@ export const CreateAccommodationSchema = z.object({
   websiteUrl: z.string().trim().url().optional(),
   status: z.nativeEnum(DestinationStatus).default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().default(false),
-  translations: z.array(AccommodationTranslationInputSchema).optional(),
+  translations: z
+    .array(AccommodationTranslationInputSchema)
+    .refine(validateUniqueLocales, {
+      message: 'Duplicate translation locale found in translations list',
+    })
+    .optional(),
 });
 
 export const UpdateAccommodationSchema = z.object({
@@ -102,7 +108,12 @@ export const UpdateAccommodationSchema = z.object({
   websiteUrl: z.string().trim().url().optional(),
   status: z.nativeEnum(DestinationStatus).optional(),
   isFeatured: z.boolean().optional(),
-  translations: z.array(AccommodationTranslationInputSchema).optional(),
+  translations: z
+    .array(AccommodationTranslationInputSchema)
+    .refine(validateUniqueLocales, {
+      message: 'Duplicate translation locale found in translations list',
+    })
+    .optional(),
 });
 
 export const DeleteAccommodationQuerySchema = z.object({

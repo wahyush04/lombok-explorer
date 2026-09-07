@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DestinationStatus } from '@prisma/client';
 import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
+import { validateUniqueLocales } from '../../../../i18n/content-fallback.util';
 
 export const AdminCategoryFilterQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
@@ -45,7 +46,12 @@ export const CreateCategorySchema = z.object({
   coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().optional().default(''),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),
-  translations: z.array(CategoryTranslationInputSchema).optional(),
+  translations: z
+    .array(CategoryTranslationInputSchema)
+    .refine(validateUniqueLocales, {
+      message: 'Duplicate translation locale found in translations list',
+    })
+    .optional(),
 });
 
 export const UpdateCategorySchema = CreateCategorySchema.partial();

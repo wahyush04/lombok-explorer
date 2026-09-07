@@ -182,51 +182,56 @@ export class AdminAccommodationsService {
     const amenitiesList = dto.facilities || dto.amenities || [];
 
     try {
-      // 4. Create accommodation
-      const created = await this.repository.create({
-        name: dto.name,
-        slug,
-        type: dto.type,
-        description: dto.description,
-        pricePerNight: dto.pricePerNight,
-        currency: dto.currency || 'IDR',
-        address: dto.address,
-        region: dto.region,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        coverImageUrl,
-        coverImagePublicId,
-        images: JSON.stringify(imagesList),
-        amenities: JSON.stringify(amenitiesList),
-        contactPhone: dto.contactPhone || null,
-        websiteUrl: dto.websiteUrl || null,
-        status: dto.status,
-        isFeatured: dto.isFeatured,
+      // 4. Create accommodation atomically with translations
+      const created = await prisma.$transaction(async (tx) => {
+        const res = await tx.accommodation.create({
+          data: {
+            name: dto.name,
+            slug,
+            type: dto.type,
+            description: dto.description,
+            pricePerNight: dto.pricePerNight,
+            currency: dto.currency || 'IDR',
+            address: dto.address,
+            region: dto.region,
+            latitude: dto.latitude,
+            longitude: dto.longitude,
+            coverImageUrl,
+            coverImagePublicId,
+            images: JSON.stringify(imagesList),
+            amenities: JSON.stringify(amenitiesList),
+            contactPhone: dto.contactPhone || null,
+            websiteUrl: dto.websiteUrl || null,
+            status: dto.status,
+            isFeatured: dto.isFeatured,
+            ...(dto.translations && dto.translations.length > 0
+              ? {
+                  translations: {
+                    create: dto.translations.map((t) => ({
+                      locale: t.locale,
+                      name: t.name,
+                      description: t.description,
+                    })),
+                  },
+                }
+              : {
+                  translations: {
+                    create: [
+                      {
+                        locale: 'id-ID',
+                        name: dto.name,
+                        description: dto.description,
+                      },
+                    ],
+                  },
+                }),
+          },
+          include: {
+            translations: true,
+          },
+        });
+        return res;
       });
-
-      // Upsert translations if provided
-      if (dto.translations && dto.translations.length > 0) {
-        for (const t of dto.translations) {
-          await prisma.accommodationTranslation.upsert({
-            where: {
-              accommodationId_locale: {
-                accommodationId: created.id,
-                locale: t.locale,
-              },
-            },
-            create: {
-              accommodationId: created.id,
-              locale: t.locale,
-              name: t.name,
-              description: t.description,
-            },
-            update: {
-              name: t.name,
-              description: t.description,
-            },
-          });
-        }
-      }
 
       const refreshed = await this.repository.findByIdOrSlug(created.id, true);
 
@@ -351,27 +356,58 @@ export class AdminAccommodationsService {
     const amenitiesList = dto.facilities || dto.amenities;
 
     try {
-      const updated = await this.repository.update(existing.id, {
-        ...(dto.name && { name: dto.name }),
-        ...(slug && { slug }),
-        ...(dto.type && { type: dto.type }),
-        ...(dto.description && { description: dto.description }),
-        ...(dto.pricePerNight !== undefined && { pricePerNight: dto.pricePerNight }),
-        ...(dto.currency && { currency: dto.currency }),
-        ...(dto.address && { address: dto.address }),
-        ...(dto.region && { region: dto.region }),
-        ...(dto.latitude !== undefined && { latitude: dto.latitude }),
-        ...(dto.longitude !== undefined && { longitude: dto.longitude }),
-        ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
-        ...(coverImagePublicIdToUpdate !== undefined && {
-          coverImagePublicId: coverImagePublicIdToUpdate,
-        }),
-        ...(imagesJsonToUpdate !== undefined && { images: imagesJsonToUpdate }),
-        ...(amenitiesList && { amenities: JSON.stringify(amenitiesList) }),
-        ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone }),
-        ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),
-        ...(dto.status && { status: dto.status }),
-        ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+      const updated = await prisma.$transaction(async (tx) => {
+        const res = await tx.accommodation.update({
+          where: { id: existing.id },
+          data: {
+            ...(dto.name && { name: dto.name }),
+            ...(slug && { slug }),
+            ...(dto.type && { type: dto.type }),
+            ...(dto.description && { description: dto.description }),
+            ...(dto.pricePerNight !== undefined && { pricePerNight: dto.pricePerNight }),
+            ...(dto.currency && { currency: dto.currency }),
+            ...(dto.address && { address: dto.address }),
+            ...(dto.region && { region: dto.region }),
+            ...(dto.latitude !== undefined && { latitude: dto.latitude }),
+            ...(dto.longitude !== undefined && { longitude: dto.longitude }),
+            ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
+            ...(coverImagePublicIdToUpdate !== undefined && {
+              coverImagePublicId: coverImagePublicIdToUpdate,
+            }),
+            ...(imagesJsonToUpdate !== undefined && { images: imagesJsonToUpdate }),
+            ...(amenitiesList && { amenities: JSON.stringify(amenitiesList) }),
+            ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone }),
+            ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),
+            ...(dto.status && { status: dto.status }),
+            ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+          },
+        });
+
+        // Upsert translations if provided
+        if (dto.translations && dto.translations.length > 0) {
+          for (const t of dto.translations) {
+            await tx.accommodationTranslation.upsert({
+              where: {
+                accommodationId_locale: {
+                  accommodationId: existing.id,
+                  locale: t.locale,
+                },
+              },
+              create: {
+                accommodationId: existing.id,
+                locale: t.locale,
+                name: t.name,
+                description: t.description,
+              },
+              update: {
+                name: t.name,
+                description: t.description,
+              },
+            });
+          }
+        }
+
+        return res;
       });
 
       // Post-commit cleanup of old cover asset
@@ -387,30 +423,6 @@ export class AdminAccommodationsService {
             'Failed to delete replaced accommodation cover asset',
           );
         });
-      }
-
-      // Upsert translations if provided
-      if (dto.translations && dto.translations.length > 0) {
-        for (const t of dto.translations) {
-          await prisma.accommodationTranslation.upsert({
-            where: {
-              accommodationId_locale: {
-                accommodationId: existing.id,
-                locale: t.locale,
-              },
-            },
-            create: {
-              accommodationId: existing.id,
-              locale: t.locale,
-              name: t.name,
-              description: t.description,
-            },
-            update: {
-              name: t.name,
-              description: t.description,
-            },
-          });
-        }
       }
 
       const refreshed = await this.repository.findByIdOrSlug(existing.id, true);

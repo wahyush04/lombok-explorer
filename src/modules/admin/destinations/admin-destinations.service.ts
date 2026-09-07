@@ -463,67 +463,74 @@ export class AdminDestinationsService {
           : undefined;
 
     try {
-      const updated = await this.repository.update(destination.id, {
-        ...(dto.name && { name: dto.name }),
-        ...(slugToUpdate && { slug: slugToUpdate }),
-        ...(dto.shortDescription !== undefined && { shortDescription: dto.shortDescription }),
-        ...(dto.description && { description: dto.description }),
-        ...(dto.categoryId && { category: { connect: { id: dto.categoryId } } }),
-        ...(dto.region && { region: dto.region }),
-        ...(dto.locationName && { locationName: dto.locationName }),
-        ...(dto.address !== undefined && { address: dto.address }),
-        ...(dto.latitude !== undefined && { latitude: dto.latitude }),
-        ...(dto.longitude !== undefined && { longitude: dto.longitude }),
-        ...(entranceFee !== undefined && { entranceFee }),
-        ...(dto.currency && { currency: dto.currency }),
-        ...(dto.openingHours && { openingHours: dto.openingHours }),
-        ...(estimatedDuration !== undefined && { estimatedDurationMinutes: estimatedDuration }),
-        ...(dto.bestVisitingTime && { bestVisitingTime: dto.bestVisitingTime }),
-        ...(dto.difficulty && { difficulty: dto.difficulty }),
-        ...(dto.tags && { tags: JSON.stringify(dto.tags) }),
-        ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
-        ...(coverImagePublicIdToUpdate !== undefined && {
-          coverImagePublicId: coverImagePublicIdToUpdate,
-        }),
-        ...(dto.facilities && { facilities: JSON.stringify(dto.facilities) }),
-        ...(dto.tips && { tips: JSON.stringify(dto.tips) }),
-        ...(dto.status && { status: dto.status }),
-        ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
-        ...(imagesCreateData !== undefined && {
-          images: {
-            deleteMany: {},
-            create: imagesCreateData,
+      const updated = await prisma.$transaction(async (tx) => {
+        const res = await tx.destination.update({
+          where: { id: destination.id },
+          data: {
+            ...(dto.name && { name: dto.name }),
+            ...(slugToUpdate && { slug: slugToUpdate }),
+            ...(dto.shortDescription !== undefined && { shortDescription: dto.shortDescription }),
+            ...(dto.description && { description: dto.description }),
+            ...(dto.categoryId && { category: { connect: { id: dto.categoryId } } }),
+            ...(dto.region && { region: dto.region }),
+            ...(dto.locationName && { locationName: dto.locationName }),
+            ...(dto.address !== undefined && { address: dto.address }),
+            ...(dto.latitude !== undefined && { latitude: dto.latitude }),
+            ...(dto.longitude !== undefined && { longitude: dto.longitude }),
+            ...(entranceFee !== undefined && { entranceFee }),
+            ...(dto.currency && { currency: dto.currency }),
+            ...(dto.openingHours && { openingHours: dto.openingHours }),
+            ...(estimatedDuration !== undefined && { estimatedDurationMinutes: estimatedDuration }),
+            ...(dto.bestVisitingTime && { bestVisitingTime: dto.bestVisitingTime }),
+            ...(dto.difficulty && { difficulty: dto.difficulty }),
+            ...(dto.tags && { tags: JSON.stringify(dto.tags) }),
+            ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
+            ...(coverImagePublicIdToUpdate !== undefined && {
+              coverImagePublicId: coverImagePublicIdToUpdate,
+            }),
+            ...(dto.facilities && { facilities: JSON.stringify(dto.facilities) }),
+            ...(dto.tips && { tips: JSON.stringify(dto.tips) }),
+            ...(dto.status && { status: dto.status }),
+            ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
+            ...(imagesCreateData !== undefined && {
+              images: {
+                deleteMany: {},
+                create: imagesCreateData,
+              },
+            }),
           },
-        }),
-      });
+        });
 
-      // Upsert translations if provided in update payload
-      if (dto.translations && dto.translations.length > 0) {
-        for (const t of dto.translations) {
-          await prisma.destinationTranslation.upsert({
-            where: {
-              destinationId_locale: {
+        // Upsert translations if provided in update payload
+        if (dto.translations && dto.translations.length > 0) {
+          for (const t of dto.translations) {
+            await tx.destinationTranslation.upsert({
+              where: {
+                destinationId_locale: {
+                  destinationId: destination.id,
+                  locale: t.locale,
+                },
+              },
+              create: {
                 destinationId: destination.id,
                 locale: t.locale,
+                name: t.name,
+                shortDescription: t.shortDescription || null,
+                description: t.description,
+                address: t.address || null,
               },
-            },
-            create: {
-              destinationId: destination.id,
-              locale: t.locale,
-              name: t.name,
-              shortDescription: t.shortDescription || null,
-              description: t.description,
-              address: t.address || null,
-            },
-            update: {
-              name: t.name,
-              shortDescription: t.shortDescription || null,
-              description: t.description,
-              address: t.address || null,
-            },
-          });
+              update: {
+                name: t.name,
+                shortDescription: t.shortDescription || null,
+                description: t.description,
+                address: t.address || null,
+              },
+            });
+          }
         }
-      }
+
+        return res;
+      });
 
       // Re-fetch destination with populated translations
       const refreshed = await this.repository.findByIdOrSlug(destination.id, true);

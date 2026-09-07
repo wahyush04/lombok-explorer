@@ -133,6 +133,7 @@ export class AdminDestinationsRepository {
       data,
       include: {
         category: true,
+        translations: true,
         images: {
           orderBy: { orderIndex: 'asc' },
         },
@@ -155,6 +156,7 @@ export class AdminDestinationsRepository {
       data,
       include: {
         category: true,
+        translations: true,
         images: {
           orderBy: { orderIndex: 'asc' },
         },

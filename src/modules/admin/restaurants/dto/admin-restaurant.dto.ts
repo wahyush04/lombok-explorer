@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DestinationStatus, LombokRegion } from '@prisma/client';
 import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
+import { validateUniqueLocales } from '../../../../i18n/content-fallback.util';
 
 export const AdminRestaurantFilterQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -82,7 +83,12 @@ export const CreateRestaurantSchema = z.object({
   isHalalCertified: z.boolean().default(true),
   status: z.nativeEnum(DestinationStatus).default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().default(false),
-  translations: z.array(RestaurantTranslationInputSchema).optional(),
+  translations: z
+    .array(RestaurantTranslationInputSchema)
+    .refine(validateUniqueLocales, {
+      message: 'Duplicate translation locale found in translations list',
+    })
+    .optional(),
 });
 
 export const UpdateRestaurantSchema = z.object({
@@ -105,7 +111,12 @@ export const UpdateRestaurantSchema = z.object({
   isHalalCertified: z.boolean().optional(),
   status: z.nativeEnum(DestinationStatus).optional(),
   isFeatured: z.boolean().optional(),
-  translations: z.array(RestaurantTranslationInputSchema).optional(),
+  translations: z
+    .array(RestaurantTranslationInputSchema)
+    .refine(validateUniqueLocales, {
+      message: 'Duplicate translation locale found in translations list',
+    })
+    .optional(),
 });
 
 export const DeleteRestaurantQuerySchema = z.object({

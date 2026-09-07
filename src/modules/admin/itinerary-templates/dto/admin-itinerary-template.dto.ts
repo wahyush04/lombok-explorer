@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { BudgetLevel, ItineraryItemType, TransportationMode, TravelStyle } from '@prisma/client';
 import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
+import { validateUniqueLocales } from '../../../../i18n/content-fallback.util';
 
 export const AdminTemplateActivityInputSchema = z.object({
   id: z.string().optional(),
@@ -70,7 +71,12 @@ export const CreateItineraryTemplateSchema = z.object({
   isFeatured: z.boolean().default(false),
   sortOrder: z.number().int().default(0),
   days: z.array(AdminTemplateDayInputSchema).optional(),
-  translations: z.array(ItineraryTemplateTranslationInputSchema).optional(),
+  translations: z
+    .array(ItineraryTemplateTranslationInputSchema)
+    .refine(validateUniqueLocales, {
+      message: 'Duplicate translation locale found in translations list',
+    })
+    .optional(),
 });
 
 export const UpdateItineraryTemplateSchema = CreateItineraryTemplateSchema.partial();

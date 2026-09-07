@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { DifficultyLevel, LombokRegion, DestinationStatus } from '@prisma/client';
 import { CloudinaryAssetInputSchema } from '../../uploads/dto/admin-uploads.dto';
+import { validateUniqueLocales } from '../../../../i18n/content-fallback.util';
 
 export const AdminDestinationFilterQuerySchema = z.object({
   page: z.coerce.number().int().positive().optional().default(1),
@@ -108,7 +109,12 @@ export const CreateDestinationSchema = z.object({
   tips: z.array(z.string()).optional().default([]),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().optional().default(false),
-  translations: z.array(DestinationTranslationInputSchema).optional(),
+  translations: z
+    .array(DestinationTranslationInputSchema)
+    .refine(validateUniqueLocales, {
+      message: 'Duplicate translation locale found in translations list',
+    })
+    .optional(),
 });
 
 export const UpdateDestinationSchema = CreateDestinationSchema.partial();

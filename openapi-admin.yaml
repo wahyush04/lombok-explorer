@@ -3453,6 +3453,11 @@ components:
         isFeatured:
           type: boolean
           example: true
+        translations:
+          type: array
+          description: Multilingual translations for destination content
+          items:
+            $ref: "#/components/schemas/DestinationTranslationDto"
     UpdateDestinationRequest:
       type: object
       properties:
@@ -3529,6 +3534,11 @@ components:
             - ARCHIVED
         isFeatured:
           type: boolean
+        translations:
+          type: array
+          description: Multilingual translations for destination content
+          items:
+            $ref: "#/components/schemas/DestinationTranslationDto"
     AdminDestinationDto:
       type: object
       properties:
@@ -3629,6 +3639,22 @@ components:
         favoritesCount:
           type: integer
           example: 18
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/DestinationTranslationDto"
+        availableLocales:
+          type: array
+          items:
+            type: string
+          example:
+            - id-ID
+            - en-US
+        missingLocales:
+          type: array
+          items:
+            type: string
+          example: []
         deletedAt:
           type: string
           nullable: true
@@ -3701,6 +3727,11 @@ components:
         coverImageUrl:
           type: string
           example: https://images.unsplash.com/photo-1500937386664-56d1dfef3854
+        translations:
+          type: array
+          description: Multilingual translations for category content
+          items:
+            $ref: "#/components/schemas/CategoryTranslationDto"
     UpdateCategoryRequest:
       type: object
       properties:
@@ -3716,6 +3747,11 @@ components:
           $ref: "#/components/schemas/CloudinaryAssetInput"
         coverImageUrl:
           type: string
+        translations:
+          type: array
+          description: Multilingual translations for category content
+          items:
+            $ref: "#/components/schemas/CategoryTranslationDto"
     AdminCategoryDto:
       type: object
       properties:
@@ -3740,6 +3776,22 @@ components:
         destinationsCount:
           type: integer
           example: 12
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/CategoryTranslationDto"
+        availableLocales:
+          type: array
+          items:
+            type: string
+          example:
+            - id-ID
+            - en-US
+        missingLocales:
+          type: array
+          items:
+            type: string
+          example: []
         createdAt:
           type: string
           format: date-time
@@ -4002,6 +4054,22 @@ components:
         isFeatured:
           type: boolean
           example: true
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestaurantTranslationDto"
+        availableLocales:
+          type: array
+          items:
+            type: string
+          example:
+            - id-ID
+            - en-US
+        missingLocales:
+          type: array
+          items:
+            type: string
+          example: []
         createdAt:
           type: string
           format: date-time
@@ -4095,6 +4163,11 @@ components:
         isFeatured:
           type: boolean
           example: false
+        translations:
+          type: array
+          description: Multilingual translations for restaurant content
+          items:
+            $ref: "#/components/schemas/RestaurantTranslationDto"
     UpdateRestaurantRequest:
       type: object
       properties:
@@ -4149,6 +4222,11 @@ components:
             - ARCHIVED
         isFeatured:
           type: boolean
+        translations:
+          type: array
+          description: Multilingual translations for restaurant content
+          items:
+            $ref: "#/components/schemas/RestaurantTranslationDto"
     AdminRestaurantListResponse:
       type: object
       properties:
@@ -4269,6 +4347,22 @@ components:
         isFeatured:
           type: boolean
           example: true
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccommodationTranslationDto"
+        availableLocales:
+          type: array
+          items:
+            type: string
+          example:
+            - id-ID
+            - en-US
+        missingLocales:
+          type: array
+          items:
+            type: string
+          example: []
         createdAt:
           type: string
           format: date-time
@@ -4363,6 +4457,11 @@ components:
         isFeatured:
           type: boolean
           default: false
+        translations:
+          type: array
+          description: Multilingual translations for accommodation content
+          items:
+            $ref: "#/components/schemas/AccommodationTranslationDto"
     UpdateAccommodationRequest:
       type: object
       properties:
@@ -4417,6 +4516,11 @@ components:
             - ARCHIVED
         isFeatured:
           type: boolean
+        translations:
+          type: array
+          description: Multilingual translations for accommodation content
+          items:
+            $ref: "#/components/schemas/AccommodationTranslationDto"
     AdminAccommodationListResponse:
       type: object
       properties:
@@ -5110,6 +5214,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminTemplateDayInput"
+        translations:
+          type: array
+          description: Multilingual translations for itinerary template content
+          items:
+            $ref: "#/components/schemas/ItineraryTemplateTranslationDto"
 
     UpdateItineraryTemplateRequest:
       type: object
@@ -5171,6 +5280,11 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminTemplateDayInput"
+        translations:
+          type: array
+          description: Multilingual translations for itinerary template content
+          items:
+            $ref: "#/components/schemas/ItineraryTemplateTranslationDto"
 
     AdminItineraryTemplateDto:
       type: object
@@ -5255,6 +5369,22 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/AdminTemplateDayInput"
+        translations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ItineraryTemplateTranslationDto"
+        availableLocales:
+          type: array
+          items:
+            type: string
+          example:
+            - id-ID
+            - en-US
+        missingLocales:
+          type: array
+          items:
+            type: string
+          example: []
         createdAt:
           type: string
           format: date-time

@@ -1,4 +1,3 @@
-import { prisma } from '../../../database/prisma';
 import { SUPPORTED_LOCALES } from '../../../i18n/types';
 import { NotFoundError } from '../../../common/errors/app-error';
 import { PaginationMeta } from '../../../common/types';
@@ -87,40 +86,15 @@ export class AdminItineraryTemplatesService {
     }
 
     try {
-      const { coverImage, translations: transInput, ...rest } = data;
+      const { coverImage: _coverImage, translations: transInput, ...rest } = data;
       const created = await this.repository.create({
         ...rest,
+        translations: transInput,
         coverImageUrl,
         coverImagePublicId,
       } as any);
 
-      if (transInput && transInput.length > 0) {
-        for (const t of transInput) {
-          await prisma.itineraryTemplateTranslation.upsert({
-            where: {
-              templateId_locale: {
-                templateId: (created as any).id,
-                locale: t.locale,
-              },
-            },
-            create: {
-              templateId: (created as any).id,
-              locale: t.locale,
-              title: t.title,
-              description: t.description || null,
-              transportPaceNote: t.transportPaceNote || null,
-            },
-            update: {
-              title: t.title,
-              description: t.description || null,
-              transportPaceNote: t.transportPaceNote || null,
-            },
-          });
-        }
-      }
-
-      const refreshed = await this.repository.findById((created as any).id);
-      return this.formatTemplate(refreshed || created);
+      return this.formatTemplate(created);
     } catch (error) {
       if (coverImagePublicId) {
         logger.warn(
@@ -160,39 +134,13 @@ export class AdminItineraryTemplatesService {
     }
 
     try {
-      const { coverImage, translations: transInput, ...rest } = data;
+      const { coverImage: _coverImage, translations: transInput, ...rest } = data;
       const updated = await this.repository.update(id, {
         ...rest,
+        translations: transInput,
         ...(coverImageUrl !== undefined && { coverImageUrl }),
         ...(coverImagePublicId !== undefined && { coverImagePublicId }),
       } as any);
-
-      if (transInput && transInput.length > 0) {
-        for (const t of transInput) {
-          await prisma.itineraryTemplateTranslation.upsert({
-            where: {
-              templateId_locale: {
-                templateId: id,
-                locale: t.locale,
-              },
-            },
-            create: {
-              templateId: id,
-              locale: t.locale,
-              title: t.title,
-              description: t.description || null,
-              transportPaceNote: t.transportPaceNote || null,
-            },
-            update: {
-              title: t.title,
-              description: t.description || null,
-              transportPaceNote: t.transportPaceNote || null,
-            },
-          });
-        }
-      }
-
-      const refreshed = await this.repository.findById(id);
 
       // Post-commit cleanup of old cover asset
       if (
@@ -209,7 +157,7 @@ export class AdminItineraryTemplatesService {
         });
       }
 
-      return this.formatTemplate(refreshed || updated);
+      return this.formatTemplate(updated);
     } catch (error) {
       if (newPublicId && !isCoverUnchanged) {
         logger.warn(

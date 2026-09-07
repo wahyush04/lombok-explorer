@@ -137,40 +137,50 @@ export class AdminCategoriesService {
     }
 
     try {
-      // 4. Create Category
-      const created = await this.repository.create({
-        name: dto.name.trim(),
-        slug,
-        description: dto.description.trim(),
-        iconName: dto.iconName.trim(),
-        coverImageUrl,
-        coverImagePublicId,
-        status: dto.status ?? DestinationStatus.PUBLISHED,
-      });
-
-      // Upsert translations if provided
-      if (dto.translations && dto.translations.length > 0) {
-        for (const t of dto.translations) {
-          await prisma.categoryTranslation.upsert({
-            where: {
-              categoryId_locale: {
-                categoryId: created.id,
-                locale: t.locale,
+      // 4. Create Category atomically with translations
+      const created = await prisma.$transaction(async (tx) => {
+        const cat = await tx.category.create({
+          data: {
+            name: dto.name.trim(),
+            slug,
+            description: dto.description.trim(),
+            iconName: dto.iconName.trim(),
+            coverImageUrl,
+            coverImagePublicId,
+            status: dto.status ?? DestinationStatus.PUBLISHED,
+            ...(dto.translations && dto.translations.length > 0
+              ? {
+                  translations: {
+                    create: dto.translations.map((t) => ({
+                      locale: t.locale,
+                      name: t.name,
+                      description: t.description,
+                    })),
+                  },
+                }
+              : {
+                  translations: {
+                    create: [
+                      {
+                        locale: 'id-ID',
+                        name: dto.name.trim(),
+                        description: dto.description.trim(),
+                      },
+                    ],
+                  },
+                }),
+          },
+          include: {
+            _count: {
+              select: {
+                destinations: true,
               },
             },
-            create: {
-              categoryId: created.id,
-              locale: t.locale,
-              name: t.name,
-              description: t.description,
-            },
-            update: {
-              name: t.name,
-              description: t.description,
-            },
-          });
-        }
-      }
+            translations: true,
+          },
+        });
+        return cat;
+      });
 
       const refreshed = await this.repository.findByIdOrSlug(created.id, true);
 
@@ -262,42 +272,49 @@ export class AdminCategoriesService {
     }
 
     try {
-      // 5. Update Category
-      const updated = await this.repository.update(category.id, {
-        ...(dto.name && { name: dto.name }),
-        ...(slugToUpdate && { slug: slugToUpdate }),
-        ...(dto.description && { description: dto.description }),
-        ...(dto.iconName && { iconName: dto.iconName }),
-        ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
-        ...(coverImagePublicIdToUpdate !== undefined && {
-          coverImagePublicId: coverImagePublicIdToUpdate,
-        }),
-        ...(dto.status && { status: dto.status }),
-      });
+      // 5. Update Category atomically with translations
+      const updated = await prisma.$transaction(async (tx) => {
+        const cat = await tx.category.update({
+          where: { id: category.id },
+          data: {
+            ...(dto.name && { name: dto.name }),
+            ...(slugToUpdate && { slug: slugToUpdate }),
+            ...(dto.description && { description: dto.description }),
+            ...(dto.iconName && { iconName: dto.iconName }),
+            ...(coverImageUrlToUpdate !== undefined && { coverImageUrl: coverImageUrlToUpdate }),
+            ...(coverImagePublicIdToUpdate !== undefined && {
+              coverImagePublicId: coverImagePublicIdToUpdate,
+            }),
+            ...(dto.status && { status: dto.status }),
+          },
+        });
 
-      // Upsert translations if provided
-      if (dto.translations && dto.translations.length > 0) {
-        for (const t of dto.translations) {
-          await prisma.categoryTranslation.upsert({
-            where: {
-              categoryId_locale: {
+        // Upsert translations if provided
+        if (dto.translations && dto.translations.length > 0) {
+          for (const t of dto.translations) {
+            await tx.categoryTranslation.upsert({
+              where: {
+                categoryId_locale: {
+                  categoryId: category.id,
+                  locale: t.locale,
+                },
+              },
+              create: {
                 categoryId: category.id,
                 locale: t.locale,
+                name: t.name,
+                description: t.description,
               },
-            },
-            create: {
-              categoryId: category.id,
-              locale: t.locale,
-              name: t.name,
-              description: t.description,
-            },
-            update: {
-              name: t.name,
-              description: t.description,
-            },
-          });
+              update: {
+                name: t.name,
+                description: t.description,
+              },
+            });
+          }
         }
-      }
+
+        return cat;
+      });
 
       const refreshed = await this.repository.findByIdOrSlug(category.id, true);
 
