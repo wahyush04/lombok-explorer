@@ -1,3 +1,5 @@
+import { prisma } from '../../../database/prisma';
+import { SUPPORTED_LOCALES } from '../../../i18n/types';
 import { NotFoundError } from '../../../common/errors/app-error';
 import { PaginationMeta } from '../../../common/types';
 import {
@@ -18,6 +20,27 @@ export class AdminItineraryTemplatesService {
     private readonly cloudinary: CloudinaryService = cloudinaryService,
   ) {}
 
+  public formatTemplate = (template: any) => {
+    if (!template) return template;
+    const rawTranslations = template.translations || [];
+    const translations = rawTranslations.map((t: any) => ({
+      locale: t.locale,
+      title: t.title,
+      description: t.description,
+      transportPaceNote: t.transportPaceNote,
+    }));
+    const availableLocales: string[] = Array.from(new Set(translations.map((t: any) => t.locale as string)));
+    const missingLocales = (SUPPORTED_LOCALES as readonly string[]).filter(
+      (l) => !availableLocales.includes(l),
+    );
+    return {
+      ...template,
+      translations,
+      availableLocales,
+      missingLocales,
+    };
+  };
+
   public async getTemplates(query: AdminTemplateFilterQuery): Promise<{
     data: unknown[];
     meta: PaginationMeta;
@@ -26,7 +49,7 @@ export class AdminItineraryTemplatesService {
     const totalPages = Math.ceil(total / query.limit) || 1;
 
     return {
-      data: items,
+      data: items.map(this.formatTemplate),
       meta: {
         page: query.page,
         limit: query.limit,
@@ -41,7 +64,7 @@ export class AdminItineraryTemplatesService {
     if (!template) {
       throw new NotFoundError(`Itinerary template with ID '${id}' not found`, 'TEMPLATE_NOT_FOUND');
     }
-    return template;
+    return this.formatTemplate(template);
   }
 
   public async createTemplate(
@@ -64,12 +87,40 @@ export class AdminItineraryTemplatesService {
     }
 
     try {
-      const { coverImage, ...rest } = data;
-      return await this.repository.create({
+      const { coverImage, translations: transInput, ...rest } = data;
+      const created = await this.repository.create({
         ...rest,
         coverImageUrl,
         coverImagePublicId,
       } as any);
+
+      if (transInput && transInput.length > 0) {
+        for (const t of transInput) {
+          await prisma.itineraryTemplateTranslation.upsert({
+            where: {
+              templateId_locale: {
+                templateId: (created as any).id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              templateId: (created as any).id,
+              locale: t.locale,
+              title: t.title,
+              description: t.description || null,
+              transportPaceNote: t.transportPaceNote || null,
+            },
+            update: {
+              title: t.title,
+              description: t.description || null,
+              transportPaceNote: t.transportPaceNote || null,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findById((created as any).id);
+      return this.formatTemplate(refreshed || created);
     } catch (error) {
       if (coverImagePublicId) {
         logger.warn(
@@ -109,12 +160,39 @@ export class AdminItineraryTemplatesService {
     }
 
     try {
-      const { coverImage, ...rest } = data;
+      const { coverImage, translations: transInput, ...rest } = data;
       const updated = await this.repository.update(id, {
         ...rest,
         ...(coverImageUrl !== undefined && { coverImageUrl }),
         ...(coverImagePublicId !== undefined && { coverImagePublicId }),
       } as any);
+
+      if (transInput && transInput.length > 0) {
+        for (const t of transInput) {
+          await prisma.itineraryTemplateTranslation.upsert({
+            where: {
+              templateId_locale: {
+                templateId: id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              templateId: id,
+              locale: t.locale,
+              title: t.title,
+              description: t.description || null,
+              transportPaceNote: t.transportPaceNote || null,
+            },
+            update: {
+              title: t.title,
+              description: t.description || null,
+              transportPaceNote: t.transportPaceNote || null,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findById(id);
 
       // Post-commit cleanup of old cover asset
       if (
@@ -131,7 +209,7 @@ export class AdminItineraryTemplatesService {
         });
       }
 
-      return updated;
+      return this.formatTemplate(refreshed || updated);
     } catch (error) {
       if (newPublicId && !isCoverUnchanged) {
         logger.warn(

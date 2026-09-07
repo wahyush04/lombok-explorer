@@ -16,8 +16,29 @@ export interface PaginationQuery {
   order?: 'asc' | 'desc';
 }
 
+import { SupportedLocale } from '../../i18n/types';
+
+export interface PaginationMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+  currentPage?: number;
+  totalCount?: number;
+  hasNextPage?: boolean;
+  hasPrevPage?: boolean;
+}
+
+export interface PaginationQuery {
+  page?: number;
+  limit?: number;
+  sort_by?: string;
+  order?: 'asc' | 'desc';
+}
+
 export interface ApiResponse<T> {
   success: true;
+  code?: string;
   message: string;
   data: T;
   meta?: PaginationMeta;
@@ -25,20 +46,31 @@ export interface ApiResponse<T> {
 
 export interface ApiListResponse<T> {
   success: true;
+  code?: string;
   message: string;
   data: T[];
   meta: PaginationMeta;
 }
 
+export interface FieldValidationError {
+  field: string;
+  code: string;
+  message: string;
+}
+
 export interface ApiErrorResponse {
   success: false;
-  message: string;
+  code: string;
   errorCode: string;
+  message: string;
+  data?: null;
+  errors?: FieldValidationError[];
   details?: string[] | null;
 }
 
 export interface ApiActionResponse {
   success: true;
+  code?: string;
   message: string;
 }
 
@@ -55,6 +87,8 @@ declare global {
     interface Request {
       id?: string;
       user?: AuthUserPayload;
+      locale?: SupportedLocale;
     }
   }
 }
+

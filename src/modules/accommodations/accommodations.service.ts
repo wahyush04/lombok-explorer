@@ -1,13 +1,14 @@
-import { Accommodation } from '@prisma/client';
-import { accommodationsRepository, AccommodationsRepository } from './accommodations.repository';
-import { AccommodationDto, AccommodationFilterQuery } from './dto/accommodation.dto';
+import { AccommodationFilterQuery, AccommodationDto } from './dto/accommodation.dto';
+import { accommodationsRepository, AccommodationsRepository, AccommodationWithTranslations } from './accommodations.repository';
 import { NotFoundError } from '../../common/errors/app-error';
 import { PaginationMeta } from '../../common/types';
+import { resolveLocalizedFields } from '../../i18n/content-fallback.util';
+import { DEFAULT_LOCALE } from '../../i18n/types';
 
 export class AccommodationsService {
   constructor(private readonly repository: AccommodationsRepository = accommodationsRepository) {}
 
-  public mapToDto = (accommodation: Accommodation): AccommodationDto => {
+  public mapToDto = (accommodation: AccommodationWithTranslations, locale: string = DEFAULT_LOCALE): AccommodationDto => {
     let parsedImages: string[] = [];
     if (accommodation.images) {
       try {
@@ -26,12 +27,19 @@ export class AccommodationsService {
       }
     }
 
+    const localized = resolveLocalizedFields(
+      locale,
+      accommodation.translations,
+      accommodation,
+      ['name', 'description'],
+    );
+
     return {
       id: accommodation.id,
-      name: accommodation.name,
+      name: localized.name,
       slug: accommodation.slug,
       type: accommodation.type,
-      description: accommodation.description,
+      description: localized.description,
       rating: accommodation.rating,
       reviewCount: accommodation.reviewCount,
       pricePerNight: Number(accommodation.pricePerNight),
@@ -53,7 +61,10 @@ export class AccommodationsService {
     };
   };
 
-  public async getAccommodations(query: AccommodationFilterQuery): Promise<{
+  public async getAccommodations(
+    query: AccommodationFilterQuery,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<{
     data: AccommodationDto[];
     meta: PaginationMeta;
   }> {
@@ -64,7 +75,7 @@ export class AccommodationsService {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: items.map(this.mapToDto),
+      data: items.map((item) => this.mapToDto(item, locale)),
       meta: {
         page,
         limit,
@@ -78,17 +89,17 @@ export class AccommodationsService {
     };
   }
 
-  public async getFeaturedAccommodations(limit = 6): Promise<AccommodationDto[]> {
+  public async getFeaturedAccommodations(limit = 6, locale: string = DEFAULT_LOCALE): Promise<AccommodationDto[]> {
     const items = await this.repository.findFeatured(limit);
-    return items.map(this.mapToDto);
+    return items.map((item) => this.mapToDto(item, locale));
   }
 
-  public async getAccommodationByIdOrSlug(idOrSlug: string): Promise<AccommodationDto> {
+  public async getAccommodationByIdOrSlug(idOrSlug: string, locale: string = DEFAULT_LOCALE): Promise<AccommodationDto> {
     const item = await this.repository.findByIdOrSlug(idOrSlug);
     if (!item) {
       throw new NotFoundError(`Accommodation '${idOrSlug}' not found`, 'ACCOMMODATION_NOT_FOUND');
     }
-    return this.mapToDto(item);
+    return this.mapToDto(item, locale);
   }
 }
 

@@ -1,13 +1,14 @@
-import { Restaurant } from '@prisma/client';
-import { restaurantsRepository, RestaurantsRepository } from './restaurants.repository';
+import { restaurantsRepository, RestaurantsRepository, RestaurantWithTranslations } from './restaurants.repository';
 import { RestaurantDto, RestaurantFilterQuery } from './dto/restaurant.dto';
 import { NotFoundError } from '../../common/errors/app-error';
 import { PaginationMeta } from '../../common/types';
+import { resolveLocalizedFields } from '../../i18n/content-fallback.util';
+import { DEFAULT_LOCALE } from '../../i18n/types';
 
 export class RestaurantsService {
   constructor(private readonly repository: RestaurantsRepository = restaurantsRepository) {}
 
-  public mapToDto = (restaurant: Restaurant): RestaurantDto => {
+  public mapToDto = (restaurant: RestaurantWithTranslations, locale: string = DEFAULT_LOCALE): RestaurantDto => {
     let parsedImages: string[] = [];
     if (restaurant.images) {
       try {
@@ -17,11 +18,18 @@ export class RestaurantsService {
       }
     }
 
+    const localized = resolveLocalizedFields(
+      locale,
+      restaurant.translations,
+      restaurant,
+      ['name', 'description'],
+    );
+
     return {
       id: restaurant.id,
-      name: restaurant.name,
+      name: localized.name,
       slug: restaurant.slug,
-      description: restaurant.description,
+      description: localized.description,
       cuisineType: restaurant.cuisineType,
       specialtyDish: restaurant.specialtyDish,
       priceRange: restaurant.priceRange,
@@ -45,7 +53,10 @@ export class RestaurantsService {
     };
   };
 
-  public async getRestaurants(query: RestaurantFilterQuery): Promise<{
+  public async getRestaurants(
+    query: RestaurantFilterQuery,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<{
     data: RestaurantDto[];
     meta: PaginationMeta;
   }> {
@@ -56,7 +67,7 @@ export class RestaurantsService {
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: items.map(this.mapToDto),
+      data: items.map((item) => this.mapToDto(item, locale)),
       meta: {
         page,
         limit,
@@ -70,17 +81,17 @@ export class RestaurantsService {
     };
   }
 
-  public async getFeaturedRestaurants(limit = 6): Promise<RestaurantDto[]> {
+  public async getFeaturedRestaurants(limit = 6, locale: string = DEFAULT_LOCALE): Promise<RestaurantDto[]> {
     const items = await this.repository.findFeatured(limit);
-    return items.map(this.mapToDto);
+    return items.map((item) => this.mapToDto(item, locale));
   }
 
-  public async getRestaurantByIdOrSlug(idOrSlug: string): Promise<RestaurantDto> {
+  public async getRestaurantByIdOrSlug(idOrSlug: string, locale: string = DEFAULT_LOCALE): Promise<RestaurantDto> {
     const item = await this.repository.findByIdOrSlug(idOrSlug);
     if (!item) {
       throw new NotFoundError(`Restaurant '${idOrSlug}' not found`, 'RESTAURANT_NOT_FOUND');
     }
-    return this.mapToDto(item);
+    return this.mapToDto(item, locale);
   }
 }
 

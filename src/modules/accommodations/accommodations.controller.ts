@@ -9,32 +9,32 @@ export class AccommodationsController {
 
   public getAccommodations = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as AccommodationFilterQuery;
-    const { data, meta } = await this.service.getAccommodations(query);
+    const { data, meta } = await this.service.getAccommodations(query, req.locale);
 
-    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
 
-    return ResponseUtil.sendPaginated(res, data, meta, 'Success fetching accommodations');
+    return ResponseUtil.sendLocalizedPaginated(req, res, data, meta, 'ACCOMMODATIONS_RETRIEVED');
   });
 
   public getFeatured = asyncHandler(async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : 6;
-    const data = await this.service.getFeaturedAccommodations(limit);
+    const data = await this.service.getFeaturedAccommodations(limit, req.locale);
 
-    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
     res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
 
-    return ResponseUtil.sendSuccess(res, data, 'Success fetching featured accommodations');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'ACCOMMODATIONS_RETRIEVED');
   });
 
   public getByIdOrSlug = asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const data = await this.service.getAccommodationByIdOrSlug(id);
+    const data = await this.service.getAccommodationByIdOrSlug(id, req.locale);
 
-    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
 
-    return ResponseUtil.sendSuccess(res, data, 'Success fetching accommodation detail');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'DATA_RETRIEVED');
   });
 }
 

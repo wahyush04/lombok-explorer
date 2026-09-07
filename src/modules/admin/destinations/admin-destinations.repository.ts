@@ -1,10 +1,11 @@
-import { Prisma, Destination, Category, DestinationImage, DestinationStatus } from '@prisma/client';
+import { Prisma, Destination, DestinationTranslation, Category, DestinationImage, DestinationStatus } from '@prisma/client';
 import { prisma } from '../../../database/prisma';
 import { AdminDestinationFilterQuery } from './dto/admin-destination.dto';
 
 export type AdminDestinationWithRelations = Destination & {
   category?: Category | null;
   images?: DestinationImage[];
+  translations?: DestinationTranslation[];
   _count?: {
     reviews: number;
     favorites: number;
@@ -78,6 +79,7 @@ export class AdminDestinationsRepository {
         orderBy: { [sortField]: order },
         include: {
           category: true,
+          translations: true,
           images: {
             orderBy: { orderIndex: 'asc' },
           },
@@ -106,6 +108,7 @@ export class AdminDestinationsRepository {
       },
       include: {
         category: true,
+        translations: true,
         images: {
           orderBy: { orderIndex: 'asc' },
         },

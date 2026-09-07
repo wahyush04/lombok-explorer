@@ -12,6 +12,7 @@ import {
 } from '../src/common/errors/app-error';
 import { errorHandlerMiddleware } from '../src/common/middleware/error.middleware';
 import { requestIdMiddleware } from '../src/common/middleware/request-id.middleware';
+import { localeMiddleware } from '../src/common/middleware/locale.middleware';
 
 describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
   let app: Application;
@@ -20,6 +21,7 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     app = express();
     app.use(express.json());
     app.use(requestIdMiddleware);
+    app.use(localeMiddleware);
 
     // Test routes throwing various errors
     app.get('/test-not-found', () => {
@@ -70,9 +72,9 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     const response = await request(app).get('/test-not-found');
 
     expect(response.status).toBe(404);
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       success: false,
-      message: 'Destination not found',
+      code: 'DESTINATION_NOT_FOUND',
       errorCode: 'DESTINATION_NOT_FOUND',
     });
   });
@@ -81,9 +83,9 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     const response = await request(app).get('/test-validation-error');
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       success: false,
-      message: 'Invalid input data',
+      code: 'VALIDATION_ERROR',
       errorCode: 'VALIDATION_ERROR',
       details: [
         'email must be a valid email',
@@ -96,9 +98,9 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     const response = await request(app).get('/test-unauthorized');
 
     expect(response.status).toBe(401);
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       success: false,
-      message: 'Token is expired or invalid',
+      code: 'UNAUTHORIZED',
       errorCode: 'UNAUTHORIZED',
     });
   });
@@ -107,9 +109,9 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     const response = await request(app).get('/test-forbidden');
 
     expect(response.status).toBe(403);
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       success: false,
-      message: 'You do not have permission to delete this review',
+      code: 'FORBIDDEN',
       errorCode: 'FORBIDDEN',
     });
   });
@@ -118,9 +120,9 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     const response = await request(app).get('/test-conflict');
 
     expect(response.status).toBe(409);
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       success: false,
-      message: 'Destination with this slug already exists',
+      code: 'CONFLICT',
       errorCode: 'CONFLICT',
     });
   });
@@ -129,9 +131,9 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     const response = await request(app).get('/test-bad-request');
 
     expect(response.status).toBe(400);
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       success: false,
-      message: 'Invalid query filters provided',
+      code: 'BAD_REQUEST',
       errorCode: 'BAD_REQUEST',
     });
   });
@@ -140,9 +142,9 @@ describe('Common Foundation — Error Handling & Middleware (Phase 5)', () => {
     const response = await request(app).get('/test-jwt-expired');
 
     expect(response.status).toBe(401);
-    expect(response.body).toEqual({
+    expect(response.body).toMatchObject({
       success: false,
-      message: 'Authentication token has expired',
+      code: 'UNAUTHORIZED',
       errorCode: 'UNAUTHORIZED',
     });
   });

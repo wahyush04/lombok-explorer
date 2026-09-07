@@ -39,6 +39,7 @@ describe('Common Foundation — Response Format (Phase 5)', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: true,
+      code: 'SUCCESS',
       message: 'Success fetching destination',
       data: {
         id: 'dest_001',
@@ -53,6 +54,7 @@ describe('Common Foundation — Response Format (Phase 5)', () => {
     expect(response.status).toBe(201);
     expect(response.body).toEqual({
       success: true,
+      code: 'RESOURCE_CREATED',
       message: 'Review created successfully',
       data: {
         id: 'rev_123',
@@ -67,6 +69,7 @@ describe('Common Foundation — Response Format (Phase 5)', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: true,
+      code: 'SUCCESS',
       message: 'Success fetching destinations',
       data: [
         { id: 'dest_1', name: 'Pantai Tanjung Aan' },
@@ -87,6 +90,7 @@ describe('Common Foundation — Response Format (Phase 5)', () => {
     expect(response.status).toBe(200);
     expect(response.body).toEqual({
       success: true,
+      code: 'SUCCESS',
       message: 'Destination removed from favorites',
     });
   });

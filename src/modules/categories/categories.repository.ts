@@ -6,6 +6,7 @@ export class CategoriesRepository {
     return prisma.category.findMany({
       orderBy: { name: 'asc' },
       include: {
+        translations: true,
         _count: {
           select: {
             destinations: {
@@ -23,6 +24,7 @@ export class CategoriesRepository {
         OR: [{ id: idOrSlug }, { slug: idOrSlug.toLowerCase().trim() }],
       },
       include: {
+        translations: true,
         _count: {
           select: {
             destinations: {
@@ -78,7 +80,12 @@ export class CategoriesRepository {
         skip,
         take: limit,
         include: {
-          category: true,
+          category: {
+            include: {
+              translations: true,
+            },
+          },
+          translations: true,
           images: {
             orderBy: { orderIndex: 'asc' },
           },

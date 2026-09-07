@@ -35,6 +35,7 @@ export type TemplateWithRelations = Prisma.ItineraryTemplateGetPayload<{
         };
       };
     };
+    translations: true;
   };
 }>;
 
@@ -790,6 +791,7 @@ export class ItinerariesRepository {
       take: limit,
       orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
       include: {
+        translations: true,
         days: {
           orderBy: { dayNumber: 'asc' },
           include: {
@@ -892,6 +894,7 @@ export class ItinerariesRepository {
         take: limit,
         orderBy: [{ isFeatured: 'desc' }, { sortOrder: 'asc' }, { createdAt: 'desc' }],
         include: {
+          translations: true,
           days: {
             orderBy: { dayNumber: 'asc' },
             include: {
@@ -926,6 +929,7 @@ export class ItinerariesRepository {
     return prisma.itineraryTemplate.findFirst({
       where: { id, deletedAt: null },
       include: {
+        translations: true,
         days: {
           orderBy: { dayNumber: 'asc' },
           include: {

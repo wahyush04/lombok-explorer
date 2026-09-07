@@ -34,20 +34,23 @@ export class ItinerariesController {
 
   public getRecommendations = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as import('./dto/itinerary.dto').RecommendationsQuery;
-    const data = await this.service.getRecommendations(query);
-    return ResponseUtil.sendSuccess(res, data, 'Recommended trip plans retrieved successfully');
+    const data = await this.service.getRecommendations(query, req.locale);
+    res.setHeader('Vary', 'Accept-Language');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'ITINERARY_TEMPLATES_RETRIEVED');
   });
 
   public browseTemplates = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as import('./dto/itinerary.dto').BrowseItineraryQuery;
-    const result = await this.service.browseTemplates(query);
-    return ResponseUtil.sendSuccess(res, result, 'Curated trip plans retrieved successfully');
+    const result = await this.service.browseTemplates(query, req.locale);
+    res.setHeader('Vary', 'Accept-Language');
+    return ResponseUtil.sendLocalizedSuccess(req, res, result, 'ITINERARY_TEMPLATES_RETRIEVED');
   });
 
   public getTemplateById = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
-    const data = await this.service.getTemplateById(id);
-    return ResponseUtil.sendSuccess(res, data, 'Curated trip template retrieved successfully');
+    const data = await this.service.getTemplateById(id, req.locale);
+    res.setHeader('Vary', 'Accept-Language');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'ITINERARY_TEMPLATE_RETRIEVED');
   });
 
   public applyTemplate = asyncHandler(async (req: Request, res: Response) => {

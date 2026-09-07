@@ -56,6 +56,12 @@ export const AdminRestaurantFilterQuerySchema = z.object({
   toDate: z.string().trim().optional(),
 });
 
+export const RestaurantTranslationInputSchema = z.object({
+  locale: z.enum(['id-ID', 'en-US']),
+  name: z.string().trim().min(3, 'Restaurant name must be at least 3 characters'),
+  description: z.string().trim().min(10, 'Description must be at least 10 characters'),
+});
+
 export const CreateRestaurantSchema = z.object({
   name: z.string().trim().min(3, 'Restaurant name must be at least 3 characters'),
   slug: z.string().trim().optional(),
@@ -76,6 +82,7 @@ export const CreateRestaurantSchema = z.object({
   isHalalCertified: z.boolean().default(true),
   status: z.nativeEnum(DestinationStatus).default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().default(false),
+  translations: z.array(RestaurantTranslationInputSchema).optional(),
 });
 
 export const UpdateRestaurantSchema = z.object({
@@ -98,6 +105,7 @@ export const UpdateRestaurantSchema = z.object({
   isHalalCertified: z.boolean().optional(),
   status: z.nativeEnum(DestinationStatus).optional(),
   isFeatured: z.boolean().optional(),
+  translations: z.array(RestaurantTranslationInputSchema).optional(),
 });
 
 export const DeleteRestaurantQuerySchema = z.object({
@@ -121,6 +129,7 @@ export type CreateRestaurantDto = z.infer<typeof CreateRestaurantSchema>;
 export type UpdateRestaurantDto = z.infer<typeof UpdateRestaurantSchema>;
 export type UpdateRestaurantStatusDto = z.infer<typeof UpdateRestaurantStatusSchema>;
 export type DeleteRestaurantQueryDto = z.infer<typeof DeleteRestaurantQuerySchema>;
+export type RestaurantTranslationInput = z.infer<typeof RestaurantTranslationInputSchema>;
 
 export interface AdminRestaurantDto {
   id: string;
@@ -145,6 +154,13 @@ export interface AdminRestaurantDto {
   isHalalCertified: boolean;
   status: DestinationStatus;
   isFeatured: boolean;
+  translations?: Array<{
+    locale: string;
+    name: string;
+    description: string;
+  }>;
+  availableLocales?: string[];
+  missingLocales?: string[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;

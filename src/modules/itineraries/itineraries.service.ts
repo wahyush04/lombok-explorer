@@ -13,6 +13,8 @@ import {
 import { prisma } from '../../database/prisma';
 import { ForbiddenError, NotFoundError, ValidationError } from '../../common/errors/app-error';
 import { itinerariesRepository, ItinerariesRepository } from './itineraries.repository';
+import { resolveLocalizedFields } from '../../i18n/content-fallback.util';
+import { DEFAULT_LOCALE } from '../../i18n/types';
 import {
   AccommodationSummaryDto,
   ActiveTripResponseDto,
@@ -1290,12 +1292,18 @@ export class ItinerariesService {
     };
   }
 
-  public async getRecommendations(query: RecommendationsQuery): Promise<ItineraryTemplateDto[]> {
+  public async getRecommendations(
+    query: RecommendationsQuery,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<ItineraryTemplateDto[]> {
     const templates = await this.repository.findRecommendations(query);
-    return templates.map((t: any) => this.mapTemplateToDto(t));
+    return templates.map((t: any) => this.mapTemplateToDto(t, locale));
   }
 
-  public async browseTemplates(query: BrowseItineraryQuery): Promise<BrowseTemplatesResponseDto> {
+  public async browseTemplates(
+    query: BrowseItineraryQuery,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<BrowseTemplatesResponseDto> {
     const rawPage = Number(query.page);
     const rawLimit = Number(query.limit);
 
@@ -1312,7 +1320,7 @@ export class ItinerariesService {
     const hasNext = page < totalPages;
 
     const returnedItems =
-      page > totalPages && total > 0 ? [] : items.map((t: any) => this.mapTemplateToDto(t));
+      page > totalPages && total > 0 ? [] : items.map((t: any) => this.mapTemplateToDto(t, locale));
 
     return {
       items: returnedItems,
@@ -1326,7 +1334,10 @@ export class ItinerariesService {
     };
   }
 
-  public async getTemplateById(id: string): Promise<ItineraryTemplateDto> {
+  public async getTemplateById(
+    id: string,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<ItineraryTemplateDto> {
     const template = await this.repository.findTemplateById(id);
     if (!template || !template.isPublished) {
       throw new NotFoundError(
@@ -1334,7 +1345,7 @@ export class ItinerariesService {
         'TEMPLATE_NOT_FOUND',
       );
     }
-    return this.mapTemplateToDto(template);
+    return this.mapTemplateToDto(template, locale);
   }
 
   public async applyTemplate(body: ApplyTemplateDto, userId: string): Promise<ItineraryDto> {
@@ -1360,10 +1371,17 @@ export class ItinerariesService {
     return this.mapToDto(cloned as unknown as ItineraryWithRelations);
   }
 
-  private mapTemplateToDto(template: any): ItineraryTemplateDto {
+  private mapTemplateToDto(template: any, locale: string = DEFAULT_LOCALE): ItineraryTemplateDto {
     const days = template.days || [];
     let totalDestCount = 0;
     const destNames: string[] = [];
+
+    const localized = resolveLocalizedFields(
+      locale,
+      template.translations,
+      template,
+      ['title', 'description', 'transportPaceNote'],
+    );
 
     const mappedDays = days.map((day: any) => {
       const activities = day.activities || [];
@@ -1497,14 +1515,14 @@ export class ItinerariesService {
 
     return {
       id: template.id,
-      title: template.title,
-      description: template.description,
+      title: localized.title,
+      description: localized.description,
       coverImageUrl: template.coverImageUrl,
       totalDays: template.totalDays,
       travelStyle: template.travelStyle,
       budgetLevel: template.budgetLevel,
       transportationMode: template.transportationMode,
-      transportPaceNote: template.transportPaceNote,
+      transportPaceNote: localized.transportPaceNote,
       totalEstimatedBudget: Number(template.totalEstimatedBudget) || 0,
       totalDistanceKm: template.totalDistanceKm,
       totalDurationMinutes: template.totalDurationMinutes,

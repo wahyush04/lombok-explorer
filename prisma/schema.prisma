@@ -222,6 +222,7 @@ model Category {
 
   // Relations
   destinations Destination[]
+  translations CategoryTranslation[]
 
   @@index([slug])
   @@index([status])
@@ -269,6 +270,7 @@ model Destination {
   recommendationDestinations RecommendationDestination[]
   posts                      Post[]
   postLocations              PostLocation[]
+  translations               DestinationTranslation[]
 
   @@index([categoryId])
   @@index([region])
@@ -364,6 +366,7 @@ model ItineraryTemplate {
   // Relations
   days                   TemplateDay[]
   itineraries            Itinerary[]
+  translations           ItineraryTemplateTranslation[]
 
   @@index([isPublished])
   @@index([isFeatured, sortOrder])
@@ -601,6 +604,7 @@ model Restaurant {
   // Relations
   itineraryItems     ItineraryItem[]
   templateActivities TemplateActivity[]
+  translations       RestaurantTranslation[]
 
   @@index([region])
   @@index([cuisineType])
@@ -639,6 +643,7 @@ model Accommodation {
   // Relations
   itineraryItems     ItineraryItem[]
   templateActivities TemplateActivity[]
+  translations       AccommodationTranslation[]
 
   @@index([region])
   @@index([type])
@@ -967,3 +972,86 @@ model Notification {
   @@index([actorId])
   @@map("notifications")
 }
+
+// ==========================================
+// LOCALIZATION TRANSLATIONS
+// ==========================================
+
+model CategoryTranslation {
+  id          String   @id @default(uuid())
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  locale      String   // 'id-ID', 'en-US'
+  name        String
+  description String   @db.Text
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([categoryId, locale])
+  @@index([locale])
+  @@map("category_translations")
+}
+
+model DestinationTranslation {
+  id               String      @id @default(uuid())
+  destinationId    String
+  destination      Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  locale           String      // 'id-ID', 'en-US'
+  name             String
+  shortDescription String?     @db.Text
+  description      String      @db.Text
+  address          String?     @db.Text
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([destinationId, locale])
+  @@index([locale])
+  @@map("destination_translations")
+}
+
+model RestaurantTranslation {
+  id           String     @id @default(uuid())
+  restaurantId String
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  locale       String     // 'id-ID', 'en-US'
+  name         String
+  description  String     @db.Text
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  @@unique([restaurantId, locale])
+  @@index([locale])
+  @@map("restaurant_translations")
+}
+
+model AccommodationTranslation {
+  id              String        @id @default(uuid())
+  accommodationId String
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  locale          String        // 'id-ID', 'en-US'
+  name            String
+  description     String        @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@unique([accommodationId, locale])
+  @@index([locale])
+  @@map("accommodation_translations")
+}
+
+model ItineraryTemplateTranslation {
+  id                String            @id @default(uuid())
+  templateId        String
+  template          ItineraryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  locale            String            // 'id-ID', 'en-US'
+  title             String
+  description       String?           @db.Text
+  transportPaceNote String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@unique([templateId, locale])
+  @@index([locale])
+  @@map("itinerary_template_translations")
+}
+

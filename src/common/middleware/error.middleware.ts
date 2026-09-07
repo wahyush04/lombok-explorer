@@ -1,11 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 import { Prisma } from '@prisma/client';
 import { ZodError } from 'zod';
-import { AppError } from '../errors/app-error';
+import { AppError, ValidationError } from '../errors/app-error';
 import { ErrorCode, HttpStatus, HttpStatusCode } from '../constants';
-import { ApiErrorResponse } from '../types';
+import { ApiErrorResponse, FieldValidationError } from '../types';
 import { logger } from '../utils/logger';
 import { config } from '../../config/config';
+import { I18nService } from '../../i18n/i18n.service';
 
 export const errorHandlerMiddleware = (
   err: Error,
@@ -17,6 +18,7 @@ export const errorHandlerMiddleware = (
   let errorCode: string = ErrorCode.INTERNAL_SERVER_ERROR;
   let message = 'Internal server error occurred';
   let details: string[] | null = null;
+  let fieldErrors: FieldValidationError[] | undefined = undefined;
 
   // 1. Handled AppError hierarchy (Custom errors)
   if (err instanceof AppError) {
@@ -24,8 +26,12 @@ export const errorHandlerMiddleware = (
     errorCode = err.errorCode;
     message = err.message;
     details = err.details;
+
+    if (err instanceof ValidationError && err.fieldErrors) {
+      fieldErrors = err.fieldErrors;
+    }
   }
-  // 2. Handled Zod validation error
+  // 2. Handled direct Zod validation error (if thrown outside validate middleware)
   else if (err instanceof ZodError) {
     statusCode = HttpStatus.BAD_REQUEST;
     errorCode = ErrorCode.VALIDATION_ERROR;
@@ -92,6 +98,12 @@ export const errorHandlerMiddleware = (
     message = config.app.isProduction ? 'Internal server error occurred' : err.message;
   }
 
+  // Attempt translation of error code if available
+  const translatedMessage = I18nService.translate(errorCode, req.locale);
+  if (translatedMessage && translatedMessage !== errorCode) {
+    message = translatedMessage;
+  }
+
   // Log error with contextual information
   if (statusCode >= 500) {
     logger.error(
@@ -121,8 +133,11 @@ export const errorHandlerMiddleware = (
 
   const responsePayload: ApiErrorResponse = {
     success: false,
-    message,
+    code: errorCode,
     errorCode,
+    message,
+    data: null,
+    ...(fieldErrors && fieldErrors.length > 0 && { errors: fieldErrors }),
     ...(details && details.length > 0 && { details }),
   };
 

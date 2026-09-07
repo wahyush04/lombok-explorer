@@ -1,10 +1,14 @@
-import { Prisma, Restaurant } from '@prisma/client';
+import { Prisma, Restaurant, RestaurantTranslation } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import { RestaurantFilterQuery } from './dto/restaurant.dto';
 
+export type RestaurantWithTranslations = Restaurant & {
+  translations?: RestaurantTranslation[];
+};
+
 export class RestaurantsRepository {
   public async findMany(query: RestaurantFilterQuery): Promise<{
-    items: Restaurant[];
+    items: RestaurantWithTranslations[];
     total: number;
   }> {
     const page = query.page || 1;
@@ -55,6 +59,9 @@ export class RestaurantsRepository {
         orderBy: {
           [sortBy]: order,
         },
+        include: {
+          translations: true,
+        },
       }),
       prisma.restaurant.count({ where }),
     ]);
@@ -62,7 +69,7 @@ export class RestaurantsRepository {
     return { items, total };
   }
 
-  public async findFeatured(limit = 6): Promise<Restaurant[]> {
+  public async findFeatured(limit = 6): Promise<RestaurantWithTranslations[]> {
     return prisma.restaurant.findMany({
       where: {
         deletedAt: null,
@@ -71,21 +78,26 @@ export class RestaurantsRepository {
       },
       take: limit,
       orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
+      include: {
+        translations: true,
+      },
     });
   }
 
-  public async findByIdOrSlug(idOrSlug: string): Promise<Restaurant | null> {
+  public async findByIdOrSlug(idOrSlug: string): Promise<RestaurantWithTranslations | null> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
 
     if (isUuid) {
       const byId = await prisma.restaurant.findFirst({
         where: { id: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
+        include: { translations: true },
       });
       if (byId) return byId;
     }
 
     return prisma.restaurant.findFirst({
       where: { slug: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
+      include: { translations: true },
     });
   }
 }

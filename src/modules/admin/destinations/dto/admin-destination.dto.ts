@@ -56,6 +56,20 @@ export const AdminDestinationFilterQuerySchema = z.object({
     .optional(),
 });
 
+export const DestinationTranslationInputSchema = z.object({
+  locale: z.enum(['id-ID', 'en-US']),
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .max(150, 'Name must not exceed 150 characters'),
+  shortDescription: z
+    .string()
+    .max(300, 'Short description must not exceed 300 characters')
+    .optional(),
+  description: z.string().min(10, 'Description must be at least 10 characters'),
+  address: z.string().optional(),
+});
+
 export const CreateDestinationSchema = z.object({
   name: z
     .string()
@@ -94,6 +108,7 @@ export const CreateDestinationSchema = z.object({
   tips: z.array(z.string()).optional().default([]),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().optional().default(false),
+  translations: z.array(DestinationTranslationInputSchema).optional(),
 });
 
 export const UpdateDestinationSchema = CreateDestinationSchema.partial();

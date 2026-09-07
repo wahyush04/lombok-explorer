@@ -1,4 +1,4 @@
-import { Category, Destination, DestinationImage } from '@prisma/client';
+import { Category, CategoryTranslation, Destination, DestinationImage, DestinationTranslation } from '@prisma/client';
 import { NotFoundError } from '../../common/errors/app-error';
 import {
   DestinationDto,
@@ -9,11 +9,14 @@ import {
 } from './dto/destination.dto';
 import { destinationsRepository, DestinationsRepository } from './destinations.repository';
 import { PaginationMeta } from '../../common/types';
+import { resolveLocalizedFields } from '../../i18n/content-fallback.util';
+import { DEFAULT_LOCALE } from '../../i18n/types';
 
 export type DestinationWithRelations = Destination & {
-  category?: Category | null;
+  category?: (Category & { translations?: CategoryTranslation[] }) | null;
   images?: (DestinationImage | string)[] | null;
   favorites?: { id: string }[];
+  translations?: DestinationTranslation[];
 };
 
 interface CacheEntry<T> {
@@ -22,7 +25,7 @@ interface CacheEntry<T> {
 }
 
 export class DestinationsService {
-  private featuredCache = new Map<number, CacheEntry<DestinationDto[]>>();
+  private featuredCache = new Map<string, CacheEntry<DestinationDto[]>>();
   private readonly FEATURED_TTL_MS = 2 * 60 * 1000; // 2 minutes cache for featured destinations
 
   constructor(private readonly repository: DestinationsRepository = destinationsRepository) {}
@@ -55,7 +58,11 @@ export class DestinationsService {
     }
   }
 
-  public mapToDto(destination: DestinationWithRelations, isFavorite?: boolean): DestinationDto {
+  public mapToDto(
+    destination: DestinationWithRelations,
+    isFavorite?: boolean,
+    locale: string = DEFAULT_LOCALE,
+  ): DestinationDto {
     const imagesList: string[] = [];
     if (destination.coverImageUrl) {
       imagesList.push(destination.coverImageUrl);
@@ -82,18 +89,30 @@ export class DestinationsService {
           ? destination.favorites.length > 0
           : false;
 
+    // Field-level fallback resolution: requested locale -> default locale ('id-ID') -> parent entity
+    const localized = resolveLocalizedFields(
+      locale,
+      destination.translations,
+      destination,
+      ['name', 'shortDescription', 'description', 'address'],
+    );
+
+    const categoryName = destination.category
+      ? resolveLocalizedFields(locale, destination.category.translations, destination.category, ['name']).name
+      : '';
+
     return {
       id: destination.id,
       slug: destination.slug,
-      name: destination.name,
-      shortDescription: destination.shortDescription,
-      description: destination.description,
+      name: localized.name,
+      shortDescription: localized.shortDescription,
+      description: localized.description,
       categoryId: destination.categoryId,
-      categoryName: destination.category?.name || '',
+      categoryName,
       categorySlug: destination.category?.slug || '',
       region: destination.region,
       locationName: destination.locationName,
-      address: destination.address,
+      address: localized.address,
       latitude: destination.latitude,
       longitude: destination.longitude,
       rating: destination.rating,
@@ -119,6 +138,7 @@ export class DestinationsService {
   public async getDestinations(
     query: DestinationFilterQuery,
     userId?: string,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<{
     data: DestinationDto[];
     meta: PaginationMeta;
@@ -153,7 +173,7 @@ export class DestinationsService {
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
-      data: items.map((item: DestinationWithRelations) => this.mapToDto(item)),
+      data: items.map((item: DestinationWithRelations) => this.mapToDto(item, undefined, locale)),
       meta: {
         page,
         limit,
@@ -170,28 +190,34 @@ export class DestinationsService {
   public async getDestinationByIdOrSlug(
     idOrSlug: string,
     userId?: string,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<DestinationDto> {
     const destination = await this.repository.findByIdOrSlug(idOrSlug, userId);
     if (!destination) {
       throw new NotFoundError(`Destination '${idOrSlug}' not found`, 'DESTINATION_NOT_FOUND');
     }
 
-    const isFavorite = destination.favorites && destination.favorites.length > 0;
-    return this.mapToDto(destination as DestinationWithRelations, isFavorite);
+    const isFavorite = (destination as any).favorites && (destination as any).favorites.length > 0;
+    return this.mapToDto(destination as DestinationWithRelations, isFavorite, locale);
   }
 
-  public async getFeaturedDestinations(limit = 6, userId?: string): Promise<DestinationDto[]> {
+  public async getFeaturedDestinations(
+    limit = 6,
+    userId?: string,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<DestinationDto[]> {
     if (!userId) {
       const now = Date.now();
-      const cached = this.featuredCache.get(limit);
+      const cacheKey = `${limit}:${locale}`;
+      const cached = this.featuredCache.get(cacheKey);
       if (cached && cached.expiresAt > now) {
         return cached.data;
       }
 
       const items = await this.repository.findFeatured(limit);
-      const mapped = items.map((item: DestinationWithRelations) => this.mapToDto(item));
+      const mapped = items.map((item: DestinationWithRelations) => this.mapToDto(item, undefined, locale));
 
-      this.featuredCache.set(limit, {
+      this.featuredCache.set(cacheKey, {
         data: mapped,
         expiresAt: now + this.FEATURED_TTL_MS,
       });
@@ -200,12 +226,13 @@ export class DestinationsService {
     }
 
     const items = await this.repository.findFeatured(limit, userId);
-    return items.map((item: DestinationWithRelations) => this.mapToDto(item));
+    return items.map((item: DestinationWithRelations) => this.mapToDto(item, undefined, locale));
   }
 
   public async getNearbyDestinations(
     query: NearbyDestinationQuery,
     userId?: string,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<NearbyDestinationDto[]> {
     const targetLat = query.lat ?? query.latitude!;
     const targetLng = query.lng ?? query.longitude!;
@@ -222,7 +249,7 @@ export class DestinationsService {
           dest.latitude,
           dest.longitude,
         );
-        const dto = this.mapToDto(dest);
+        const dto = this.mapToDto(dest, undefined, locale);
         return {
           ...dto,
           distanceKm,
@@ -238,6 +265,7 @@ export class DestinationsService {
   public async searchDestinations(
     query: SearchDestinationQuery,
     userId?: string,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<{
     data: DestinationDto[];
     meta: PaginationMeta;
@@ -273,7 +301,7 @@ export class DestinationsService {
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
-      data: items.map((item: DestinationWithRelations) => this.mapToDto(item)),
+      data: items.map((item: DestinationWithRelations) => this.mapToDto(item, undefined, locale)),
       meta: {
         page,
         limit,

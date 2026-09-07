@@ -1,10 +1,14 @@
-import { Prisma, Accommodation } from '@prisma/client';
+import { Prisma, Accommodation, AccommodationTranslation } from '@prisma/client';
 import { prisma } from '../../../database/prisma';
 import { AdminAccommodationFilterQuery } from './dto/admin-accommodation.dto';
 
+export type AccommodationWithTranslations = Accommodation & {
+  translations?: AccommodationTranslation[];
+};
+
 export class AdminAccommodationsRepository {
   public async findMany(query: AdminAccommodationFilterQuery): Promise<{
-    items: Accommodation[];
+    items: AccommodationWithTranslations[];
     total: number;
   }> {
     const page = query.page || 1;
@@ -68,6 +72,9 @@ export class AdminAccommodationsRepository {
         skip,
         take: limit,
         orderBy: { [sortBy]: order },
+        include: {
+          translations: true,
+        },
       }),
       prisma.accommodation.count({ where }),
     ]);
@@ -78,11 +85,14 @@ export class AdminAccommodationsRepository {
   public async findByIdOrSlug(
     idOrSlug: string,
     includeDeleted = false,
-  ): Promise<Accommodation | null> {
+  ): Promise<AccommodationWithTranslations | null> {
     return prisma.accommodation.findFirst({
       where: {
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
         ...(includeDeleted ? {} : { deletedAt: null }),
+      },
+      include: {
+        translations: true,
       },
     });
   }
@@ -99,16 +109,22 @@ export class AdminAccommodationsRepository {
     });
   }
 
-  public async create(data: Prisma.AccommodationCreateInput): Promise<Accommodation> {
+  public async create(data: Prisma.AccommodationCreateInput): Promise<AccommodationWithTranslations> {
     return prisma.accommodation.create({
       data,
+      include: {
+        translations: true,
+      },
     });
   }
 
-  public async update(id: string, data: Prisma.AccommodationUpdateInput): Promise<Accommodation> {
+  public async update(id: string, data: Prisma.AccommodationUpdateInput): Promise<AccommodationWithTranslations> {
     return prisma.accommodation.update({
       where: { id },
       data,
+      include: {
+        translations: true,
+      },
     });
   }
 

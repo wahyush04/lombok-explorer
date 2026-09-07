@@ -15,6 +15,7 @@ import { ConflictError, NotFoundError } from '../../../common/errors/app-error';
 import { destinationsService } from '../../destinations/destinations.service';
 import { prisma } from '../../../database/prisma';
 import { PaginationMeta } from '../../../common/types';
+import { SUPPORTED_LOCALES } from '../../../i18n/types';
 import { cloudinaryService, CloudinaryService } from '../../cloudinary/cloudinary.service';
 import { logger } from '../../../common/utils/logger';
 import { CloudinaryAssetInput } from '../uploads/dto/admin-uploads.dto';
@@ -59,6 +60,20 @@ export class AdminDestinationsService {
       });
     }
 
+    const rawTranslations = (destination as any).translations || [];
+    const translations = rawTranslations.map((t: any) => ({
+      locale: t.locale,
+      name: t.name,
+      shortDescription: t.shortDescription,
+      description: t.description,
+      address: t.address,
+    }));
+
+    const availableLocales = Array.from(new Set(translations.map((t: any) => t.locale)));
+    const missingLocales = (SUPPORTED_LOCALES as readonly string[]).filter(
+      (l) => !availableLocales.includes(l),
+    );
+
     return {
       id: destination.id,
       slug: destination.slug,
@@ -93,6 +108,9 @@ export class AdminDestinationsService {
       isFeatured: destination.isFeatured,
       reviewsCount: destination._count?.reviews ?? destination.reviewCount,
       favoritesCount: destination._count?.favorites ?? 0,
+      translations,
+      availableLocales,
+      missingLocales,
       deletedAt: destination.deletedAt,
       createdAt: destination.createdAt,
       updatedAt: destination.updatedAt,
@@ -219,6 +237,34 @@ export class AdminDestinationsService {
         : (dto.estimatedDurationMinutes ?? 60);
     const shortDesc = dto.shortDescription || dto.description.slice(0, 160);
 
+    const translationsToCreate: Array<{
+      locale: string;
+      name: string;
+      shortDescription: string | null;
+      description: string;
+      address: string | null;
+    }> = [];
+
+    if (dto.translations && dto.translations.length > 0) {
+      for (const t of dto.translations) {
+        translationsToCreate.push({
+          locale: t.locale,
+          name: t.name,
+          shortDescription: t.shortDescription || null,
+          description: t.description,
+          address: t.address || null,
+        });
+      }
+    } else {
+      translationsToCreate.push({
+        locale: 'id-ID',
+        name: dto.name,
+        shortDescription: shortDesc,
+        description: dto.description,
+        address: dto.address || null,
+      });
+    }
+
     try {
       const created = await this.repository.create({
         name: dto.name,
@@ -247,6 +293,11 @@ export class AdminDestinationsService {
         ...(imagesToCreate.length > 0 && {
           images: {
             create: imagesToCreate,
+          },
+        }),
+        ...(translationsToCreate.length > 0 && {
+          translations: {
+            create: translationsToCreate,
           },
         }),
       });
@@ -446,6 +497,37 @@ export class AdminDestinationsService {
         }),
       });
 
+      // Upsert translations if provided in update payload
+      if (dto.translations && dto.translations.length > 0) {
+        for (const t of dto.translations) {
+          await prisma.destinationTranslation.upsert({
+            where: {
+              destinationId_locale: {
+                destinationId: destination.id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              destinationId: destination.id,
+              locale: t.locale,
+              name: t.name,
+              shortDescription: t.shortDescription || null,
+              description: t.description,
+              address: t.address || null,
+            },
+            update: {
+              name: t.name,
+              shortDescription: t.shortDescription || null,
+              description: t.description,
+              address: t.address || null,
+            },
+          });
+        }
+      }
+
+      // Re-fetch destination with populated translations
+      const refreshed = await this.repository.findByIdOrSlug(destination.id, true);
+
       // Clean up old cover asset if replaced post-commit
       if (
         coverImagePublicIdToUpdate &&
@@ -475,7 +557,7 @@ export class AdminDestinationsService {
         userAgent,
       });
 
-      return this.mapToAdminDto(updated);
+      return this.mapToAdminDto(refreshed || updated);
     } catch (error) {
       if (newPublicIds.length > 0) {
         logger.warn(

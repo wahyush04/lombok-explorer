@@ -2597,6 +2597,18 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: Enter standard JWT Bearer token obtained from `/auth/login`
+  parameters:
+    AcceptLanguageHeader:
+      name: Accept-Language
+      in: header
+      description: |
+        Preferred locale for UI/system messages and responses.
+        Supported locales: 'id-ID' (default/Indonesian), 'en-US' (English).
+      required: false
+      schema:
+        type: string
+        default: id-ID
+        example: en-US
   responses:
     ForbiddenError:
       description: Forbidden - Admin role and active account status required
@@ -5290,5 +5302,107 @@ components:
           example: Itinerary template retrieved successfully
         data:
           $ref: "#/components/schemas/AdminItineraryTemplateDto"
+
+    DestinationTranslationDto:
+      type: object
+      required:
+        - locale
+        - name
+        - description
+      properties:
+        locale:
+          type: string
+          enum: [id-ID, en-US]
+          example: en-US
+        name:
+          type: string
+          example: Tanjung Aan Beach
+        shortDescription:
+          type: string
+          nullable: true
+          example: White pepper-sand beach in Central Lombok
+        description:
+          type: string
+          example: Comprehensive English overview of Tanjung Aan beach...
+        address:
+          type: string
+          nullable: true
+          example: Sengkol Village, Central Lombok
+
+    CategoryTranslationDto:
+      type: object
+      required:
+        - locale
+        - name
+        - description
+      properties:
+        locale:
+          type: string
+          enum: [id-ID, en-US]
+          example: en-US
+        name:
+          type: string
+          example: Beaches & Islands
+        description:
+          type: string
+          example: Tropical beaches and exotic islands
+
+    RestaurantTranslationDto:
+      type: object
+      required:
+        - locale
+        - name
+        - description
+      properties:
+        locale:
+          type: string
+          enum: [id-ID, en-US]
+          example: en-US
+        name:
+          type: string
+          example: Ayam Taliwang Pak Udin
+        description:
+          type: string
+          example: Traditional spicy grilled chicken and authentic Sasak flavors
+
+    AccommodationTranslationDto:
+      type: object
+      required:
+        - locale
+        - name
+        - description
+      properties:
+        locale:
+          type: string
+          enum: [id-ID, en-US]
+          example: en-US
+        name:
+          type: string
+          example: Novotel Lombok Resort & Villas
+        description:
+          type: string
+          example: Luxury beachfront resort inspired by traditional Sasak architecture
+
+    ItineraryTemplateTranslationDto:
+      type: object
+      required:
+        - locale
+        - title
+      properties:
+        locale:
+          type: string
+          enum: [id-ID, en-US]
+          example: en-US
+        title:
+          type: string
+          example: 3-Day South Lombok Coastal Adventure
+        description:
+          type: string
+          nullable: true
+          example: Discover the most scenic beaches and hills in South Lombok
+        transportPaceNote:
+          type: string
+          nullable: true
+          example: Relaxed pace with private rented car
 
 

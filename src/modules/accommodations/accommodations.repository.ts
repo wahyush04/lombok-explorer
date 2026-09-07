@@ -1,10 +1,14 @@
-import { Accommodation, Prisma } from '@prisma/client';
+import { Accommodation, AccommodationTranslation, Prisma } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import { AccommodationFilterQuery } from './dto/accommodation.dto';
 
+export type AccommodationWithTranslations = Accommodation & {
+  translations?: AccommodationTranslation[];
+};
+
 export class AccommodationsRepository {
   public async findMany(query: AccommodationFilterQuery): Promise<{
-    items: Accommodation[];
+    items: AccommodationWithTranslations[];
     total: number;
   }> {
     const page = query.page || 1;
@@ -55,6 +59,9 @@ export class AccommodationsRepository {
         orderBy: {
           [sortBy]: order,
         },
+        include: {
+          translations: true,
+        },
       }),
       prisma.accommodation.count({ where }),
     ]);
@@ -62,7 +69,7 @@ export class AccommodationsRepository {
     return { items, total };
   }
 
-  public async findFeatured(limit = 6): Promise<Accommodation[]> {
+  public async findFeatured(limit = 6): Promise<AccommodationWithTranslations[]> {
     return prisma.accommodation.findMany({
       where: {
         deletedAt: null,
@@ -71,21 +78,26 @@ export class AccommodationsRepository {
       },
       take: limit,
       orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
+      include: {
+        translations: true,
+      },
     });
   }
 
-  public async findByIdOrSlug(idOrSlug: string): Promise<Accommodation | null> {
+  public async findByIdOrSlug(idOrSlug: string): Promise<AccommodationWithTranslations | null> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
 
     if (isUuid) {
       const byId = await prisma.accommodation.findFirst({
         where: { id: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
+        include: { translations: true },
       });
       if (byId) return byId;
     }
 
     return prisma.accommodation.findFirst({
       where: { slug: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
+      include: { translations: true },
     });
   }
 }

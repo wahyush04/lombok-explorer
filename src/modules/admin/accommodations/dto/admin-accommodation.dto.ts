@@ -50,6 +50,12 @@ export const AdminAccommodationFilterQuerySchema = z.object({
   toDate: z.string().trim().optional(),
 });
 
+export const AccommodationTranslationInputSchema = z.object({
+  locale: z.enum(['id-ID', 'en-US']),
+  name: z.string().trim().min(3, 'Accommodation name must be at least 3 characters'),
+  description: z.string().trim().min(10, 'Description must be at least 10 characters'),
+});
+
 export const CreateAccommodationSchema = z.object({
   name: z.string().trim().min(3, 'Accommodation name must be at least 3 characters'),
   slug: z.string().trim().optional(),
@@ -73,6 +79,7 @@ export const CreateAccommodationSchema = z.object({
   websiteUrl: z.string().trim().url().optional(),
   status: z.nativeEnum(DestinationStatus).default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().default(false),
+  translations: z.array(AccommodationTranslationInputSchema).optional(),
 });
 
 export const UpdateAccommodationSchema = z.object({
@@ -95,6 +102,7 @@ export const UpdateAccommodationSchema = z.object({
   websiteUrl: z.string().trim().url().optional(),
   status: z.nativeEnum(DestinationStatus).optional(),
   isFeatured: z.boolean().optional(),
+  translations: z.array(AccommodationTranslationInputSchema).optional(),
 });
 
 export const DeleteAccommodationQuerySchema = z.object({
@@ -118,6 +126,7 @@ export type CreateAccommodationDto = z.infer<typeof CreateAccommodationSchema>;
 export type UpdateAccommodationDto = z.infer<typeof UpdateAccommodationSchema>;
 export type UpdateAccommodationStatusDto = z.infer<typeof UpdateAccommodationStatusSchema>;
 export type DeleteAccommodationQueryDto = z.infer<typeof DeleteAccommodationQuerySchema>;
+export type AccommodationTranslationInput = z.infer<typeof AccommodationTranslationInputSchema>;
 
 export interface AdminAccommodationDto {
   id: string;
@@ -142,6 +151,13 @@ export interface AdminAccommodationDto {
   websiteUrl: string | null;
   status: DestinationStatus;
   isFeatured: boolean;
+  translations?: Array<{
+    locale: string;
+    name: string;
+    description: string;
+  }>;
+  availableLocales?: string[];
+  missingLocales?: string[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt: Date | null;

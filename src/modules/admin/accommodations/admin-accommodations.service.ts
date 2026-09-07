@@ -1,4 +1,6 @@
 import { Accommodation, DestinationStatus } from '@prisma/client';
+import { prisma } from '../../../database/prisma';
+import { SUPPORTED_LOCALES } from '../../../i18n/types';
 import {
   adminAccommodationsRepository,
   AdminAccommodationsRepository,
@@ -39,6 +41,17 @@ export class AdminAccommodationsService {
       }
     }
 
+    const rawTranslations = (accommodation as any).translations || [];
+    const translations = rawTranslations.map((t: any) => ({
+      locale: t.locale,
+      name: t.name,
+      description: t.description,
+    }));
+    const availableLocales: string[] = Array.from(new Set(translations.map((t: any) => t.locale as string)));
+    const missingLocales = (SUPPORTED_LOCALES as readonly string[]).filter(
+      (l) => !availableLocales.includes(l),
+    );
+
     return {
       id: accommodation.id,
       name: accommodation.name,
@@ -62,6 +75,9 @@ export class AdminAccommodationsService {
       websiteUrl: accommodation.websiteUrl,
       status: accommodation.status,
       isFeatured: accommodation.isFeatured,
+      translations,
+      availableLocales,
+      missingLocales,
       createdAt: accommodation.createdAt,
       updatedAt: accommodation.updatedAt,
       deletedAt: accommodation.deletedAt,
@@ -188,6 +204,32 @@ export class AdminAccommodationsService {
         isFeatured: dto.isFeatured,
       });
 
+      // Upsert translations if provided
+      if (dto.translations && dto.translations.length > 0) {
+        for (const t of dto.translations) {
+          await prisma.accommodationTranslation.upsert({
+            where: {
+              accommodationId_locale: {
+                accommodationId: created.id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              accommodationId: created.id,
+              locale: t.locale,
+              name: t.name,
+              description: t.description,
+            },
+            update: {
+              name: t.name,
+              description: t.description,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findByIdOrSlug(created.id, true);
+
       // 5. Audit log
       await this.repository.createAuditLog({
         userId: adminUserId,
@@ -199,7 +241,7 @@ export class AdminAccommodationsService {
         userAgent,
       });
 
-      return this.mapToDto(created);
+      return this.mapToDto(refreshed || created);
     } catch (error) {
       if (newPublicIds.length > 0) {
         logger.warn(
@@ -347,6 +389,32 @@ export class AdminAccommodationsService {
         });
       }
 
+      // Upsert translations if provided
+      if (dto.translations && dto.translations.length > 0) {
+        for (const t of dto.translations) {
+          await prisma.accommodationTranslation.upsert({
+            where: {
+              accommodationId_locale: {
+                accommodationId: existing.id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              accommodationId: existing.id,
+              locale: t.locale,
+              name: t.name,
+              description: t.description,
+            },
+            update: {
+              name: t.name,
+              description: t.description,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findByIdOrSlug(existing.id, true);
+
       // Audit log
       await this.repository.createAuditLog({
         userId: adminUserId,
@@ -358,7 +426,7 @@ export class AdminAccommodationsService {
         userAgent,
       });
 
-      return this.mapToDto(updated);
+      return this.mapToDto(refreshed || updated);
     } catch (error) {
       if (newPublicIds.length > 0) {
         logger.warn(

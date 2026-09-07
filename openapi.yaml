@@ -2853,6 +2853,20 @@ components:
       bearerFormat: JWT
       description: Enter JWT Bearer token for authorized requests
 
+  parameters:
+    AcceptLanguageHeader:
+      name: Accept-Language
+      in: header
+      description: |
+        Preferred locale for UI/system messages and content localization.
+        Supports RFC 2616 language negotiation with quality values (e.g. 'en-US,en;q=0.9,id;q=0.8').
+        Supported locales: 'id-ID' (default/Indonesian), 'en-US' (English).
+      required: false
+      schema:
+        type: string
+        default: id-ID
+        example: en-US
+
   responses:
     BadRequestError:
       description: Invalid request parameters or body
@@ -2982,7 +2996,7 @@ components:
       required:
         - success
         - message
-        - errorCode
+        - code
       properties:
         success:
           type: boolean
@@ -2990,14 +3004,42 @@ components:
         message:
           type: string
           example: "Resource not found"
+        code:
+          type: string
+          description: Stable machine-readable error code
+          example: "DESTINATION_NOT_FOUND"
         errorCode:
           type: string
+          description: Backward-compatible alias of code
           example: "DESTINATION_NOT_FOUND"
+        errors:
+          type: array
+          description: Structured field-level validation errors
+          items:
+            $ref: '#/components/schemas/FieldValidationError'
+          nullable: true
         details:
           type: array
           items:
             type: string
           nullable: true
+
+    FieldValidationError:
+      type: object
+      required:
+        - field
+        - code
+        - message
+      properties:
+        field:
+          type: string
+          example: email
+        code:
+          type: string
+          example: INVALID_EMAIL
+        message:
+          type: string
+          example: Format email tidak valid
 
     ForbiddenError:
       type: object

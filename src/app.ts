@@ -9,6 +9,7 @@ import path from 'node:path';
 import { config } from './config/config';
 import { requestIdMiddleware } from './common/middleware/request-id.middleware';
 import { httpLoggerMiddleware } from './common/middleware/logger.middleware';
+import { localeMiddleware } from './common/middleware/locale.middleware';
 import { notFoundMiddleware } from './common/middleware/not-found.middleware';
 import { errorHandlerMiddleware } from './common/middleware/error.middleware';
 import { generalLimiter } from './common/middleware/rate-limit.middleware';
@@ -53,9 +54,10 @@ export const createApp = (): Application => {
   // 4. Rate Limiting (Phase 20 - Global Rate Limiter)
   app.use(generalLimiter);
 
-  // 5. Request correlation ID & HTTP Logger
+  // 5. Request correlation ID & HTTP Logger & Locale Resolver
   app.use(requestIdMiddleware);
   app.use(httpLoggerMiddleware);
+  app.use(localeMiddleware);
 
   // 6. Request Size Limiters (Phase 20 - Request payload body size limit)
   app.use(express.json({ limit: '2mb' }));

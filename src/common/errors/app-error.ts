@@ -74,13 +74,19 @@ export class ConflictError extends AppError {
   }
 }
 
+import { FieldValidationError } from '../types';
+
 export class ValidationError extends AppError {
+  public readonly fieldErrors?: FieldValidationError[];
+
   constructor(
     message = 'Validation failed',
     details: string[] | null = null,
     errorCode: string = ErrorCode.VALIDATION_ERROR,
+    fieldErrors?: FieldValidationError[],
   ) {
     super(message, HttpStatus.BAD_REQUEST, errorCode, details);
+    this.fieldErrors = fieldErrors;
   }
 }
 

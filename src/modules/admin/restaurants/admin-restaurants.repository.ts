@@ -1,10 +1,14 @@
-import { Prisma, Restaurant } from '@prisma/client';
+import { Prisma, Restaurant, RestaurantTranslation } from '@prisma/client';
 import { prisma } from '../../../database/prisma';
 import { AdminRestaurantFilterQuery } from './dto/admin-restaurant.dto';
 
+export type RestaurantWithTranslations = Restaurant & {
+  translations?: RestaurantTranslation[];
+};
+
 export class AdminRestaurantsRepository {
   public async findMany(query: AdminRestaurantFilterQuery): Promise<{
-    items: Restaurant[];
+    items: RestaurantWithTranslations[];
     total: number;
   }> {
     const page = query.page || 1;
@@ -67,6 +71,9 @@ export class AdminRestaurantsRepository {
         skip,
         take: limit,
         orderBy: { [sortBy]: order },
+        include: {
+          translations: true,
+        },
       }),
       prisma.restaurant.count({ where }),
     ]);
@@ -77,11 +84,14 @@ export class AdminRestaurantsRepository {
   public async findByIdOrSlug(
     idOrSlug: string,
     includeDeleted = false,
-  ): Promise<Restaurant | null> {
+  ): Promise<RestaurantWithTranslations | null> {
     return prisma.restaurant.findFirst({
       where: {
         OR: [{ id: idOrSlug }, { slug: idOrSlug }],
         ...(includeDeleted ? {} : { deletedAt: null }),
+      },
+      include: {
+        translations: true,
       },
     });
   }
@@ -98,16 +108,22 @@ export class AdminRestaurantsRepository {
     });
   }
 
-  public async create(data: Prisma.RestaurantCreateInput): Promise<Restaurant> {
+  public async create(data: Prisma.RestaurantCreateInput): Promise<RestaurantWithTranslations> {
     return prisma.restaurant.create({
       data,
+      include: {
+        translations: true,
+      },
     });
   }
 
-  public async update(id: string, data: Prisma.RestaurantUpdateInput): Promise<Restaurant> {
+  public async update(id: string, data: Prisma.RestaurantUpdateInput): Promise<RestaurantWithTranslations> {
     return prisma.restaurant.update({
       where: { id },
       data,
+      include: {
+        translations: true,
+      },
     });
   }
 

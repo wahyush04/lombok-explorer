@@ -63,6 +63,7 @@ export class AdminItineraryTemplatesRepository {
               },
             },
           },
+          translations: true,
         },
       }),
       prisma.itineraryTemplate.count({ where }),
@@ -97,12 +98,13 @@ export class AdminItineraryTemplatesRepository {
             },
           },
         },
+        translations: true,
       },
     });
   }
 
   public async create(data: CreateItineraryTemplateInput): Promise<ItineraryTemplate> {
-    const { days, ...templateFields } = data;
+    const { days, translations, ...templateFields } = data;
 
     return prisma.$transaction(async (tx) => {
       const template = await tx.itineraryTemplate.create({
@@ -121,9 +123,11 @@ export class AdminItineraryTemplatesRepository {
                     activities: {
                       create: (day.activities || []).map((act, actIdx) => ({
                         destinationId: act.destinationId || null,
+                        restaurantId: act.restaurantId || null,
+                        accommodationId: act.accommodationId || null,
                         customLocation: act.customLocation || null,
                         customTitle: act.customTitle || null,
-                        orderIndex: act.orderIndex ?? actIdx,
+                        orderIndex: act.orderIndex !== undefined ? act.orderIndex : actIdx,
                         startTime: act.startTime || null,
                         endTime: act.endTime || null,
                         activityNotes: act.activityNotes || null,
@@ -149,6 +153,7 @@ export class AdminItineraryTemplatesRepository {
               },
             },
           },
+          translations: true,
         },
       });
 
@@ -157,7 +162,7 @@ export class AdminItineraryTemplatesRepository {
   }
 
   public async update(id: string, data: UpdateItineraryTemplateInput): Promise<ItineraryTemplate> {
-    const { days, ...templateFields } = data;
+    const { days, translations, ...templateFields } = data;
 
     return prisma.$transaction(async (tx) => {
       if (days !== undefined) {

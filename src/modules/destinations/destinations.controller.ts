@@ -14,76 +14,76 @@ export class DestinationsController {
   public getDestinations = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as DestinationFilterQuery;
     const userId = req.user?.userId;
-    const { data, meta } = await this.service.getDestinations(query, userId);
+    const { data, meta } = await this.service.getDestinations(query, userId, req.locale);
 
-    res.setHeader('Vary', 'Authorization, Accept-Encoding');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
     if (userId) {
       res.setHeader('Cache-Control', 'private, no-cache');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
     }
 
-    return ResponseUtil.sendPaginated(res, data, meta, 'Success fetching destinations');
+    return ResponseUtil.sendLocalizedPaginated(req, res, data, meta, 'DESTINATIONS_RETRIEVED');
   });
 
   public getFeatured = asyncHandler(async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : 6;
     const userId = req.user?.userId;
-    const data = await this.service.getFeaturedDestinations(limit, userId);
+    const data = await this.service.getFeaturedDestinations(limit, userId, req.locale);
 
-    res.setHeader('Vary', 'Authorization, Accept-Encoding');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
     if (userId) {
       res.setHeader('Cache-Control', 'private, no-cache');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
     }
 
-    return ResponseUtil.sendSuccess(res, data, 'Success fetching featured destinations');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'FEATURED_DESTINATIONS_RETRIEVED');
   });
 
   public getNearby = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as NearbyDestinationQuery;
     const userId = req.user?.userId;
-    const data = await this.service.getNearbyDestinations(query, userId);
+    const data = await this.service.getNearbyDestinations(query, userId, req.locale);
 
-    res.setHeader('Vary', 'Authorization, Accept-Encoding');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
     if (userId) {
       res.setHeader('Cache-Control', 'private, no-cache');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
     }
 
-    return ResponseUtil.sendSuccess(res, data, 'Success fetching nearby destinations');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'NEARBY_DESTINATIONS_RETRIEVED');
   });
 
   public search = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as SearchDestinationQuery;
     const userId = req.user?.userId;
-    const { data, meta } = await this.service.searchDestinations(query, userId);
+    const { data, meta } = await this.service.searchDestinations(query, userId, req.locale);
 
-    res.setHeader('Vary', 'Authorization, Accept-Encoding');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
     if (userId) {
       res.setHeader('Cache-Control', 'private, no-cache');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
     }
 
-    return ResponseUtil.sendPaginated(res, data, meta, 'Success searching destinations');
+    return ResponseUtil.sendLocalizedPaginated(req, res, data, meta, 'DESTINATIONS_RETRIEVED');
   });
 
   public getByIdOrSlug = asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id as string;
     const userId = req.user?.userId;
-    const destination = await this.service.getDestinationByIdOrSlug(id, userId);
+    const destination = await this.service.getDestinationByIdOrSlug(id, userId, req.locale);
 
-    res.setHeader('Vary', 'Authorization, Accept-Encoding');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
     if (userId) {
       res.setHeader('Cache-Control', 'private, no-cache');
     } else {
       res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
     }
 
-    return ResponseUtil.sendSuccess(res, destination, 'Success fetching destination detail');
+    return ResponseUtil.sendLocalizedSuccess(req, res, destination, 'DESTINATION_RETRIEVED');
   });
 }
 

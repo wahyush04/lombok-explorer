@@ -1,4 +1,6 @@
 import { DestinationStatus } from '@prisma/client';
+import { prisma } from '../../../database/prisma';
+import { SUPPORTED_LOCALES } from '../../../i18n/types';
 import {
   adminCategoriesRepository,
   AdminCategoriesRepository,
@@ -34,6 +36,18 @@ export class AdminCategoriesService {
   }
 
   public mapToAdminDto = (category: CategoryWithDestinationsCount): AdminCategoryDto => {
+    const rawTranslations = (category as any).translations || [];
+    const translations = rawTranslations.map((t: any) => ({
+      locale: t.locale,
+      name: t.name,
+      description: t.description,
+    }));
+
+    const availableLocales: string[] = Array.from(new Set(translations.map((t: any) => t.locale as string)));
+    const missingLocales = (SUPPORTED_LOCALES as readonly string[]).filter(
+      (l) => !availableLocales.includes(l),
+    );
+
     return {
       id: category.id,
       name: category.name,
@@ -44,6 +58,9 @@ export class AdminCategoriesService {
       coverImagePublicId: category.coverImagePublicId,
       status: category.status ?? DestinationStatus.PUBLISHED,
       destinationsCount: category._count?.destinations ?? 0,
+      translations,
+      availableLocales,
+      missingLocales,
       createdAt: category.createdAt,
       updatedAt: category.updatedAt,
       deletedAt: category.deletedAt,
@@ -131,6 +148,32 @@ export class AdminCategoriesService {
         status: dto.status ?? DestinationStatus.PUBLISHED,
       });
 
+      // Upsert translations if provided
+      if (dto.translations && dto.translations.length > 0) {
+        for (const t of dto.translations) {
+          await prisma.categoryTranslation.upsert({
+            where: {
+              categoryId_locale: {
+                categoryId: created.id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              categoryId: created.id,
+              locale: t.locale,
+              name: t.name,
+              description: t.description,
+            },
+            update: {
+              name: t.name,
+              description: t.description,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findByIdOrSlug(created.id, true);
+
       // Invalidate public categories cache
       categoriesService.clearCache();
 
@@ -145,7 +188,7 @@ export class AdminCategoriesService {
         userAgent,
       });
 
-      return this.mapToAdminDto(created);
+      return this.mapToAdminDto(refreshed || created);
     } catch (error) {
       if (coverImagePublicId) {
         logger.warn(
@@ -232,6 +275,32 @@ export class AdminCategoriesService {
         ...(dto.status && { status: dto.status }),
       });
 
+      // Upsert translations if provided
+      if (dto.translations && dto.translations.length > 0) {
+        for (const t of dto.translations) {
+          await prisma.categoryTranslation.upsert({
+            where: {
+              categoryId_locale: {
+                categoryId: category.id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              categoryId: category.id,
+              locale: t.locale,
+              name: t.name,
+              description: t.description,
+            },
+            update: {
+              name: t.name,
+              description: t.description,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findByIdOrSlug(category.id, true);
+
       // Clean up old cover asset if replaced post-commit
       if (
         newPublicId &&
@@ -262,7 +331,7 @@ export class AdminCategoriesService {
         userAgent,
       });
 
-      return this.mapToAdminDto(updated);
+      return this.mapToAdminDto(refreshed || updated);
     } catch (error) {
       if (newPublicId && !isCoverUnchanged) {
         logger.warn(

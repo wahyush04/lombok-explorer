@@ -4,15 +4,18 @@ import {
   DifficultyLevel,
   DestinationStatus,
   Category,
+  CategoryTranslation,
   DestinationImage,
   Destination,
+  DestinationTranslation,
 } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 
 export type DestinationWithRelations = Destination & {
-  category?: Category | null;
+  category?: (Category & { translations?: CategoryTranslation[] }) | null;
   images?: (DestinationImage | string)[] | null;
   favorites?: { id: string }[];
+  translations?: DestinationTranslation[];
 };
 
 export interface DestinationSearchParams {
@@ -162,6 +165,9 @@ export class DestinationsSearchService {
     ftsConditions.push(
       Prisma.sql`lower(unaccent(d.category_name)) LIKE lower(unaccent(${`%${cleanSearch}%`}))`,
     );
+    ftsConditions.push(
+      Prisma.sql`EXISTS (SELECT 1 FROM destination_translations dt WHERE dt."destinationId" = d.id AND (lower(unaccent(dt.name)) LIKE lower(unaccent(${`%${cleanSearch}%`})) OR lower(unaccent(dt.description)) LIKE lower(unaccent(${`%${cleanSearch}%`})) OR similarity(lower(unaccent(dt.name)), lower(unaccent(${cleanSearch}))) >= 0.18))`,
+    );
 
     const ftsWhereClause = Prisma.sql`(${Prisma.join(ftsConditions, ' OR ')})`;
     whereConditions.push(ftsWhereClause);
@@ -291,7 +297,12 @@ export class DestinationsSearchService {
         id: { in: ids },
       },
       include: {
-        category: true,
+        category: {
+          include: {
+            translations: true,
+          },
+        },
+        translations: true,
         images: {
           orderBy: { orderIndex: 'asc' },
         },
@@ -388,7 +399,12 @@ export class DestinationsSearchService {
         skip,
         take: limit,
         include: {
-          category: true,
+          category: {
+            include: {
+              translations: true,
+            },
+          },
+          translations: true,
           images: {
             orderBy: { orderIndex: 'asc' },
           },

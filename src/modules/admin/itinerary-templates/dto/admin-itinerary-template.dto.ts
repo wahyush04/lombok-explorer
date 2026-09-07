@@ -46,6 +46,13 @@ export const AdminTemplateDayInputSchema = z.object({
   activities: z.array(AdminTemplateActivityInputSchema).default([]),
 });
 
+export const ItineraryTemplateTranslationInputSchema = z.object({
+  locale: z.enum(['id-ID', 'en-US']),
+  title: z.string().min(3, 'Title must be at least 3 characters'),
+  description: z.string().optional().nullable(),
+  transportPaceNote: z.string().optional().nullable(),
+});
+
 export const CreateItineraryTemplateSchema = z.object({
   title: z.string().min(3, 'Title must be at least 3 characters'),
   description: z.string().optional().nullable(),
@@ -63,6 +70,7 @@ export const CreateItineraryTemplateSchema = z.object({
   isFeatured: z.boolean().default(false),
   sortOrder: z.number().int().default(0),
   days: z.array(AdminTemplateDayInputSchema).optional(),
+  translations: z.array(ItineraryTemplateTranslationInputSchema).optional(),
 });
 
 export const UpdateItineraryTemplateSchema = CreateItineraryTemplateSchema.partial();

@@ -1,4 +1,4 @@
-import { Prisma, Category } from '@prisma/client';
+import { Prisma, Category, CategoryTranslation } from '@prisma/client';
 import { prisma } from '../../../database/prisma';
 import { AdminCategoryFilterQuery } from './dto/admin-category.dto';
 
@@ -6,6 +6,7 @@ export type CategoryWithDestinationsCount = Category & {
   _count?: {
     destinations: number;
   };
+  translations?: CategoryTranslation[];
 };
 
 export class AdminCategoriesRepository {
@@ -62,6 +63,7 @@ export class AdminCategoriesRepository {
               destinations: true,
             },
           },
+          translations: true,
         },
       }),
       prisma.category.count({ where }),
@@ -87,6 +89,7 @@ export class AdminCategoriesRepository {
             destinations: true,
           },
         },
+        translations: true,
       },
     });
   }
@@ -122,6 +125,7 @@ export class AdminCategoriesRepository {
             destinations: true,
           },
         },
+        translations: true,
       },
     });
   }
@@ -139,6 +143,7 @@ export class AdminCategoriesRepository {
             destinations: true,
           },
         },
+        translations: true,
       },
     });
   }

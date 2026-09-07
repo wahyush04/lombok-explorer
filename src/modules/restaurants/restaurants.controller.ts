@@ -9,32 +9,32 @@ export class RestaurantsController {
 
   public getRestaurants = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as RestaurantFilterQuery;
-    const { data, meta } = await this.service.getRestaurants(query);
+    const { data, meta } = await this.service.getRestaurants(query, req.locale);
 
-    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
 
-    return ResponseUtil.sendPaginated(res, data, meta, 'Success fetching restaurants');
+    return ResponseUtil.sendLocalizedPaginated(req, res, data, meta, 'RESTAURANTS_RETRIEVED');
   });
 
   public getFeatured = asyncHandler(async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : 6;
-    const data = await this.service.getFeaturedRestaurants(limit);
+    const data = await this.service.getFeaturedRestaurants(limit, req.locale);
 
-    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
     res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
 
-    return ResponseUtil.sendSuccess(res, data, 'Success fetching featured restaurants');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'RESTAURANTS_RETRIEVED');
   });
 
   public getByIdOrSlug = asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const data = await this.service.getRestaurantByIdOrSlug(id);
+    const data = await this.service.getRestaurantByIdOrSlug(id, req.locale);
 
-    res.setHeader('Vary', 'Accept-Encoding');
+    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
     res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
 
-    return ResponseUtil.sendSuccess(res, data, 'Success fetching restaurant detail');
+    return ResponseUtil.sendLocalizedSuccess(req, res, data, 'DATA_RETRIEVED');
   });
 }
 

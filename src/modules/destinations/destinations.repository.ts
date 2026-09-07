@@ -122,7 +122,12 @@ export class DestinationsRepository {
         skip,
         take: filters.limit,
         include: {
-          category: true,
+          category: {
+            include: {
+              translations: true,
+            },
+          },
+          translations: true,
           images: {
             orderBy: { orderIndex: 'asc' },
           },
@@ -146,7 +151,12 @@ export class DestinationsRepository {
         deletedAt: null,
       },
       include: {
-        category: true,
+        category: {
+          include: {
+            translations: true,
+          },
+        },
+        translations: true,
         images: {
           orderBy: { orderIndex: 'asc' },
         },
@@ -168,7 +178,12 @@ export class DestinationsRepository {
       orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
       take: limit,
       include: {
-        category: true,
+        category: {
+          include: {
+            translations: true,
+          },
+        },
+        translations: true,
         images: {
           orderBy: { orderIndex: 'asc' },
         },
@@ -194,7 +209,12 @@ export class DestinationsRepository {
       },
       take: limit,
       include: {
-        category: true,
+        category: {
+          include: {
+            translations: true,
+          },
+        },
+        translations: true,
         images: {
           orderBy: { orderIndex: 'asc' },
         },

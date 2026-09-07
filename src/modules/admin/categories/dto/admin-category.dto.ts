@@ -25,6 +25,15 @@ export const AdminCategoryFilterQuerySchema = z.object({
   toDate: z.string().trim().optional(),
 });
 
+export const CategoryTranslationInputSchema = z.object({
+  locale: z.enum(['id-ID', 'en-US']),
+  name: z
+    .string()
+    .min(2, 'Name must be at least 2 characters')
+    .max(100, 'Name must not exceed 100 characters'),
+  description: z.string().min(5, 'Description must be at least 5 characters'),
+});
+
 export const CreateCategorySchema = z.object({
   name: z
     .string()
@@ -36,6 +45,7 @@ export const CreateCategorySchema = z.object({
   coverImage: CloudinaryAssetInputSchema.optional(),
   coverImageUrl: z.string().optional().default(''),
   status: z.nativeEnum(DestinationStatus).optional().default(DestinationStatus.PUBLISHED),
+  translations: z.array(CategoryTranslationInputSchema).optional(),
 });
 
 export const UpdateCategorySchema = CreateCategorySchema.partial();
@@ -62,6 +72,7 @@ export type CreateCategoryDto = z.infer<typeof CreateCategorySchema>;
 export type UpdateCategoryDto = z.infer<typeof UpdateCategorySchema>;
 export type UpdateCategoryStatusDto = z.infer<typeof UpdateCategoryStatusSchema>;
 export type DeleteCategoryQuery = z.infer<typeof DeleteCategoryQuerySchema>;
+export type CategoryTranslationInput = z.infer<typeof CategoryTranslationInputSchema>;
 
 export interface AdminCategoryDto {
   id: string;
@@ -73,6 +84,13 @@ export interface AdminCategoryDto {
   coverImagePublicId?: string | null;
   status: DestinationStatus;
   destinationsCount: number;
+  translations?: Array<{
+    locale: string;
+    name: string;
+    description: string;
+  }>;
+  availableLocales?: string[];
+  missingLocales?: string[];
   createdAt: Date;
   updatedAt: Date;
   deletedAt?: Date | null;

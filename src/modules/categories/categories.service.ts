@@ -1,12 +1,15 @@
-import { Category, Destination } from '@prisma/client';
+import { Category, CategoryTranslation, Destination, DestinationTranslation } from '@prisma/client';
 import { NotFoundError } from '../../common/errors/app-error';
 import { categoriesRepository, CategoriesRepository } from './categories.repository';
 import { CategoryDestinationsQuery, CategoryDto } from './dto/category.dto';
 import { DestinationDto } from '../destinations/dto/destination.dto';
 import { destinationsService, DestinationsService } from '../destinations/destinations.service';
 import { PaginationMeta } from '../../common/types';
+import { resolveLocalizedFields } from '../../i18n/content-fallback.util';
+import { DEFAULT_LOCALE } from '../../i18n/types';
 
-type CategoryWithCount = Category & {
+type CategoryWithRelations = Category & {
+  translations?: CategoryTranslation[];
   _count?: {
     destinations: number;
   };
@@ -18,7 +21,7 @@ interface CacheEntry<T> {
 }
 
 export class CategoriesService {
-  private categoriesCache: CacheEntry<CategoryDto[]> | null = null;
+  private categoriesCache = new Map<string, CacheEntry<CategoryDto[]>>();
   private readonly CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in-memory cache
 
   constructor(
@@ -27,15 +30,22 @@ export class CategoriesService {
   ) {}
 
   public clearCache(): void {
-    this.categoriesCache = null;
+    this.categoriesCache.clear();
   }
 
-  public mapToDto(category: CategoryWithCount): CategoryDto {
+  public mapToDto(category: CategoryWithRelations, locale: string = DEFAULT_LOCALE): CategoryDto {
+    const localized = resolveLocalizedFields(
+      locale,
+      category.translations,
+      category,
+      ['name', 'description'],
+    );
+
     return {
       id: category.id,
       slug: category.slug,
-      name: category.name,
-      description: category.description,
+      name: localized.name,
+      description: localized.description,
       iconName: category.iconName,
       coverImageUrl: category.coverImageUrl,
       destinationCount: category._count?.destinations ?? 0,
@@ -44,37 +54,43 @@ export class CategoriesService {
     };
   }
 
-  public async getCategories(): Promise<CategoryDto[]> {
+  public async getCategories(locale: string = DEFAULT_LOCALE): Promise<CategoryDto[]> {
     const now = Date.now();
-    if (this.categoriesCache && this.categoriesCache.expiresAt > now) {
-      return this.categoriesCache.data;
+    const cacheKey = `categories:${locale}`;
+    const cached = this.categoriesCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
     }
 
     const categories = await this.repository.findAll();
-    const mapped = categories.map((cat: CategoryWithCount) => this.mapToDto(cat));
+    const mapped = categories.map((cat: CategoryWithRelations) => this.mapToDto(cat, locale));
 
-    this.categoriesCache = {
+    this.categoriesCache.set(cacheKey, {
       data: mapped,
       expiresAt: now + this.CACHE_TTL_MS,
-    };
+    });
 
     return mapped;
   }
 
-  public async getCategoryByIdOrSlug(idOrSlug: string): Promise<CategoryDto> {
+  public async getCategoryByIdOrSlug(
+    idOrSlug: string,
+    locale: string = DEFAULT_LOCALE,
+  ): Promise<CategoryDto> {
     const category = await this.repository.findByIdOrSlug(idOrSlug);
     if (!category) {
       throw new NotFoundError(`Category '${idOrSlug}' not found`, 'CATEGORY_NOT_FOUND');
     }
 
-    return this.mapToDto(category as CategoryWithCount);
+    return this.mapToDto(category as CategoryWithRelations, locale);
   }
 
   public async getCategoryDestinations(
     idOrSlug: string,
     query: CategoryDestinationsQuery,
+    locale: string = DEFAULT_LOCALE,
   ): Promise<{ data: DestinationDto[]; meta: PaginationMeta }> {
-    const category = await this.getCategoryByIdOrSlug(idOrSlug);
+    const category = await this.getCategoryByIdOrSlug(idOrSlug, locale);
     const page = query.page || 1;
     const limit = query.limit || 10;
     const sortBy = query.sort_by || 'popular';
@@ -91,7 +107,9 @@ export class CategoriesService {
     const totalPages = Math.ceil(total / limit) || 1;
 
     return {
-      data: items.map((item: Destination) => this.destService.mapToDto(item)),
+      data: items.map((item: Destination & { translations?: DestinationTranslation[] }) =>
+        this.destService.mapToDto(item, undefined, locale),
+      ),
       meta: {
         page,
         limit,

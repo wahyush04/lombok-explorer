@@ -1,4 +1,6 @@
 import { DestinationStatus, Restaurant } from '@prisma/client';
+import { prisma } from '../../../database/prisma';
+import { SUPPORTED_LOCALES } from '../../../i18n/types';
 import {
   adminRestaurantsRepository,
   AdminRestaurantsRepository,
@@ -30,6 +32,17 @@ export class AdminRestaurantsService {
       }
     }
 
+    const rawTranslations = (restaurant as any).translations || [];
+    const translations = rawTranslations.map((t: any) => ({
+      locale: t.locale,
+      name: t.name,
+      description: t.description,
+    }));
+    const availableLocales: string[] = Array.from(new Set(translations.map((t: any) => t.locale as string)));
+    const missingLocales = (SUPPORTED_LOCALES as readonly string[]).filter(
+      (l) => !availableLocales.includes(l),
+    );
+
     return {
       id: restaurant.id,
       name: restaurant.name,
@@ -53,6 +66,9 @@ export class AdminRestaurantsService {
       isHalalCertified: restaurant.isHalalCertified,
       status: restaurant.status,
       isFeatured: restaurant.isFeatured,
+      translations,
+      availableLocales,
+      missingLocales,
       createdAt: restaurant.createdAt,
       updatedAt: restaurant.updatedAt,
       deletedAt: restaurant.deletedAt,
@@ -174,6 +190,32 @@ export class AdminRestaurantsService {
         isFeatured: dto.isFeatured,
       });
 
+      // Upsert translations if provided
+      if (dto.translations && dto.translations.length > 0) {
+        for (const t of dto.translations) {
+          await prisma.restaurantTranslation.upsert({
+            where: {
+              restaurantId_locale: {
+                restaurantId: created.id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              restaurantId: created.id,
+              locale: t.locale,
+              name: t.name,
+              description: t.description,
+            },
+            update: {
+              name: t.name,
+              description: t.description,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findByIdOrSlug(created.id, true);
+
       // 5. Audit log
       await this.repository.createAuditLog({
         userId: adminUserId,
@@ -185,7 +227,7 @@ export class AdminRestaurantsService {
         userAgent,
       });
 
-      return this.mapToDto(created);
+      return this.mapToDto(refreshed || created);
     } catch (error) {
       if (newPublicIds.length > 0) {
         logger.warn(
@@ -328,6 +370,32 @@ export class AdminRestaurantsService {
         });
       }
 
+      // Upsert translations if provided
+      if (dto.translations && dto.translations.length > 0) {
+        for (const t of dto.translations) {
+          await prisma.restaurantTranslation.upsert({
+            where: {
+              restaurantId_locale: {
+                restaurantId: existing.id,
+                locale: t.locale,
+              },
+            },
+            create: {
+              restaurantId: existing.id,
+              locale: t.locale,
+              name: t.name,
+              description: t.description,
+            },
+            update: {
+              name: t.name,
+              description: t.description,
+            },
+          });
+        }
+      }
+
+      const refreshed = await this.repository.findByIdOrSlug(existing.id, true);
+
       // Audit log
       await this.repository.createAuditLog({
         userId: adminUserId,
@@ -339,7 +407,7 @@ export class AdminRestaurantsService {
         userAgent,
       });
 
-      return this.mapToDto(updated);
+      return this.mapToDto(refreshed || updated);
     } catch (error) {
       if (newPublicIds.length > 0) {
         logger.warn(
