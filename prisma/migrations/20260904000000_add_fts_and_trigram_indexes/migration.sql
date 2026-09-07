@@ -8,7 +8,6 @@ CREATE INDEX IF NOT EXISTS idx_destinations_location_trgm ON destinations USING 
 CREATE INDEX IF NOT EXISTS idx_categories_name_trgm ON categories USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_restaurants_name_trgm ON restaurants USING gin (name gin_trgm_ops);
 CREATE INDEX IF NOT EXISTS idx_accommodations_name_trgm ON accommodations USING gin (name gin_trgm_ops);
-CREATE INDEX IF NOT EXISTS idx_itinerary_templates_title_trgm ON itinerary_templates USING gin (title gin_trgm_ops);
 
 -- Expression GIN Indexes for Weighted Full-Text Search tsvector
 CREATE INDEX IF NOT EXISTS idx_destinations_fts ON destinations USING gin (

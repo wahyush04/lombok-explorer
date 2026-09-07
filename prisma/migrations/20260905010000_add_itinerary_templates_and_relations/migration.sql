@@ -151,6 +151,7 @@ CREATE INDEX IF NOT EXISTS "template_activities_orderIndex_idx" ON "template_act
 CREATE INDEX IF NOT EXISTS "itineraries_templateId_idx" ON "itineraries"("templateId");
 CREATE INDEX IF NOT EXISTS "itinerary_items_restaurantId_idx" ON "itinerary_items"("restaurantId");
 CREATE INDEX IF NOT EXISTS "itinerary_items_accommodationId_idx" ON "itinerary_items"("accommodationId");
+CREATE INDEX IF NOT EXISTS idx_itinerary_templates_title_trgm ON "itinerary_templates" USING gin (title gin_trgm_ops);
 
 -- Foreign Keys
 DO $$ BEGIN
