@@ -162,22 +162,22 @@ model User {
   deletedAt       DateTime?
 
   // Relations
-  identities    AuthIdentity[]
-  favorites     Favorite[]
-  reviews       Review[]
-  itineraries   Itinerary[]
-  expenses      Expense[]
-  journals      TravelJournal[]
-  checklists    Checklist[]
-  auditLogs     AuditLog[]
-  posts         Post[]
-  postLikes     PostLike[]
-  postComments  PostComment[]
-  postBookmarks PostBookmark[]
-  postReports   PostReport[]
-  deviceTokens  DeviceToken[]
-  receivedNotifications Notification[] @relation("NotificationRecipient")
-  actedNotifications    Notification[] @relation("NotificationActor")
+  identities            AuthIdentity[]
+  favorites             Favorite[]
+  reviews               Review[]
+  itineraries           Itinerary[]
+  expenses              Expense[]
+  journals              TravelJournal[]
+  checklists            Checklist[]
+  auditLogs             AuditLog[]
+  posts                 Post[]
+  postLikes             PostLike[]
+  postComments          PostComment[]
+  postBookmarks         PostBookmark[]
+  postReports           PostReport[]
+  deviceTokens          DeviceToken[]
+  receivedNotifications Notification[]  @relation("NotificationRecipient")
+  actedNotifications    Notification[]  @relation("NotificationActor")
 
   @@index([email])
   @@index([username])
@@ -215,7 +215,7 @@ model Category {
   iconName           String
   coverImageUrl      String            @db.Text
   coverImagePublicId String?           @db.Text
-  status             CategoryStatus    @default(PUBLISHED)
+  status             DestinationStatus @default(PUBLISHED)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
@@ -343,30 +343,30 @@ model Review {
 // ==========================================
 
 model ItineraryTemplate {
-  id                     String             @id @default(uuid())
-  title                  String
-  description            String?            @db.Text
-  coverImageUrl          String?            @db.Text
-  coverImagePublicId     String?            @db.Text
-  totalDays              Int                @default(1)
-  travelStyle            TravelStyle        @default(BEACH_RELAXATION)
-  budgetLevel            BudgetLevel        @default(MID_RANGE)
-  transportationMode     TransportationMode @default(CAR)
-  transportPaceNote      String?            // e.g. "Mobil Sewa / Motor • Santai & Menyenangkan"
-  totalEstimatedBudget   Decimal            @default(0) @db.Decimal(12, 2)
-  totalDistanceKm        Float              @default(0)
-  totalDurationMinutes   Int                @default(0)
-  isPublished            Boolean            @default(true)
-  isFeatured             Boolean            @default(false)
-  sortOrder              Int                @default(0)
-  createdAt              DateTime           @default(now())
-  updatedAt              DateTime           @updatedAt
-  deletedAt              DateTime?
+  id                   String             @id @default(uuid())
+  title                String
+  description          String?            @db.Text
+  coverImageUrl        String?            @db.Text
+  coverImagePublicId   String?            @db.Text
+  totalDays            Int                @default(1)
+  travelStyle          TravelStyle        @default(BEACH_RELAXATION)
+  budgetLevel          BudgetLevel        @default(MID_RANGE)
+  transportationMode   TransportationMode @default(CAR)
+  transportPaceNote    String? // e.g. "Mobil Sewa / Motor • Santai & Menyenangkan"
+  totalEstimatedBudget Decimal            @default(0) @db.Decimal(12, 2)
+  totalDistanceKm      Float              @default(0)
+  totalDurationMinutes Int                @default(0)
+  isPublished          Boolean            @default(true)
+  isFeatured           Boolean            @default(false)
+  sortOrder            Int                @default(0)
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  deletedAt            DateTime?
 
   // Relations
-  days                   TemplateDay[]
-  itineraries            Itinerary[]
-  translations           ItineraryTemplateTranslation[]
+  days         TemplateDay[]
+  itineraries  Itinerary[]
+  translations ItineraryTemplateTranslation[]
 
   @@index([isPublished])
   @@index([isFeatured, sortOrder])
@@ -389,7 +389,7 @@ model TemplateDay {
   updatedAt            DateTime          @updatedAt
 
   // Relations
-  activities           TemplateActivity[]
+  activities TemplateActivity[]
 
   @@unique([templateId, dayNumber])
   @@index([templateId])
@@ -397,28 +397,28 @@ model TemplateDay {
 }
 
 model TemplateActivity {
-  id                        String             @id @default(uuid())
+  id                        String            @id @default(uuid())
   templateDayId             String
-  templateDay               TemplateDay        @relation(fields: [templateDayId], references: [id], onDelete: Cascade)
-  itemType                  ItineraryItemType  @default(DESTINATION)
+  templateDay               TemplateDay       @relation(fields: [templateDayId], references: [id], onDelete: Cascade)
+  itemType                  ItineraryItemType @default(DESTINATION)
   destinationId             String?
-  destination               Destination?       @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  destination               Destination?      @relation(fields: [destinationId], references: [id], onDelete: SetNull)
   restaurantId              String?
-  restaurant                Restaurant?        @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+  restaurant                Restaurant?       @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
   accommodationId           String?
-  accommodation             Accommodation?     @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
-  customLocation            String?      @db.Text // JSON: { name, latitude, longitude, address }
+  accommodation             Accommodation?    @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
+  customLocation            String?           @db.Text // JSON: { name, latitude, longitude, address }
   customTitle               String?
   orderIndex                Int
-  startTime                 String?      // e.g. "08:30"
-  endTime                   String?      // e.g. "10:30"
-  activityNotes             String?      @db.Text
-  estimatedDurationMinutes  Int          @default(60)
-  estimatedCost             Decimal      @default(0) @db.Decimal(12, 2)
-  distanceFromPrevKm        Float        @default(0)
-  travelTimeFromPrevMinutes Int          @default(0)
-  createdAt                 DateTime     @default(now())
-  updatedAt                 DateTime     @updatedAt
+  startTime                 String? // e.g. "08:30"
+  endTime                   String? // e.g. "10:30"
+  activityNotes             String?           @db.Text
+  estimatedDurationMinutes  Int               @default(60)
+  estimatedCost             Decimal           @default(0) @db.Decimal(12, 2)
+  distanceFromPrevKm        Float             @default(0)
+  travelTimeFromPrevMinutes Int               @default(0)
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
 
   @@index([templateDayId])
   @@index([destinationId])
@@ -475,18 +475,18 @@ model Itinerary {
 }
 
 model ItineraryDay {
-  id                     String          @id @default(uuid())
+  id                     String    @id @default(uuid())
   itineraryId            String
-  itinerary              Itinerary       @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  itinerary              Itinerary @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
   dayNumber              Int
   title                  String
   date                   DateTime?
-  notes                  String?         @db.Text
-  totalDistanceKm        Float           @default(0)
-  totalTravelTimeMinutes Int             @default(0)
-  estimatedBudget        Decimal         @default(0) @db.Decimal(12, 2)
-  createdAt              DateTime        @default(now())
-  updatedAt              DateTime        @updatedAt
+  notes                  String?   @db.Text
+  totalDistanceKm        Float     @default(0)
+  totalTravelTimeMinutes Int       @default(0)
+  estimatedBudget        Decimal   @default(0) @db.Decimal(12, 2)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
 
   // Relations
   items ItineraryItem[]
@@ -497,30 +497,30 @@ model ItineraryDay {
 }
 
 model ItineraryItem {
-  id                        String             @id @default(uuid())
+  id                        String            @id @default(uuid())
   itineraryDayId            String
-  itineraryDay              ItineraryDay       @relation(fields: [itineraryDayId], references: [id], onDelete: Cascade)
-  itemType                  ItineraryItemType  @default(DESTINATION)
+  itineraryDay              ItineraryDay      @relation(fields: [itineraryDayId], references: [id], onDelete: Cascade)
+  itemType                  ItineraryItemType @default(DESTINATION)
   destinationId             String?
-  destination               Destination?       @relation(fields: [destinationId], references: [id], onDelete: SetNull)
+  destination               Destination?      @relation(fields: [destinationId], references: [id], onDelete: SetNull)
   restaurantId              String?
-  restaurant                Restaurant?        @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+  restaurant                Restaurant?       @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
   accommodationId           String?
-  accommodation             Accommodation?     @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
-  customLocation            String?      @db.Text // JSON: { name, latitude, longitude, address }
+  accommodation             Accommodation?    @relation(fields: [accommodationId], references: [id], onDelete: SetNull)
+  customLocation            String?           @db.Text // JSON: { name, latitude, longitude, address }
   customTitle               String?
   orderIndex                Int
-  startTime                 String?      // e.g. "08:30"
-  endTime                   String?      // e.g. "10:30"
-  timeSlot                  String?      // e.g. "08:30 - 10:30"
-  activityNotes             String?      @db.Text
-  estimatedDurationMinutes  Int          @default(60)
-  estimatedCost             Decimal      @default(0) @db.Decimal(12, 2)
-  distanceFromPrevKm        Float        @default(0)
-  travelTimeFromPrevMinutes Int          @default(0)
-  isCompleted               Boolean      @default(false)
-  createdAt                 DateTime     @default(now())
-  updatedAt                 DateTime     @updatedAt
+  startTime                 String? // e.g. "08:30"
+  endTime                   String? // e.g. "10:30"
+  timeSlot                  String? // e.g. "08:30 - 10:30"
+  activityNotes             String?           @db.Text
+  estimatedDurationMinutes  Int               @default(60)
+  estimatedCost             Decimal           @default(0) @db.Decimal(12, 2)
+  distanceFromPrevKm        Float             @default(0)
+  travelTimeFromPrevMinutes Int               @default(0)
+  isCompleted               Boolean           @default(false)
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
 
   @@index([itineraryDayId])
   @@index([destinationId])
@@ -630,15 +630,15 @@ model Accommodation {
   longitude          Float
   coverImageUrl      String            @db.Text
   coverImagePublicId String?           @db.Text
-  images        String            @db.Text // JSON array of image URLs
-  amenities     String            @db.Text // JSON array of amenities
-  contactPhone  String?
-  websiteUrl    String?           @db.Text
-  status        DestinationStatus @default(PUBLISHED)
-  isFeatured    Boolean           @default(false)
-  createdAt     DateTime          @default(now())
-  updatedAt     DateTime          @updatedAt
-  deletedAt     DateTime?
+  images             String            @db.Text // JSON array of image URLs
+  amenities          String            @db.Text // JSON array of amenities
+  contactPhone       String?
+  websiteUrl         String?           @db.Text
+  status             DestinationStatus @default(PUBLISHED)
+  isFeatured         Boolean           @default(false)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+  deletedAt          DateTime?
 
   // Relations
   itineraryItems     ItineraryItem[]
@@ -803,8 +803,8 @@ model Post {
   deletedAt     DateTime?
 
   // Relations
-  location  PostLocation?
-  media     PostMedia[]
+  location      PostLocation?
+  media         PostMedia[]
   likes         PostLike[]
   comments      PostComment[]
   bookmarks     PostBookmark[]
@@ -873,14 +873,14 @@ model PostLike {
 }
 
 model PostComment {
-  id        String    @id @default(uuid())
-  postId    String
-  post      Post      @relation(fields: [postId], references: [id], onDelete: Cascade)
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  content       String        @db.Text
-  createdAt     DateTime      @default(now())
-  updatedAt     DateTime      @updatedAt
+  id            String         @id @default(uuid())
+  postId        String
+  post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content       String         @db.Text
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
   deletedAt     DateTime?
   notifications Notification[]
 
@@ -981,7 +981,7 @@ model CategoryTranslation {
   id          String   @id @default(uuid())
   categoryId  String
   category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  locale      String   // 'id-ID', 'en-US'
+  locale      String // 'id-ID', 'en-US'
   name        String
   description String   @db.Text
   createdAt   DateTime @default(now())
@@ -996,7 +996,7 @@ model DestinationTranslation {
   id               String      @id @default(uuid())
   destinationId    String
   destination      Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
-  locale           String      // 'id-ID', 'en-US'
+  locale           String // 'id-ID', 'en-US'
   name             String
   shortDescription String?     @db.Text
   description      String      @db.Text
@@ -1013,7 +1013,7 @@ model RestaurantTranslation {
   id           String     @id @default(uuid())
   restaurantId String
   restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  locale       String     // 'id-ID', 'en-US'
+  locale       String // 'id-ID', 'en-US'
   name         String
   description  String     @db.Text
   createdAt    DateTime   @default(now())
@@ -1028,7 +1028,7 @@ model AccommodationTranslation {
   id              String        @id @default(uuid())
   accommodationId String
   accommodation   Accommodation @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
-  locale          String        // 'id-ID', 'en-US'
+  locale          String // 'id-ID', 'en-US'
   name            String
   description     String        @db.Text
   createdAt       DateTime      @default(now())
@@ -1043,7 +1043,7 @@ model ItineraryTemplateTranslation {
   id                String            @id @default(uuid())
   templateId        String
   template          ItineraryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  locale            String            // 'id-ID', 'en-US'
+  locale            String // 'id-ID', 'en-US'
   title             String
   description       String?           @db.Text
   transportPaceNote String?
@@ -1054,4 +1054,3 @@ model ItineraryTemplateTranslation {
   @@index([locale])
   @@map("itinerary_template_translations")
 }
-

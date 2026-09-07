@@ -1,327 +1,197 @@
-# Lombok Explorer — Production-Ready Dual Localization Architecture
+# Lombok Explorer — Complete Database Consistency Audit & Synchronization
 
-This walkthrough summarizes the architectural analysis, design, and full implementation of the **Dual Localization System** for the Lombok Explorer backend, supporting both:
-1. **System & UI Messages Localization** (API responses, validation errors, error handling, feed, notifications).
-2. **Content & Data Localization** (Entities: `Destination`, `Category`, `Restaurant`, `Accommodation`, `ItineraryTemplate`).
+## 1. Executive Summary
 
----
+This walkthrough details the complete database consistency audit and synchronization across:
+1. `prisma/schema.prisma` (Desired schema)
+2. `prisma/migrations/` (Version-controlled migration history)
+3. **PostgreSQL Database** (Physical DB schema inside Docker)
+4. **Prisma Client** (Generated TypeScript query engine)
+5. `prisma/seed.ts` (Database seeder & fixtures)
+6. **Docker Compose Lifecycle** (Reproducible environment)
 
-## 1. Architectural Overview & Design Principles
-
-```
-                              ┌─────────────────────────┐
-                              │     Client Request      │
-                              │ Accept-Language: en-US  │
-                              └────────────┬────────────┘
-                                           │
-                                           ▼
-                              ┌─────────────────────────┐
-                              │    localeMiddleware     │
-                              │   - RFC 2616 Q-Factor   │
-                              │   - Normalizes: en-US   │
-                              │   - Sets Vary Header    │
-                              └────────────┬────────────┘
-                                           │
-                     ┌─────────────────────┴─────────────────────┐
-                     ▼                                           ▼
-      ┌───────────────────────────────┐           ┌───────────────────────────────┐
-      │ 1. System/UI Localization     │           │ 2. Content/Data Localization  │
-      │    (Dictionary Files)         │           │    (PostgreSQL Translation)   │
-      ├───────────────────────────────┤           ├───────────────────────────────┤
-      │ • src/i18n/locales/id-ID/*.ts │           │ • Normalized *Translation tbl │
-      │ • src/i18n/locales/en-US/*.ts │           │ • @@unique([entityId, locale])│
-      │ • Parameterized interpolation │           │ • Transparent field fallback  │
-      │ • In-memory, zero DB queries  │           │ • Public: flat DTO (no arrays)│
-      │ • Zod stable validation codes │           │ • Admin: translations + meta  │
-      └───────────────────────────────┘           └───────────────────────────────┘
-```
-
-### Key Tenets
-1. **Zero Database Polling for UI/Error Text**: System messages, validation strings, and auth errors are managed in version-controlled TypeScript dictionary files under `src/i18n/locales/`, not in PostgreSQL.
-2. **Zero Breaking Changes for Android**: The Android app consumes flat DTOs (`name`, `description`, etc.) with transparent field-level fallback. Translation arrays are never leaked to Android endpoints.
-3. **Admin Transparency**: CMS editors receive `translations`, `availableLocales`, and `missingLocales` to identify missing translations and manage content per locale without complex relational overhead.
-4. **Zero Data Loss**: Existing columns on parent tables (`destinations.name`, `categories.description`, etc.) remain intact as canonical defaults. The non-destructive SQL migration safely seeds default `id-ID` translation rows directly from existing data.
+All schema drift issues — beginning with the initial `User.avatarPublicId` error and extending across legacy columns, enum type mismatches, nullability constraints, and data type discrepancies — have been systematically resolved via clean, forward-only, idempotent migrations without data loss and without manual database mutations.
 
 ---
 
-## 2. Database Schema & Migration (`prisma/schema.prisma`)
+## 2. Root Cause Analysis
 
-### Translation Models
-Five normalized translation models were added with composite unique constraints and locale indexes:
+### A. Initial Error: `The column avatarPublicId does not exist in the current database (P2022)`
+- **Investigation**: The initial migration `20260823000000_init_schema` omitted `avatarPublicId` from the `users` table. When Cloudinary avatar upload features were implemented in `schema.prisma` and `seed.ts`, the database column had not been added via migration.
+- **Resolution**: Created `ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatarPublicId" TEXT;` ensuring the column is created.
 
-```prisma
-model CategoryTranslation {
-  id          String   @id @default(uuid())
-  categoryId  String
-  category    Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
-  locale      String   // 'id-ID', 'en-US'
-  name        String
-  description String   @db.Text
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+### B. Secondary Error: `Null constraint violation on url / imageUrl does not exist`
+- **Investigation**: The `destination_images` table had `url TEXT NOT NULL` and `isCover BOOLEAN` from `init_schema`. In `schema.prisma`, this model evolved to `imageUrl String @db.Text`, `imagePublicId String?`, and `isPrimary Boolean`. The migration adding `imageUrl` and dropping legacy `url` had never been written.
+- **Resolution**: Added `imageUrl`, `imagePublicId`, and `isPrimary`, copied existing `url` values into `imageUrl`, and removed obsolete legacy columns.
 
-  @@unique([categoryId, locale])
-  @@index([locale])
-  @@map("category_translations")
-}
+### C. Status Enum Type Mismatches
+- **Investigation**: In PostgreSQL, `categories.status` was typed as `CategoryStatus`, `restaurants.status` as `RestaurantStatus`, and `accommodations.status` as `AccommodationStatus`. Meanwhile, the backend TypeScript DTOs, controllers, and Prisma schema consolidated these statuses under the single `DestinationStatus` enum (`PUBLISHED`, `DRAFT`, `ARCHIVED`). PostgreSQL strictly refused cross-enum assignments (`PostgresError 42804`).
+- **Resolution**: Created migration `20260907172000_unify_destination_status_enum` to unify all catalog entity status columns to `DestinationStatus` with `USING status::text::"DestinationStatus"`.
 
-model DestinationTranslation {
-  id               String      @id @default(uuid())
-  destinationId    String
-  destination      Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
-  locale           String      // 'id-ID', 'en-US'
-  name             String
-  shortDescription String?     @db.Text
-  description      String      @db.Text
-  address          String?     @db.Text
-  createdAt        DateTime    @default(now())
-  updatedAt        DateTime    @updatedAt
+### D. Data Type Mismatches
+- **Investigation**:
+  - `reviews.rating`: Schema expected `Float` (`DOUBLE PRECISION`), but DB had `INTEGER`.
+  - `reviews.photos`: Schema expected `String?` (JSON text), but DB had `TEXT[]` array.
+  - `travel_journals.photos`: Schema expected `String?` (JSON text), but DB had `TEXT[]` array.
+  - `weather_cache.uvIndex`: Schema expected `Int`, but DB had `DOUBLE PRECISION`.
+- **Resolution**: Created migration `20260907173000_fix_column_data_types` converting these columns to the exact matching PostgreSQL types.
 
-  @@unique([destinationId, locale])
-  @@index([locale])
-  @@map("destination_translations")
-}
-
-model RestaurantTranslation {
-  id           String     @id @default(uuid())
-  restaurantId String
-  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
-  locale       String     // 'id-ID', 'en-US'
-  name         String
-  description  String     @db.Text
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-
-  @@unique([restaurantId, locale])
-  @@index([locale])
-  @@map("restaurant_translations")
-}
-
-model AccommodationTranslation {
-  id              String        @id @default(uuid())
-  accommodationId String
-  accommodation   Accommodation @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
-  locale          String        // 'id-ID', 'en-US'
-  name            String
-  description     String        @db.Text
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@unique([accommodationId, locale])
-  @@index([locale])
-  @@map("accommodation_translations")
-}
-
-model ItineraryTemplateTranslation {
-  id                String            @id @default(uuid())
-  templateId        String
-  template          ItineraryTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
-  locale            String            // 'id-ID', 'en-US'
-  title             String
-  description       String?           @db.Text
-  transportPaceNote String?
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
-
-  @@unique([templateId, locale])
-  @@index([locale])
-  @@map("itinerary_template_translations")
-}
-```
-
-### Non-Destructive Migration Script
-Located at [`prisma/migrations/20260907150000_add_localization_tables/migration.sql`](file:///c:/Users/Wahyu/Documents/Depelopment/backend/lombok-explorer/prisma/migrations/20260907150000_add_localization_tables/migration.sql):
-- Creates all 5 tables with foreign keys `ON DELETE CASCADE`.
-- Creates composite unique indexes `(entity_id, locale)` and single-column indexes on `locale`.
-- Migrates existing records into `id-ID` translations automatically:
-  ```sql
-  INSERT INTO "destination_translations" ("id", "destinationId", "locale", "name", "shortDescription", "description", "address", "createdAt", "updatedAt")
-  SELECT gen_random_uuid(), "id", 'id-ID', "name", "shortDescription", "description", "address", NOW(), NOW()
-  FROM "destinations"
-  ON CONFLICT ("destinationId", "locale") DO NOTHING;
-  ```
-- Leaves `en-US` empty for editor management without hallucinated/machine-translated data.
+### E. Nullability Mismatches
+- **Investigation**:
+  - `itineraries.startDate` & `endDate`: Schema defined as `DateTime?`, but DB had `NOT NULL`.
+  - `itinerary_days.date`: Schema defined as `DateTime?`, but DB had `NOT NULL`.
+  - `itinerary_items.startTime` & `endTime`: Schema defined as `String?`, but DB had `NOT NULL`.
+- **Resolution**: Created migration `20260907174000_make_itinerary_dates_optional` dropping the `NOT NULL` constraint on these fields.
 
 ---
 
-## 3. System & UI Message Localization Architecture
+## 3. Migration History Inventory
 
-### 1. Locale Resolution (`src/i18n/locale-resolver.ts`)
-- Implements RFC 2616 language negotiation with quality weights (`Accept-Language: en-US,en;q=0.9,id;q=0.8`).
-- Normalizes aliases: `id`, `in`, `id-ID` $\rightarrow$ `id-ID`; `en`, `en-US`, `en-GB` $\rightarrow$ `en-US`.
-- Defaults to `id-ID` when header is omitted, malformed, or contains unsupported languages.
+The project now maintains 14 clean, chronological, forward-only migrations in `prisma/migrations/`:
 
-### 2. Locale Middleware (`src/common/middleware/locale.middleware.ts`)
-- Mounted globally in [`src/app.ts`](file:///c:/Users/Wahyu/Documents/Depelopment/backend/lombok-explorer/src/app.ts).
-- Populates `req.locale` on the Express request.
-- Automatically appends `Vary: Accept-Language` header to support intermediate caching & CDNs.
-
-### 3. Translation Service & Dictionary Files (`src/i18n/`)
-- Dictionaries structured modularly:
-  - `src/i18n/locales/id-ID/`: `common.ts`, `auth.ts`, `validation.ts`, `destination.ts`, `feed.ts`, `notification.ts`.
-  - `src/i18n/locales/en-US/`: Equivalent English translations.
-- Parameterized placeholders supported: `{field}`, `{min}`, `{max}`, `{name}`, etc.
-- In-memory retrieval with fallback from requested locale to `id-ID`.
-
-### 4. Localized Validation & Error Handling
-- [`src/common/middleware/validate.middleware.ts`](file:///c:/Users/Wahyu/Documents/Depelopment/backend/lombok-explorer/src/common/middleware/validate.middleware.ts):
-  Maps Zod errors to stable codes (`REQUIRED_FIELD`, `INVALID_EMAIL`, `MIN_LENGTH`, `MAX_LENGTH`, `INVALID_ENUM`, `INVALID_UUID`, `INVALID_TYPE`) with localized field error messages and a structured `errors: FieldValidationError[]` array.
-- [`src/common/middleware/error.middleware.ts`](file:///c:/Users/Wahyu/Documents/Depelopment/backend/lombok-explorer/src/common/middleware/error.middleware.ts):
-  Translates standard error codes into user-friendly messages while retaining HTTP status codes and masking sensitive internal error traces.
-- Standard response format:
-  ```json
-  {
-    "success": false,
-    "code": "VALIDATION_ERROR",
-    "errorCode": "VALIDATION_ERROR",
-    "message": "Data yang dikirimkan tidak valid",
-    "data": null,
-    "errors": [
-      {
-        "field": "email",
-        "code": "INVALID_EMAIL",
-        "message": "Format email tidak valid"
-      }
-    ],
-    "details": ["email: Format email tidak valid"]
-  }
-  ```
+| Migration | Purpose |
+|---|---|
+| `20260823000000_init_schema` | Baseline schema |
+| `20260826000000_add_auth_identity_and_provider` | Auth identities & User avatarPublicId |
+| `20260827000000_add_feeds_module` | Social feeds module |
+| `20260827010000_enforce_required_username` | Unique username requirement |
+| `20260904000000_add_fts_and_trigram_indexes` | Full-text and trigram search indexes |
+| `20260905000000_add_notifications_and_device_tokens` | FCM & notification models |
+| `20260905010000_add_itinerary_templates_and_relations` | Curated templates & multi-day hierarchy |
+| `20260907150000_add_localization_tables` | Dual localization translation tables |
+| `20260907160000_add_missing_columns` | Category cover image & recommendations sync |
+| `20260907170000_sync_all_remaining_schema` | Syncs remaining columns across 9 tables |
+| `20260907171000_drop_obsolete_legacy_columns` | Drops obsolete NOT NULL legacy columns |
+| `20260907172000_unify_destination_status_enum` | Unifies status enums to `DestinationStatus` |
+| `20260907173000_fix_column_data_types` | Harmonizes rating, photos, and uvIndex types |
+| `20260907174000_make_itinerary_dates_optional` | Makes itinerary dates and stop times optional |
 
 ---
 
-## 4. Public & Android API Content Fallback
+## 4. Database Consistency Audit Results
 
-### 1. Transparent Fallback Utility (`src/i18n/content-fallback.util.ts`)
-```typescript
-resolveLocalizedFields(requestedLocale, translations, fallbackEntity, ['name', 'description'])
+Executed programmatic inspection comparing all 37 Prisma models with PostgreSQL `information_schema`:
+
 ```
-Implements 3-tier field-level fallback:
-1. Requested locale value (e.g. `en-US`), if present and non-empty.
-2. Default locale value (`id-ID`), if present and non-empty.
-3. Canonical column value on the parent entity table.
-
-### 2. Android Consumption
-Android clients continue consuming the identical flat model:
-```json
-{
-  "success": true,
-  "code": "DESTINATION_RETRIEVED",
-  "message": "Destination retrieved successfully",
-  "data": {
-    "id": "dest_001",
-    "name": "Kuta Beach Lombok",
-    "description": "Comprehensive English overview...",
-    "categoryName": "Beaches & Islands"
-  }
-}
-```
-If an English translation has not yet been authored for a destination, the endpoint seamlessly supplies Indonesian text for that field without throwing an error or omitting the item.
-
-### 3. Search Localization (`src/modules/destinations/destinations.search.ts`)
-Search filters check both parent canonical columns and `destination_translations` rows:
-```sql
-OR EXISTS (
-  SELECT 1 FROM destination_translations dt
-  WHERE dt."destinationId" = d.id
-    AND (dt.name ILIKE '%...%' OR dt.description ILIKE '%...%')
-)
-```
-Users can search in English or Indonesian and receive relevant matching destinations.
-
-### 4. Cache Partitioning
-In-memory caches are partitioned by locale (e.g., `featured:${limit}:${locale}`, `categories:${locale}`) so changing the `Accept-Language` header immediately returns correctly localized results without cache pollution.
-
----
-
-## 5. Admin CMS Translation Management
-
-All 5 admin modules (`destinations`, `categories`, `restaurants`, `accommodations`, `itinerary-templates`) support explicit translation management:
-
-### 1. Input Schemas
-Accept an optional `translations: [...]` array during creation or update:
-```json
-{
-  "name": "Pantai Kuta",
-  "description": "Deskripsi bahasa Indonesia...",
-  "translations": [
-    {
-      "locale": "en-US",
-      "name": "Kuta Beach Lombok",
-      "description": "English description of Kuta beach..."
-    }
-  ]
-}
-```
-
-### 2. Response DTOs
-Admin responses include translation details and locale completeness metadata:
-```json
-{
-  "id": "dest_001",
-  "name": "Pantai Kuta",
-  "translations": [
-    { "locale": "id-ID", "name": "Pantai Kuta", "description": "..." },
-    { "locale": "en-US", "name": "Kuta Beach Lombok", "description": "..." }
-  ],
-  "availableLocales": ["id-ID", "en-US"],
-  "missingLocales": []
-}
-```
-CMS editors can instantly filter and detect untranslated entities via `missingLocales`.
-
----
-
-## 6. Verification & Automated Test Results
-
-### 1. Static Type Checking
-Executed `npx tsc --noEmit` across the entire codebase:
-- **Result**: `0 errors` (Clean exit).
-
-### 2. Automated Test Suites (37 tests across 6 suites)
-```
- ✓ tests/unit/content-fallback.test.ts (5 tests)
-   - English translation matching
-   - Field-level fallback to id-ID on null/missing fields
-   - Fallback to parent canonical field when both requested & id-ID are missing
-   - Direct id-ID translation retrieval
-   - Safe handling of empty/undefined translation arrays
-
- ✓ tests/unit/i18n.test.ts (9 tests)
-   - RFC 2616 Accept-Language quality factor parsing (e.g. en-US,en;q=0.9,id;q=0.8)
-   - Normalization of language variants (id, in -> id-ID; en, en-GB -> en-US)
-   - Fallback to id-ID on missing/invalid headers
-   - In-memory placeholder parameter interpolation ({field}, {min}, {name})
-
- ✓ tests/unit/admin-translation-dto.test.ts (5 tests)
-   - Destination translation mapping and availableLocales / missingLocales calculation
-   - Category translation mapping and completeness verification
-   - Restaurant translation mapping
-   - Accommodation translation mapping
-   - ItineraryTemplate translation mapping
-
- ✓ tests/integration/system-localization.test.ts (5 tests)
-   - Automatic injection of Vary: Accept-Language response header
-   - 404 Route Not Found error in Indonesian by default
-   - 404 Route Not Found error in English with Accept-Language: en-US
-   - Zod validation errors with stable codes and Indonesian messages
-   - Zod validation errors with stable codes and English messages
-
- ✓ tests/error-handler.test.ts (9 tests)
-   - NotFoundError, ValidationError, UnauthorizedError, ForbiddenError, ConflictError, BadRequestError
-   - Error code propagation and localization integration
-
- ✓ tests/response-util.test.ts (4 tests)
-   - sendSuccess, sendCreated, sendPaginated, sendActionSuccess with stable code
+1. Missing Columns Check       : 0 missing columns (100% synchronized)
+2. Extra NOT-NULL Columns Check : 0 unmapped NOT-NULL columns
+3. Enum Type Alignment         : 100% matched across all user-defined types
+4. Data Type Compatibility     : 0 type mismatches
+5. Nullability Constraints     : 0 constraint conflicts
 ```
 
 ---
 
-## 7. OpenAPI / Swagger Documentation
+## 5. Verification & Test Execution
 
-Both specifications updated:
-- [`openapi.yaml`](file:///c:/Users/Wahyu/Documents/Depelopment/backend/lombok-explorer/openapi.yaml):
-  - Documented `AcceptLanguageHeader` in `components.parameters`.
-  - Documented `code` and `FieldValidationError` array in `ErrorResponse`.
-- [`openapi-admin.yaml`](file:///c:/Users/Wahyu/Documents/Depelopment/backend/lombok-explorer/openapi-admin.yaml):
-  - Documented `AcceptLanguageHeader` in `components.parameters`.
-  - Documented `DestinationTranslationDto`, `CategoryTranslationDto`, `RestaurantTranslationDto`, `AccommodationTranslationDto`, and `ItineraryTemplateTranslationDto`.
+### 1. Prisma Validate & Format
+```bash
+npx prisma validate
+# Environment variables loaded from .env
+# Prisma schema loaded from prisma\schema.prisma
+# The schema at prisma\schema.prisma is valid 🚀
+```
+
+### 2. Migration Deployment & Status
+```bash
+docker compose exec backend npx prisma migrate status
+# 14 migrations found in prisma/migrations
+# Database schema is up to date!
+```
+
+### 3. Full Database Seeding Test (First Run)
+```bash
+docker compose exec backend npx -y tsx prisma/seed.ts
+# 🌱 Starting comprehensive Lombok Explorer database seeding (Phase 4)...
+# 🌐 Seeding dual localization translations (id-ID & en-US)...
+# ✅ Lombok Explorer database seeded successfully with full Dual Localization (id-ID & en-US)!
+```
+
+### 4. Seeder Idempotency Re-run Test (Second Run)
+```bash
+docker compose exec backend npm run prisma:seed
+# > lombok-explorer-api@1.0.0 prisma:seed
+# > tsx prisma/seed.ts
+# 🌱 Starting comprehensive Lombok Explorer database seeding (Phase 4)...
+# 🌐 Seeding dual localization translations (id-ID & en-US)...
+# ✅ Lombok Explorer database seeded successfully with full Dual Localization (id-ID & en-US)!
+```
+
+### 5. Native Prisma DB Seed Execution
+```bash
+docker compose exec backend npx prisma db seed
+# Running seed command `tsx prisma/seed.ts` ...
+# ✅ Lombok Explorer database seeded successfully with full Dual Localization (id-ID & en-US)!
+# 🌱 The seed command has been executed.
+```
+
+### 6. TypeScript Compilation & Build
+```bash
+npx tsc --noEmit
+# Exit code 0 (0 errors)
+
+npm run build
+# > tsc
+# Exit code 0 (Build succeeded)
+```
+
+---
+
+## 6. Recommended Development Lifecycle & Workflow
+
+### A. Fresh Development Environment
+When starting from a brand new clone or a fresh machine:
+```bash
+# 1. Start Docker containers
+docker compose up -d
+
+# 2. Deploy version-controlled migrations
+docker compose exec backend npx prisma migrate deploy
+
+# 3. Generate Prisma Client
+docker compose exec backend npx prisma generate
+
+# 4. Seed development fixtures & test data
+docker compose exec backend npm run prisma:seed
+```
+
+### B. Existing Development Environment (Iterative Changes)
+When working on new features that require schema modifications:
+```bash
+# 1. Update prisma/schema.prisma
+# 2. Create and apply local migration:
+npx prisma migrate dev --name <migration_name>
+
+# 3. Regenerate client:
+npx prisma generate
+
+# 4. Run seed if necessary:
+npm run prisma:seed
+```
+
+### C. Production / Staging Deployment
+In CI/CD and production environments:
+```bash
+# 1. Run migrations safely (never drops data):
+npx prisma migrate deploy
+
+# 2. Generate Prisma Client bundle:
+npx prisma generate
+
+# 3. Start the production server:
+npm run start
+```
+*(Seed is strictly manual and should never run automatically in production).*
+
+### D. Reset Policy for Local Disposable Database
+If local development data becomes corrupt or test artifacts need clearing:
+```bash
+# Reset local disposable database and re-apply all migrations from scratch:
+docker compose down -v
+docker compose up -d
+docker compose exec backend npx prisma migrate deploy
+docker compose exec -u root backend npx prisma generate
+docker compose exec backend npm run prisma:seed
+```
+> [!WARNING]
+> Deleting Docker volumes (`docker compose down -v`) destroys all local database data. Existing databases can now be safely migrated forward with `prisma migrate deploy` without volume deletion.
