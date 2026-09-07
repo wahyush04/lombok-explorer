@@ -215,7 +215,7 @@ model Category {
   iconName           String
   coverImageUrl      String            @db.Text
   coverImagePublicId String?           @db.Text
-  status             DestinationStatus @default(PUBLISHED)
+  status             CategoryStatus    @default(PUBLISHED)
   createdAt          DateTime          @default(now())
   updatedAt          DateTime          @updatedAt
   deletedAt          DateTime?
