@@ -4,6 +4,9 @@ CREATE TYPE "AuthProvider" AS ENUM ('PASSWORD', 'GOOGLE');
 -- AlterTable
 ALTER TABLE "users" ALTER COLUMN "password" DROP NOT NULL;
 
+-- Add avatarPublicId column (missing from init_schema)
+ALTER TABLE "users" ADD COLUMN IF NOT EXISTS "avatarPublicId" TEXT;
+
 -- CreateTable
 CREATE TABLE "auth_identities" (
     "id" TEXT NOT NULL,
