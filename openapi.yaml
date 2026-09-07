@@ -2481,7 +2481,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeviceTokenResponse'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
@@ -2508,7 +2508,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ActionSuccessResponse'
         '400':
-          $ref: '#/components/responses/ValidationError'
+          $ref: '#/components/responses/BadRequestError'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
 
@@ -2878,6 +2878,16 @@ components:
             success: false
             message: "Invalid query parameters"
             errorCode: "BAD_REQUEST"
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            message: "Validation error occurred"
+            errorCode: "VALIDATION_ERROR"
     UnauthorizedError:
       description: Authentication is required
       content:

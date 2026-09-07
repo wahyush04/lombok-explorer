@@ -107,6 +107,13 @@ async function main(): Promise<void> {
   // =========================================================================
   // 1. CLEAN EXISTING DATA (Idempotent cleanup in reverse dependency order)
   // =========================================================================
+  await prisma.categoryTranslation.deleteMany({});
+  await prisma.destinationTranslation.deleteMany({});
+  await prisma.restaurantTranslation.deleteMany({});
+  await prisma.accommodationTranslation.deleteMany({});
+  await prisma.itineraryTemplateTranslation.deleteMany({});
+  await prisma.notification.deleteMany({});
+  await prisma.deviceToken.deleteMany({});
   await prisma.postReport.deleteMany({});
   await prisma.postBookmark.deleteMany({});
   await prisma.postComment.deleteMany({});
@@ -2544,8 +2551,427 @@ async function main(): Promise<void> {
     },
   });
 
+  // =========================================================================
+  // 13. SEED DUAL LOCALIZATION TRANSLATIONS (id-ID & en-US)
+  // =========================================================================
+  console.log('🌐 Seeding dual localization translations (id-ID & en-US)...');
+
+  // Category English Translations Dictionary
+  const categoryEnTranslations: Record<string, { name: string; description: string }> = {
+    cat_beach: {
+      name: 'Beaches & Coastline',
+      description: 'Explore pristine white sand beaches, hidden turquoise bays, and Lombok\'s iconic pepper-grain sand.',
+    },
+    cat_waterfall: {
+      name: 'Natural Waterfalls',
+      description: 'Refreshing natural waterfalls and eternal mist cascades at the foot of Mount Rinjani and tropical jungles.',
+    },
+    cat_mountain: {
+      name: 'Mountains & Peaks',
+      description: 'Majestic treks to Mount Rinjani summit, Segara Anak Lake, and global geopark volcanic adventures.',
+    },
+    cat_hill: {
+      name: 'Hills & Savannas',
+      description: 'Exotic green savanna hills with sweeping ocean views and lush agricultural valleys.',
+    },
+    cat_gili: {
+      name: 'Gili Islands',
+      description: 'The legendary Gili trio and tranquil virgin islands in Sekotong free from motorized vehicles.',
+    },
+    cat_culture: {
+      name: 'Sasak Culture & Heritage',
+      description: 'Ancestral Sasak heritage, ancient mosques, the Bau Nyale festival, and local wisdom.',
+    },
+    cat_village: {
+      name: 'Craft & Tourism Villages',
+      description: 'Traditional Sukarara songket weaving villages, Banyumulek pottery, and authentic local crafts.',
+    },
+    cat_culinary: {
+      name: 'Traditional Culinary',
+      description: 'Aromatic spicy Sasak dishes: Ayam Taliwang, Plecing Kangkung, Sate Bulayak, and Nasi Balap Puyung.',
+    },
+    cat_surfing: {
+      name: 'Surfing Spots',
+      description: 'World-class surf breaks along Lombok\'s southern coast from beginner bays to professional reef breaks.',
+    },
+    cat_snorkeling: {
+      name: 'Snorkeling & Marine Life',
+      description: 'Swim with wild sea turtles, explore Gili Meno\'s underwater Nest sculptures, and colorful coral reefs.',
+    },
+    cat_diving: {
+      name: 'Scuba Diving Spots',
+      description: 'PADI dive centers, shark points, manta points, and dramatic coral reef wall dives.',
+    },
+    cat_sunset: {
+      name: 'Sunset & Golden Hour',
+      description: 'The best vantage points to enjoy magical sunsets against the Indian Ocean and Bali\'s Mount Agung silhouette.',
+    },
+    cat_adventure: {
+      name: 'Outdoor Adventure & Caving',
+      description: 'Explore natural bat caves, dramatic sea cliffs, and mountain off-road trails.',
+    },
+  };
+
+  // Seed Category Translations
+  for (const cat of categoriesData) {
+    // id-ID
+    await prisma.categoryTranslation.upsert({
+      where: { categoryId_locale: { categoryId: cat.id, locale: 'id-ID' } },
+      update: { name: cat.name, description: cat.description },
+      create: { categoryId: cat.id, locale: 'id-ID', name: cat.name, description: cat.description },
+    });
+    // en-US
+    const enCat = categoryEnTranslations[cat.id] || { name: cat.name, description: cat.description };
+    await prisma.categoryTranslation.upsert({
+      where: { categoryId_locale: { categoryId: cat.id, locale: 'en-US' } },
+      update: { name: enCat.name, description: enCat.description },
+      create: { categoryId: cat.id, locale: 'en-US', name: enCat.name, description: enCat.description },
+    });
+  }
+
+  // Destination English Translations Dictionary
+  const destinationEnTranslations: Record<
+    string,
+    { name: string; shortDescription: string; description: string; address?: string }
+  > = {
+    dest_tanjung_aan: {
+      name: 'Tanjung Aan Beach',
+      shortDescription: 'Iconic pepper-grain white sand beach with a calm turquoise bay in the Mandalika area.',
+      description:
+        'Tanjung Aan Beach is the crown jewel of Central Lombok\'s southern coast, famed for its unique spherical pepper-like sand grains. Sheltered by Merese Hill, this calm bay is ideal for swimming, stand-up paddleboarding, or relaxing with fresh coconuts.',
+      address: 'Sengkol, Pujut District, Central Lombok Regency, West Nusa Tenggara',
+    },
+    dest_bukit_merese: {
+      name: 'Merese Hill (Bukit Merese)',
+      shortDescription: 'Southern coastal savanna hill boasting Lombok\'s most spectacular sunset panoramas.',
+      description:
+        'Merese Hill frames Tanjung Aan Bay with rolling green savanna hills and dramatic sea cliffs. The summit delivers 360-degree vistas over the Indian Ocean and turquoise bays.',
+      address: 'Jl. Kuta Lombok, Sengkol, Pujut, Central Lombok, West Nusa Tenggara',
+    },
+    dest_gunung_rinjani: {
+      name: 'Mount Rinjani & Segara Anak Lake',
+      shortDescription: 'The second highest volcano in Indonesia with the magical Segara Anak crater lake.',
+      description:
+        'Mount Rinjani National Park (3,726 m) is a UNESCO Global Geopark featuring the turquoise Segara Anak lake, Aik Kalak natural hot springs, and breathtaking sunrise views above the clouds.',
+      address: 'Mount Rinjani National Park, North & East Lombok, West Nusa Tenggara',
+    },
+    dest_tiu_kelep: {
+      name: 'Tiu Kelep Waterfall',
+      shortDescription: 'Majestic waterfall at the foot of Mount Rinjani with a natural water curtain and refreshing mist.',
+      description:
+        'Nestled within the lush rainforests of Senaru, Tiu Kelep Waterfall plunges 42 meters with powerful cascades generating an eternal cool mist. The jungle trek across waterways and bridges provides an authentic tropical adventure.',
+      address: 'Senaru Village, Bayan, North Lombok Regency, West Nusa Tenggara',
+    },
+    dest_gili_trawangan: {
+      name: 'Gili Trawangan',
+      shortDescription: 'Vehicle-free tropical island wonderland with vibrant marine life, coral reefs, and sea turtles.',
+      description:
+        'Gili Trawangan is the largest of the three Gili islands off Lombok. Free from motorized vehicles (bicycles and cidomo horse carts only), it combines crystal-clear snorkeling with wild turtles, beachfront dining, and sunset views overlooking Bali\'s Mount Agung.',
+      address: 'Gili Indah Village, Pemenang, North Lombok, West Nusa Tenggara',
+    },
+    dest_gili_meno: {
+      name: 'Gili Meno & Underwater Sculptures',
+      shortDescription: 'Tranquil, romantic island haven featuring the iconic Nest underwater sculptures.',
+      description:
+        'Gili Meno is the smallest and quietest of the Gili trio, famed for its serene ambiance. Its signature highlight is the "Nest" circular submerged sculpture at 4 meters depth and green turtle sanctuary.',
+      address: 'Gili Indah Village, Pemenang, North Lombok, West Nusa Tenggara',
+    },
+    dest_gili_air: {
+      name: 'Gili Air',
+      shortDescription: 'A harmonious blend of relaxed tropical island vibe, yoga culture, and living coral reefs.',
+      description:
+        'Gili Air provides the perfect balance between Gili Meno\'s seclusion and Gili Trawangan\'s amenities. Popular with travelers seeking bohemian vibes, seaside yoga, vegan cafes, and clownfish snorkeling.',
+      address: 'Gili Indah Village, Pemenang, North Lombok, West Nusa Tenggara',
+    },
+    dest_selong_belanak: {
+      name: 'Selong Belanak Beach',
+      shortDescription: 'Gentle crescent white sand bay that serves as the premier beginner surf haven in Lombok.',
+      description:
+        'Selong Belanak Beach boasts a crescent-shaped coastline with soft reef-free sand. Its gentle, rolling waves make it the premier location in Lombok for beginner surf lessons.',
+      address: 'Selong Belanak Village, Praya Barat, Central Lombok, West Nusa Tenggara',
+    },
+    dest_pantai_mawun: {
+      name: 'Mawun Beach',
+      shortDescription: 'Secluded horseshoe-shaped bay with turquoise waters nestled between two green hills.',
+      description:
+        'Mawun Beach forms a breathtaking horseshoe bay flanked by lush green headlands. Pristine white sands slope into sparkling turquoise waters under the tropical sun.',
+      address: 'Tumpak Village, Pujut, Central Lombok, West Nusa Tenggara',
+    },
+    dest_pantai_kuta_lombok: {
+      name: 'Kuta Beach Mandalika & Promenade',
+      shortDescription: 'The bustling hub of Mandalika featuring modern beachfront promenades and MotoGP circuit proximity.',
+      description:
+        'Kuta Mandalika Beach is the vibrant heart of southern Lombok\'s tourism zone, featuring a wide pedestrian promenade, iconic Mandalika landmark signs, modern cafes, and immediate proximity to the Pertamina Mandalika International Circuit.',
+      address: 'Kuta, Pujut, Central Lombok Regency, West Nusa Tenggara',
+    },
+    dest_bukit_pergasingan: {
+      name: 'Pergasingan Hill Sembalun',
+      shortDescription: '1,700m summit trek offering colorful patchwork rice field panoramas and Mount Rinjani views.',
+      description:
+        'Pergasingan Hill in Sembalun offers an exhilarating 2-3 hour trail ascending to a 1,700m peak. From the top, travelers are greeted by a breathtaking patchwork of colorful farm fields and Rinjani\'s crater rim.',
+      address: 'Sembalun Lawang Village, Sembalun, East Lombok, West Nusa Tenggara',
+    },
+    dest_shark_point_gili: {
+      name: 'Shark Point & Turtle Point Diving',
+      shortDescription: 'The premier scuba diving spot in the Gilis to encounter reef sharks, sea turtles, and rays.',
+      description:
+        'Shark Point on the northwest coast of Gili Trawangan is Lombok\'s most celebrated dive site. Tiered reef topography from 10 to 30 meters shelters white-tip reef sharks, massive green turtles, and vibrant marine biodiversity.',
+      address: 'Gili Trawangan, North Lombok, West Nusa Tenggara',
+    },
+    dest_gili_nanggu: {
+      name: 'Gili Nanggu Sekotong',
+      shortDescription: 'Virgin island sanctuary in Sekotong featuring an aquarium-like sea where fish flock to swimmers.',
+      description:
+        'Gili Nanggu in southwest Lombok is an ultra-peaceful underwater sanctuary. Thousands of colorful reef fish instantly gather around you the moment you step waist-deep into the crystal waters.',
+      address: 'Sekotong District, West Lombok Regency, West Nusa Tenggara',
+    },
+    dest_bukit_malimbu: {
+      name: 'Malimbu Hill',
+      shortDescription: 'Iconic coastal viewpoint overlooking swaying coconut groves and the three Gili islands.',
+      description:
+        'Malimbu Hill along the scenic Senggigi-Pemenang coastal highway offers panoramic views over curving bays lined with thousands of palm trees, gradient blue waters, and distant Gili islands.',
+      address: 'Jl. Raya Malimbu, Pemenang, West Nusa Tenggara',
+    },
+    dest_gili_kedis: {
+      name: 'Gili Kedis & Gili Sudak',
+      shortDescription: 'Tiny heart-shaped uninhabited islet surrounded by azure waters in Sekotong.',
+      description:
+        'Gili Kedis is a miniature heart-shaped uninhabited islet encircled by pure white sand that can be walked around in 5 minutes, paired with Gili Sudak renowned for beachfront grilled seafood.',
+      address: 'Sekotong District, West Lombok Regency, West Nusa Tenggara',
+    },
+    dest_mangku_sakti: {
+      name: 'Mangku Sakti Waterfall Sembalun',
+      shortDescription: 'Milky turquoise sulfur waterfall flowing through artistic marble stone canyons.',
+      description:
+        'Mangku Sakti Waterfall in Sajang Sembalun is celebrated for its milky turquoise sulfur water sourced directly from Mount Rinjani, winding through magnificent white marble rock canyons.',
+      address: 'Sajang Village, Sembalun, East Lombok, West Nusa Tenggara',
+    },
+    dest_pantai_nipah: {
+      name: 'Nipah Beach & Fresh Grilled Fish',
+      shortDescription: 'Shaded white sand beach lined with authentic seaside warungs serving fresh grilled fish.',
+      description:
+        'Nipah Beach along the scenic Senggigi road is famous for calm waters safe for family swimming and beachside wooden warungs serving fresh grilled snapper seasoned with spicy plecing sambal.',
+      address: 'Malaka Village, Pemenang, North Lombok Regency, West Nusa Tenggara',
+    },
+    dest_pantai_pink: {
+      name: 'Pink Beach (Tangsi Beach)',
+      shortDescription: 'Natural pink sand beach colored by crushed red foraminifera coral fragments.',
+      description:
+        'Tangsi Beach, famously known as Pink Beach East Lombok, is one of the few natural pink sand beaches in the world. The blush pink tint gleams vividly when wet by crystal-clear waves under tropical sunlight.',
+      address: 'Sekaroh Village, Jerowaru, East Lombok Regency, West Nusa Tenggara',
+    },
+    dest_pantai_seger: {
+      name: 'Seger Beach & Princess Mandalika Monument',
+      shortDescription: 'Hub of the historic Princess Mandalika Bau Nyale festival with direct MotoGP circuit views.',
+      description:
+        'Seger Beach is the legendary site of the annual Bau Nyale sea worm festival. Features the Princess Mandalika statue on the shoreline and Seger Hill overlooking the Mandalika Grand Prix track.',
+      address: 'Kuta, Pujut, Central Lombok Regency, West Nusa Tenggara',
+    },
+    dest_kebun_strawberry_sembalun: {
+      name: 'Sembalun Valley & Strawberry Agrotourism',
+      shortDescription: 'Cool mountain valley in Sembalun offering fresh hand-picked strawberry farm experiences.',
+      description:
+        'Sembalun Valley sits at 1,100 meters above sea level with crisp mountain air. Travelers enjoy picking ripe, sweet strawberries directly from local organic farms against towering volcanic cliffs.',
+      address: 'Sembalun Bumbung Village, Sembalun, East Lombok, West Nusa Tenggara',
+    },
+  };
+
+  // Seed Destination Translations
+  for (const dest of destinationsData) {
+    // id-ID
+    await prisma.destinationTranslation.upsert({
+      where: { destinationId_locale: { destinationId: dest.id, locale: 'id-ID' } },
+      update: {
+        name: dest.name,
+        shortDescription: dest.shortDescription,
+        description: dest.description,
+        address: dest.address,
+      },
+      create: {
+        destinationId: dest.id,
+        locale: 'id-ID',
+        name: dest.name,
+        shortDescription: dest.shortDescription,
+        description: dest.description,
+        address: dest.address,
+      },
+    });
+
+    // en-US
+    const enDest = destinationEnTranslations[dest.id] || {
+      name: dest.name,
+      shortDescription: dest.shortDescription,
+      description: dest.description,
+      address: dest.address,
+    };
+    await prisma.destinationTranslation.upsert({
+      where: { destinationId_locale: { destinationId: dest.id, locale: 'en-US' } },
+      update: {
+        name: enDest.name,
+        shortDescription: enDest.shortDescription,
+        description: enDest.description,
+        address: enDest.address,
+      },
+      create: {
+        destinationId: dest.id,
+        locale: 'en-US',
+        name: enDest.name,
+        shortDescription: enDest.shortDescription,
+        description: enDest.description,
+        address: enDest.address,
+      },
+    });
+  }
+
+  // Restaurant English Translations
+  const restaurantEnTranslations: Record<string, { name: string; description: string }> = {
+    rest_ashtari_kuta_mandalika: {
+      name: 'Ashtari Lounge & Kitchen Mandalika',
+      description:
+        'Hilltop restaurant and cafe in Prabu with a 180-degree panorama overlooking the entire Kuta Mandalika coastline.',
+    },
+    rest_scallywags_gili_trawangan: {
+      name: 'Scallywags Organic Seafood Bar & Grill Gili',
+      description:
+        'Beachfront organic seafood barbecue restaurant on Gili Trawangan where you choose your fresh catch, lobster, and squid directly.',
+    },
+    rest_warung_sasak_senaru: {
+      name: 'Warung Sasak Rinjani Senaru',
+      description:
+        'Cozy local eatery at the base of Mount Rinjani serving hearty bebalung beef rib soup and fresh Sembalun arabica coffee.',
+    },
+    rest_el_bazar_kuta: {
+      name: 'El Bazar Cafe & Restaurant Mandalika',
+      description:
+        'Mediterranean and Moroccan-inspired dining in central Kuta Mandalika offering succulent tagines, mezze platters, and artisan coffee.',
+    },
+  };
+
+  for (const rest of restaurantsData) {
+    await prisma.restaurantTranslation.upsert({
+      where: { restaurantId_locale: { restaurantId: rest.id, locale: 'id-ID' } },
+      update: { name: rest.name, description: rest.description },
+      create: { restaurantId: rest.id, locale: 'id-ID', name: rest.name, description: rest.description },
+    });
+
+    const enRest = restaurantEnTranslations[rest.id] || { name: rest.name, description: rest.description };
+    await prisma.restaurantTranslation.upsert({
+      where: { restaurantId_locale: { restaurantId: rest.id, locale: 'en-US' } },
+      update: { name: enRest.name, description: enRest.description },
+      create: { restaurantId: rest.id, locale: 'en-US', name: enRest.name, description: enRest.description },
+    });
+  }
+
+  // Accommodation English Translations
+  const accommodationEnTranslations: Record<string, { name: string; description: string }> = {
+    acc_pullman_mandalika: {
+      name: 'Pullman Lombok Merujani Mandalika Beach Resort',
+      description:
+        'Luxury 5-star beachfront resort in the heart of Mandalika offering uninterrupted Indian Ocean views, infinity pools, and a premium wellness spa.',
+    },
+    acc_katamaran_resort_senggigi: {
+      name: 'Katamaran Hotel & Resort Senggigi',
+      description:
+        'Premier luxury beachfront resort featuring a glass-walled infinity pool on Mangsit Beach with prime sunset vistas over Mount Agung.',
+    },
+    acc_jeeva_beloam_camp: {
+      name: 'Jeeva Beloam Beach Camp',
+      description:
+        'Secluded eco-luxury glamping lodge on a private cove in Tanjung Ringgit with thatched timber cottages and a private white sand beach.',
+    },
+    acc_rinjani_lodge_senaru: {
+      name: 'Rinjani Lodge Senaru',
+      description:
+        'Boutique hillside lodge in Senaru with breathtaking infinity pools facing the lush valley and Mount Rinjani summit.',
+    },
+    acc_villa_ombak_gili: {
+      name: 'Hotel Villa Ombak Gili Trawangan',
+      description:
+        'The first international resort on Gili Trawangan featuring traditional Sasak lumbung-style architecture directly along white sand shores.',
+    },
+    acc_novotel_lombok: {
+      name: 'Novotel Lombok Resort & Villas',
+      description:
+        'Traditional beachfront family resort on Seger Beach Mandalika with Sasak-style thatched roofs, tropical gardens, and calm lagoons.',
+    },
+    acc_sembalun_kita_cottage: {
+      name: 'Sembalun Kita Cottage & Mountain Glamping',
+      description:
+        'Warm wooden cottages amidst Sembalun strawberry plantations boasting uninterrupted front-row views of majestic Pergasingan Hill.',
+    },
+  };
+
+  for (const acc of accommodationsData) {
+    await prisma.accommodationTranslation.upsert({
+      where: { accommodationId_locale: { accommodationId: acc.id, locale: 'id-ID' } },
+      update: { name: acc.name, description: acc.description },
+      create: { accommodationId: acc.id, locale: 'id-ID', name: acc.name, description: acc.description },
+    });
+
+    const enAcc = accommodationEnTranslations[acc.id] || { name: acc.name, description: acc.description };
+    await prisma.accommodationTranslation.upsert({
+      where: { accommodationId_locale: { accommodationId: acc.id, locale: 'en-US' } },
+      update: { name: enAcc.name, description: enAcc.description },
+      create: { accommodationId: acc.id, locale: 'en-US', name: enAcc.name, description: enAcc.description },
+    });
+  }
+
+  // Itinerary Templates English Translations
+  const templateEnTranslations: Record<string, { title: string; description: string; transportPaceNote?: string }> = {
+    rec_gili_3d: {
+      title: '3-Day Underwater Paradise & 3 Gili Snorkeling Tour',
+      description:
+        'Experience the ultimate island adventure exploring Gili Trawangan, Meno, and Air with sea turtles, cycling, and sunsets.',
+      transportPaceNote: 'Speedboat transfers, bicycles, and horse carts.',
+    },
+    rec_rinjani_trek_4d: {
+      title: '4-Day Mount Rinjani Summit & Segara Anak Lake Trek',
+      description:
+        'The definitive trekking expedition across Sembalun and Senaru, camping at Plawangan and swimming in volcanic hot springs.',
+      transportPaceNote: 'Mountain trekking with certified guides and porters.',
+    },
+    rec_mandalika_south_2d: {
+      title: '2-Day Mandalika Southern Coastline & Culture Exploration',
+      description:
+        'Discover iconic Tanjung Aan, sunset at Merese Hill, beginner surfing in Selong Belanak, and authentic Sasak weaving.',
+      transportPaceNote: 'Private car or scooter exploration.',
+    },
+  };
+
+  const allTemplates = await prisma.itineraryTemplate.findMany();
+  for (const tmpl of allTemplates) {
+    await prisma.itineraryTemplateTranslation.upsert({
+      where: { templateId_locale: { templateId: tmpl.id, locale: 'id-ID' } },
+      update: { title: tmpl.title, description: tmpl.description, transportPaceNote: tmpl.transportPaceNote },
+      create: {
+        templateId: tmpl.id,
+        locale: 'id-ID',
+        title: tmpl.title,
+        description: tmpl.description,
+        transportPaceNote: tmpl.transportPaceNote,
+      },
+    });
+
+    const enTmpl = templateEnTranslations[tmpl.id] || {
+      title: tmpl.title,
+      description: tmpl.description || '',
+      transportPaceNote: tmpl.transportPaceNote || undefined,
+    };
+    await prisma.itineraryTemplateTranslation.upsert({
+      where: { templateId_locale: { templateId: tmpl.id, locale: 'en-US' } },
+      update: { title: enTmpl.title, description: enTmpl.description, transportPaceNote: enTmpl.transportPaceNote },
+      create: {
+        templateId: tmpl.id,
+        locale: 'en-US',
+        title: enTmpl.title,
+        description: enTmpl.description,
+        transportPaceNote: enTmpl.transportPaceNote,
+      },
+    });
+  }
+
   // eslint-disable-next-line no-console
-  console.log(`✅ Lombok Explorer Phase 4 database seeded successfully! (${destinationsData.length} destinations seeded)`);
+  console.log(`✅ Lombok Explorer database seeded successfully with full Dual Localization (id-ID & en-US)!`);
 }
 
 main()
