@@ -20,6 +20,7 @@ import { resolveLocalizedFields } from '../../i18n/content-fallback.util';
 import { DEFAULT_LOCALE } from '../../i18n/types';
 import {
   AccommodationSummaryDto,
+  ActiveTripDayDto,
   ActiveTripResponseDto,
   AddActivityDto,
   AddDayDto,
@@ -1268,6 +1269,7 @@ export class ItinerariesService {
       return {
         hasActiveTrip: false,
         trip: null,
+        days: [],
       };
     }
 
@@ -1276,6 +1278,7 @@ export class ItinerariesService {
       return {
         hasActiveTrip: false,
         trip: null,
+        days: [],
       };
     }
 
@@ -1323,6 +1326,23 @@ export class ItinerariesService {
         ? Math.round((completedActivitiesCount / totalActivitiesCount) * 100)
         : 0;
 
+    const mappedDays: ActiveTripDayDto[] = days.map((day) => {
+      const items = Array.isArray(day.items) ? day.items : [];
+      const dayDist = Number(day.totalDistanceKm) || 0;
+      const dayDur = Number(day.totalTravelTimeMinutes) || 0;
+      return {
+        id: day.id,
+        dayNumber: day.dayNumber,
+        title: day.title || `Hari ${day.dayNumber}`,
+        date: day.date ? (new Date(day.date).toISOString().split('T')[0] || null) : null,
+        activityCount: items.length,
+        activitiesCount: items.length,
+        totalDistanceKm: Math.round(dayDist * 10) / 10,
+        totalDurationMinutes: Math.round(dayDur),
+        totalTravelTimeMinutes: Math.round(dayDur),
+      };
+    });
+
     return {
       hasActiveTrip: true,
       trip: {
@@ -1333,11 +1353,13 @@ export class ItinerariesService {
         transportationMode: itinerary.transportationMode,
         totalDays,
         currentDayNumber: activeDayNumber,
+        currentDayId: activeDay?.id || null,
         badgeText,
         totalDistanceKm: totalDistKm,
         distanceFormatted,
         totalDestinations: totalActivitiesCount,
         focus: {
+          dayId: activeDay?.id || null,
           dayNumber: activeDayNumber,
           dayTitle: rawDayTitle,
           activityCount: activeDayActivitiesCount,
@@ -1350,6 +1372,7 @@ export class ItinerariesService {
           isCompleted:
             totalActivitiesCount > 0 && completedActivitiesCount === totalActivitiesCount,
         },
+        days: mappedDays,
         shareToken,
         shareUrl,
         startDate: itinerary.startDate ? itinerary.startDate.toISOString() : null,
@@ -1357,6 +1380,7 @@ export class ItinerariesService {
         createdAt: itinerary.createdAt.toISOString(),
         updatedAt: itinerary.updatedAt.toISOString(),
       },
+      days: mappedDays,
     };
   }
 

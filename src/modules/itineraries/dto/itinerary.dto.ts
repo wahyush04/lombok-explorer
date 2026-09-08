@@ -404,7 +404,20 @@ export interface ItineraryDto {
   updatedAt: string;
 }
 
+export interface ActiveTripDayDto {
+  id: string;
+  dayNumber: number;
+  title: string;
+  date: string | null;
+  activityCount: number;
+  activitiesCount?: number;
+  totalDistanceKm?: number;
+  totalDurationMinutes?: number;
+  totalTravelTimeMinutes?: number;
+}
+
 export interface ActiveTripFocusDto {
+  dayId?: string | null;
   dayNumber: number;
   dayTitle: string;
   activityCount: number;
@@ -426,12 +439,14 @@ export interface ActiveTripCardDto {
   transportationMode: TransportationMode;
   totalDays: number;
   currentDayNumber: number;
+  currentDayId?: string | null;
   badgeText: string;
   totalDistanceKm: number;
   distanceFormatted: string;
   totalDestinations: number;
   focus: ActiveTripFocusDto;
   progress: ActiveTripProgressDto;
+  days: ActiveTripDayDto[];
   shareToken: string | null;
   shareUrl: string | null;
   startDate: string | null;
@@ -443,7 +458,9 @@ export interface ActiveTripCardDto {
 export interface ActiveTripResponseDto {
   hasActiveTrip: boolean;
   trip: ActiveTripCardDto | null;
+  days?: ActiveTripDayDto[];
 }
+
 
 export interface TemplateActivityDto {
   id: string;

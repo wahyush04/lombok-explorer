@@ -1018,6 +1018,53 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       expect(accomAct.accommodation.name).toBe('Mandalika Luxury Villa & Resort');
     });
   });
+
+  describe('13. Active Trip Widget & Multi-Day Navigation (Android Support)', () => {
+    it('should return active trip with days array and currentDayId for navigation', async () => {
+      const res = await request(app)
+        .get('/api/v1/itineraries/active-trip')
+        .set('Authorization', `Bearer ${userTokenA}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.hasActiveTrip).toBe(true);
+      expect(res.body.data.trip).toBeDefined();
+
+      const trip = res.body.data.trip;
+      expect(trip.currentDayNumber).toBeGreaterThanOrEqual(1);
+      expect(trip.currentDayId).toBeDefined();
+      expect(typeof trip.currentDayId).toBe('string');
+      expect(trip.focus.dayId).toBe(trip.currentDayId);
+
+      // Verify trip.days
+      expect(Array.isArray(trip.days)).toBe(true);
+      expect(trip.days.length).toBeGreaterThan(0);
+      const firstDay = trip.days[0];
+      expect(firstDay.id).toBeDefined();
+      expect(typeof firstDay.id).toBe('string');
+      expect(firstDay.dayNumber).toBe(1);
+      expect(firstDay.title).toBeDefined();
+      expect(typeof firstDay.activityCount).toBe('number');
+      expect(typeof firstDay.activitiesCount).toBe('number');
+
+      // Verify top-level data.days alias
+      expect(Array.isArray(res.body.data.days)).toBe(true);
+      expect(res.body.data.days.length).toBe(trip.days.length);
+      expect(res.body.data.days[0].id).toBe(firstDay.id);
+    });
+
+    it('should also return days array on /active alias route', async () => {
+      const res = await request(app)
+        .get('/api/v1/itineraries/active')
+        .set('Authorization', `Bearer ${userTokenA}`);
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.hasActiveTrip).toBe(true);
+      expect(res.body.data.trip.currentDayId).toBeDefined();
+      expect(Array.isArray(res.body.data.trip.days)).toBe(true);
+    });
+  });
 });
 
 

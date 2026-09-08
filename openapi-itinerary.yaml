@@ -497,7 +497,25 @@ paths:
         
         - **Multi-user Isolation**: Setiap pengguna hanya mengakses trip miliknya sendiri.
         - **Pengguna Baru / Tanpa Trip**: Jika pengguna belum memiliki trip, mengembalikan status 200 dengan `hasActiveTrip: false` dan `trip: null`.
-        - **Format Sesuai UI**: Menyediakan badge (`Hari 1 dari 2 Hari`), metrik jarak (`0.9 km`), moda transportasi (`CAR`), subjudul fokus (`Fokus: Hari 1: Mandalika Coastal Explorer (2 Destinasi)`), dan progress checklist perjalanan.
+        - **Format Sesuai UI**: Menyediakan badge (`Hari 1 dari 2 Hari`), metrik jarak (`0.9 km`), moda transportasi (`CAR`), subjudul fokus (`Fokus: Hari 1: Mandalika Coastal Explorer (2 Destinasi)`), progress checklist perjalanan, serta daftar `days` dengan ID harian untuk navigasi tab hari.
+      security:
+        - BearerAuth: []
+        - {}
+      responses:
+        '200':
+          description: Berhasil mengambil data rencana trip aktif
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActiveTripResponse'
+
+  /api/v1/itineraries/active-trip:
+    get:
+      tags:
+        - Itineraries
+      summary: Alias mengambil ringkasan rencana trip aktif untuk Home Android
+      description: |
+        Endpoint alias identik dengan `/api/v1/itineraries/active`. Digunakan oleh klien Android untuk widget Home dan navigasi langsung ke detail/hari trip aktif.
       security:
         - BearerAuth: []
         - {}
@@ -1912,6 +1930,16 @@ components:
         currentDayNumber:
           type: integer
           example: 1
+        currentDayId:
+          type: string
+          nullable: true
+          example: '41913988-1bfd-4660-84a1-cf0b9f9fffe6'
+          description: UUID hari aktif saat ini (sama dengan focus.dayId)
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/ActiveTripDayItem'
+          description: Daftar ringkas seluruh hari dalam trip untuk navigasi tab hari di aplikasi mobile
         badgeText:
           type: string
           example: 'Hari 1 dari 2 Hari'
@@ -1950,6 +1978,36 @@ components:
           type: string
           format: date-time
 
+    ActiveTripDayItem:
+      type: object
+      properties:
+        id:
+          type: string
+          example: '41913988-1bfd-4660-84a1-cf0b9f9fffe6'
+        dayNumber:
+          type: integer
+          example: 1
+        title:
+          type: string
+          example: 'Hari 1: Mandalika Coastal Explorer'
+        date:
+          type: string
+          format: date
+          nullable: true
+          example: '2026-09-01'
+        activityCount:
+          type: integer
+          example: 3
+        activitiesCount:
+          type: integer
+          example: 3
+        totalDistanceKm:
+          type: number
+          example: 15.4
+        totalDurationMinutes:
+          type: integer
+          example: 180
+
     ActiveTripResponse:
       type: object
       properties:
@@ -1968,6 +2026,11 @@ components:
             trip:
               $ref: '#/components/schemas/ActiveTripCard'
               nullable: true
+            days:
+              type: array
+              items:
+                $ref: '#/components/schemas/ActiveTripDayItem'
+              description: Alias daftar seluruh hari perjalanan untuk kemudahan konsumsi klien mobile
 
     ItineraryTemplateCard:
       type: object
