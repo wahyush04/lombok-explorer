@@ -256,6 +256,43 @@ describe('Admin Accommodation Management API Suite (Phase 8)', () => {
       expect(res.body.success).toBe(true);
     });
 
+    it('should allow updating websiteUrl with empty string or whitespace without 400 Bad Request and set it to null', async () => {
+      const res = await request(app)
+        .put(`/api/v1/admin/accommodations/${createdAccommodationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          websiteUrl: '',
+        });
+
+      expect(res.status).toBe(200);
+      expect(res.body.success).toBe(true);
+      expect(res.body.data.websiteUrl).toBeNull();
+
+      const resWhitespace = await request(app)
+        .put(`/api/v1/admin/accommodations/${createdAccommodationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          websiteUrl: '   ',
+        });
+
+      expect(resWhitespace.status).toBe(200);
+      expect(resWhitespace.body.success).toBe(true);
+      expect(resWhitespace.body.data.websiteUrl).toBeNull();
+    });
+
+    it('should reject update if websiteUrl is an invalid URL format (400 Bad Request)', async () => {
+      const res = await request(app)
+        .put(`/api/v1/admin/accommodations/${createdAccommodationId}`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({
+          websiteUrl: 'not-a-valid-url',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.success).toBe(false);
+      expect(res.body.errorCode).toBe('VALIDATION_ERROR');
+    });
+
     it('should reject update if new slug collides with existing accommodation (409 Conflict)', async () => {
       const res = await request(app)
         .put(`/api/v1/admin/accommodations/${createdAccommodationId}`)

@@ -18,6 +18,25 @@ export interface ItineraryFilterOptions {
   limit: number;
 }
 
+export const ITINERARY_ITEM_RELATIONS_INCLUDE = {
+  destination: {
+    include: {
+      category: true,
+      images: { orderBy: { orderIndex: 'asc' as const } },
+    },
+  },
+  restaurant: {
+    include: {
+      images: { orderBy: { orderIndex: 'asc' as const } },
+    },
+  },
+  accommodation: {
+    include: {
+      images: { orderBy: { orderIndex: 'asc' as const } },
+    },
+  },
+} as const;
+
 export type TemplateWithRelations = Prisma.ItineraryTemplateGetPayload<{
   include: {
     days: {
@@ -27,10 +46,19 @@ export type TemplateWithRelations = Prisma.ItineraryTemplateGetPayload<{
             destination: {
               include: {
                 category: true;
+                images: true;
               };
             };
-            restaurant: true;
-            accommodation: true;
+            restaurant: {
+              include: {
+                images: true;
+              };
+            };
+            accommodation: {
+              include: {
+                images: true;
+              };
+            };
           };
         };
       };
@@ -79,13 +107,7 @@ export class ItinerariesRepository {
             include: {
               items: {
                 orderBy: { orderIndex: 'asc' },
-                include: {
-                  destination: {
-                    include: { category: true },
-                  },
-                  restaurant: true,
-                  accommodation: true,
-                },
+                include: ITINERARY_ITEM_RELATIONS_INCLUDE,
               },
             },
           },
@@ -109,13 +131,7 @@ export class ItinerariesRepository {
           include: {
             items: {
               orderBy: { orderIndex: 'asc' },
-              include: {
-                destination: {
-                  include: { category: true },
-                },
-                restaurant: true,
-                accommodation: true,
-              },
+              include: ITINERARY_ITEM_RELATIONS_INCLUDE,
             },
           },
         },
@@ -135,13 +151,7 @@ export class ItinerariesRepository {
           include: {
             items: {
               orderBy: { orderIndex: 'asc' },
-              include: {
-                destination: {
-                  include: { category: true },
-                },
-                restaurant: true,
-                accommodation: true,
-              },
+              include: ITINERARY_ITEM_RELATIONS_INCLUDE,
             },
           },
         },
@@ -156,13 +166,7 @@ export class ItinerariesRepository {
         itinerary: true,
         items: {
           orderBy: { orderIndex: 'asc' },
-          include: {
-            destination: {
-              include: { category: true },
-            },
-            restaurant: true,
-            accommodation: true,
-          },
+          include: ITINERARY_ITEM_RELATIONS_INCLUDE,
         },
       },
     });
@@ -177,11 +181,7 @@ export class ItinerariesRepository {
             itinerary: true,
           },
         },
-        destination: {
-          include: { category: true },
-        },
-        restaurant: true,
-        accommodation: true,
+        ...ITINERARY_ITEM_RELATIONS_INCLUDE,
       },
     });
   }
@@ -267,15 +267,17 @@ export class ItinerariesRepository {
               : JSON.stringify(item.customLocation)
             : null;
 
-          let inferredType: ItineraryItemType = 'DESTINATION';
-          if (item.itemType) {
-            inferredType = item.itemType as ItineraryItemType;
-          } else if (item.restaurantId) {
-            inferredType = 'RESTAURANT';
-          } else if (item.accommodationId) {
-            inferredType = 'ACCOMMODATION';
-          } else if (item.customLocation || item.customTitle) {
-            inferredType = 'CUSTOM';
+          let inferredType: ItineraryItemType = (item.itemType as ItineraryItemType) || 'DESTINATION';
+          if (!item.itemType || (item.itemType === 'DESTINATION' && !item.destinationId)) {
+            if (item.restaurantId) {
+              inferredType = 'RESTAURANT';
+            } else if (item.accommodationId) {
+              inferredType = 'ACCOMMODATION';
+            } else if (item.destinationId) {
+              inferredType = 'DESTINATION';
+            } else if (item.customLocation || item.customTitle) {
+              inferredType = 'CUSTOM';
+            }
           }
 
           await tx.itineraryItem.create({
@@ -310,11 +312,7 @@ export class ItinerariesRepository {
             include: {
               items: {
                 orderBy: { orderIndex: 'asc' },
-                include: {
-                  destination: {
-                    include: { category: true },
-                  },
-                },
+                include: ITINERARY_ITEM_RELATIONS_INCLUDE,
               },
             },
           },
@@ -458,7 +456,7 @@ export class ItinerariesRepository {
       }
 
       let inferredType: ItineraryItemType = activityData.itemType || 'DESTINATION';
-      if (!activityData.itemType) {
+      if (!activityData.itemType || (activityData.itemType === 'DESTINATION' && !activityData.destinationId)) {
         if (activityData.restaurantId) inferredType = 'RESTAURANT';
         else if (activityData.accommodationId) inferredType = 'ACCOMMODATION';
         else if (activityData.destinationId) inferredType = 'DESTINATION';
@@ -484,13 +482,7 @@ export class ItinerariesRepository {
           distanceFromPrevKm: activityData.distanceFromPrevKm || 0,
           travelTimeFromPrevMinutes: activityData.travelTimeFromPrevMinutes || 0,
         },
-        include: {
-          destination: {
-            include: { category: true },
-          },
-          restaurant: true,
-          accommodation: true,
-        },
+        include: ITINERARY_ITEM_RELATIONS_INCLUDE,
       });
     });
   }
@@ -547,13 +539,7 @@ export class ItinerariesRepository {
         }),
         ...(data.isCompleted !== undefined && { isCompleted: data.isCompleted }),
       },
-      include: {
-        destination: {
-          include: { category: true },
-        },
-        restaurant: true,
-        accommodation: true,
-      },
+      include: ITINERARY_ITEM_RELATIONS_INCLUDE,
     });
   }
 
@@ -902,15 +888,19 @@ export class ItinerariesRepository {
                 orderBy: { orderIndex: 'asc' },
                 include: {
                   destination: {
-                    select: {
-                      id: true,
-                      name: true,
-                      slug: true,
-                      coverImageUrl: true,
-                      latitude: true,
-                      longitude: true,
-                      rating: true,
-                      category: { select: { id: true, name: true, slug: true } },
+                    include: {
+                      category: true,
+                      images: { orderBy: { orderIndex: 'asc' } },
+                    },
+                  },
+                  restaurant: {
+                    include: {
+                      images: { orderBy: { orderIndex: 'asc' } },
+                    },
+                  },
+                  accommodation: {
+                    include: {
+                      images: { orderBy: { orderIndex: 'asc' } },
                     },
                   },
                 },
@@ -939,10 +929,19 @@ export class ItinerariesRepository {
                 destination: {
                   include: {
                     category: true,
+                    images: { orderBy: { orderIndex: 'asc' } },
                   },
                 },
-                restaurant: true,
-                accommodation: true,
+                restaurant: {
+                  include: {
+                    images: { orderBy: { orderIndex: 'asc' } },
+                  },
+                },
+                accommodation: {
+                  include: {
+                    images: { orderBy: { orderIndex: 'asc' } },
+                  },
+                },
               },
             },
           },
@@ -1043,10 +1042,19 @@ export class ItinerariesRepository {
                   destination: {
                     include: {
                       category: true,
+                      images: { orderBy: { orderIndex: 'asc' } },
                     },
                   },
-                  restaurant: true,
-                  accommodation: true,
+                  restaurant: {
+                    include: {
+                      images: { orderBy: { orderIndex: 'asc' } },
+                    },
+                  },
+                  accommodation: {
+                    include: {
+                      images: { orderBy: { orderIndex: 'asc' } },
+                    },
+                  },
                 },
               },
             },

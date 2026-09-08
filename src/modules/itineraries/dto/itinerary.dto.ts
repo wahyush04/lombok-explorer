@@ -13,7 +13,7 @@ export const CustomLocationInputSchema = z.object({
 
 export const ItineraryItemInputSchema = z.object({
   id: z.string().optional(),
-  itemType: ItineraryItemTypeEnum.optional().default(ItineraryItemType.DESTINATION),
+  itemType: ItineraryItemTypeEnum.optional(),
   destinationId: z.string().optional().nullable(),
   restaurantId: z.string().optional().nullable(),
   accommodationId: z.string().optional().nullable(),
@@ -269,6 +269,7 @@ export interface DestinationSummaryDto {
   categoryName?: string | null;
   imageUrl?: string | null;
   coverImageUrl?: string | null;
+  images?: string[];
   rating?: number;
   region?: string | null;
   latitude?: number;
@@ -298,6 +299,8 @@ export interface RestaurantSummaryDto {
   rating?: number;
   isHalalCertified?: boolean;
   coverImageUrl?: string | null;
+  imageUrl?: string | null;
+  images?: string[];
   address?: string | null;
   region?: string | null;
   latitude?: number;
@@ -312,6 +315,8 @@ export interface AccommodationSummaryDto {
   pricePerNight?: number;
   rating?: number;
   coverImageUrl?: string | null;
+  imageUrl?: string | null;
+  images?: string[];
   address?: string | null;
   region?: string | null;
   latitude?: number;
@@ -336,6 +341,7 @@ export interface ItineraryActivityDto {
   destinationCategory?: string;
   imageUrl?: string | null;
   coverImageUrl?: string | null;
+  images?: string[];
   customLocation: CustomLocation | null;
   customTitle: string | null;
   activityNotes: string | null;
@@ -457,6 +463,8 @@ export interface TemplateActivityDto {
   destinationName?: string;
   destinationCategory?: string;
   imageUrl?: string | null;
+  coverImageUrl?: string | null;
+  images?: string[];
   destination: DestinationSummaryDto | null;
   restaurantId?: string | null;
   restaurant?: RestaurantSummaryDto | null;

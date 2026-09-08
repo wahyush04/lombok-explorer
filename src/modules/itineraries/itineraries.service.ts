@@ -1,13 +1,16 @@
 import * as crypto from 'crypto';
 import {
   Accommodation,
+  AccommodationImage,
   Category,
   Destination,
+  DestinationImage,
   Itinerary,
   ItineraryDay,
   ItineraryItem,
   ItineraryItemType,
   Restaurant,
+  RestaurantImage,
   TransportationMode,
 } from '@prisma/client';
 import { prisma } from '../../database/prisma';
@@ -50,9 +53,9 @@ import {
 import { GeoCoordinate } from './services/mapbox.types';
 
 export type ItineraryItemWithDestination = ItineraryItem & {
-  destination?: (Destination & { category?: Category | null }) | null;
-  restaurant?: Restaurant | null;
-  accommodation?: Accommodation | null;
+  destination?: (Destination & { category?: Category | null; images?: DestinationImage[] }) | null;
+  restaurant?: (Restaurant & { images?: RestaurantImage[] }) | null;
+  accommodation?: (Accommodation & { images?: AccommodationImage[] }) | null;
 };
 
 export type ItineraryDayWithItems = ItineraryDay & {
@@ -138,7 +141,12 @@ export class ItinerariesService {
               });
             }
 
-            const itemType = item.itemType || 'DESTINATION';
+            let itemType = item.itemType || 'DESTINATION';
+            if (itemType === 'DESTINATION' && !item.destinationId) {
+              if (item.restaurantId || item.restaurant) itemType = 'RESTAURANT';
+              else if (item.accommodationId || item.accommodation) itemType = 'ACCOMMODATION';
+              else if (item.customLocation || item.customTitle) itemType = 'CUSTOM';
+            }
 
             const categoryObj = item.destination?.category
               ? {
@@ -151,6 +159,42 @@ export class ItinerariesService {
             let imgUrl = item.destination?.coverImageUrl || null;
             let activityName = item.destination?.name;
 
+            // Collect destination images
+            const destImages: string[] = [];
+            if (item.destination) {
+              if (item.destination.coverImageUrl) destImages.push(item.destination.coverImageUrl);
+              if (Array.isArray((item.destination as any).images)) {
+                for (const img of (item.destination as any).images) {
+                  const url = typeof img === 'string' ? img : img?.imageUrl;
+                  if (url && !destImages.includes(url)) destImages.push(url);
+                }
+              }
+            }
+
+            // Collect restaurant images
+            const restImages: string[] = [];
+            if (item.restaurant) {
+              if (item.restaurant.coverImageUrl) restImages.push(item.restaurant.coverImageUrl);
+              if (Array.isArray((item.restaurant as any).images)) {
+                for (const img of (item.restaurant as any).images) {
+                  const url = typeof img === 'string' ? img : img?.imageUrl;
+                  if (url && !restImages.includes(url)) restImages.push(url);
+                }
+              }
+            }
+
+            // Collect accommodation images
+            const accomImages: string[] = [];
+            if (item.accommodation) {
+              if (item.accommodation.coverImageUrl) accomImages.push(item.accommodation.coverImageUrl);
+              if (Array.isArray((item.accommodation as any).images)) {
+                for (const img of (item.accommodation as any).images) {
+                  const url = typeof img === 'string' ? img : img?.imageUrl;
+                  if (url && !accomImages.includes(url)) accomImages.push(url);
+                }
+              }
+            }
+
             const destinationSummary: DestinationSummaryDto | null = item.destination
               ? {
                   id: item.destination.id,
@@ -158,8 +202,9 @@ export class ItinerariesService {
                   slug: item.destination.slug,
                   category: categoryObj,
                   categoryName: categoryName,
-                  imageUrl: imgUrl,
-                  coverImageUrl: imgUrl,
+                  imageUrl: destImages[0] || imgUrl,
+                  coverImageUrl: item.destination.coverImageUrl || destImages[0] || imgUrl,
+                  images: destImages,
                   rating: item.destination.rating,
                   region: item.destination.region || null,
                   latitude: item.destination.latitude,
@@ -177,7 +222,9 @@ export class ItinerariesService {
                   priceRange: item.restaurant.priceRange,
                   rating: item.restaurant.rating,
                   isHalalCertified: item.restaurant.isHalalCertified,
-                  coverImageUrl: item.restaurant.coverImageUrl,
+                  coverImageUrl: item.restaurant.coverImageUrl || restImages[0] || null,
+                  imageUrl: restImages[0] || item.restaurant.coverImageUrl || null,
+                  images: restImages,
                   address: item.restaurant.address,
                   region: item.restaurant.region,
                   latitude: item.restaurant.latitude,
@@ -193,7 +240,9 @@ export class ItinerariesService {
                   type: item.accommodation.type,
                   pricePerNight: Number(item.accommodation.pricePerNight),
                   rating: item.accommodation.rating,
-                  coverImageUrl: item.accommodation.coverImageUrl,
+                  coverImageUrl: item.accommodation.coverImageUrl || accomImages[0] || null,
+                  imageUrl: accomImages[0] || item.accommodation.coverImageUrl || null,
+                  images: accomImages,
                   address: item.accommodation.address,
                   region: item.accommodation.region,
                   latitude: item.accommodation.latitude,
@@ -201,14 +250,24 @@ export class ItinerariesService {
                 }
               : null;
 
+            let activityImages: string[] = [];
+
             if (itemType === 'RESTAURANT' && item.restaurant) {
               activityName = item.restaurant.name;
-              imgUrl = item.restaurant.coverImageUrl || imgUrl;
+              imgUrl = item.restaurant.coverImageUrl || restImages[0] || imgUrl;
               categoryName = item.restaurant.cuisineType || 'Restoran & Kuliner';
+              activityImages = restImages;
             } else if (itemType === 'ACCOMMODATION' && item.accommodation) {
               activityName = item.accommodation.name;
-              imgUrl = item.accommodation.coverImageUrl || imgUrl;
+              imgUrl = item.accommodation.coverImageUrl || accomImages[0] || imgUrl;
               categoryName = item.accommodation.type || 'Penginapan';
+              activityImages = accomImages;
+            } else if (itemType === 'DESTINATION') {
+              activityImages = destImages;
+            }
+
+            if (activityImages.length === 0 && imgUrl) {
+              activityImages = [imgUrl];
             }
 
             return {
@@ -230,6 +289,7 @@ export class ItinerariesService {
               destinationCategory: categoryName,
               imageUrl: imgUrl,
               coverImageUrl: imgUrl,
+              images: activityImages,
               customLocation: customLoc,
               customTitle: item.customTitle,
               activityNotes: item.activityNotes,
@@ -918,7 +978,7 @@ export class ItinerariesService {
     }
 
     let inferredType: ItineraryItemType = dto.itemType || 'DESTINATION';
-    if (!dto.itemType) {
+    if (!dto.itemType || (dto.itemType === 'DESTINATION' && !dto.destinationId)) {
       if (dto.restaurantId) inferredType = 'RESTAURANT';
       else if (dto.accommodationId) inferredType = 'ACCOMMODATION';
       else if (dto.destinationId) inferredType = 'DESTINATION';
@@ -1015,6 +1075,14 @@ export class ItinerariesService {
       }
     }
 
+    let inferredType = dto.itemType;
+    if (!inferredType || (inferredType === 'DESTINATION' && !dto.destinationId)) {
+      if (dto.restaurantId) inferredType = 'RESTAURANT';
+      else if (dto.accommodationId) inferredType = 'ACCOMMODATION';
+      else if (dto.destinationId) inferredType = 'DESTINATION';
+      else if (dto.customLocation || dto.customTitle) inferredType = 'CUSTOM';
+    }
+
     const customLocationStr =
       dto.customLocation !== undefined
         ? dto.customLocation
@@ -1023,7 +1091,7 @@ export class ItinerariesService {
         : undefined;
 
     await this.repository.updateActivity(activityId, {
-      itemType: dto.itemType,
+      itemType: inferredType,
       destinationId: dto.destinationId,
       restaurantId: dto.restaurantId,
       accommodationId: dto.accommodationId,
@@ -1388,7 +1456,13 @@ export class ItinerariesService {
       totalDestCount += activities.length;
 
       const mappedActivities: TemplateActivityDto[] = activities.map((act: any) => {
-        const itemType = act.itemType || 'DESTINATION';
+        let itemType = act.itemType || 'DESTINATION';
+        if (itemType === 'DESTINATION' && !act.destinationId) {
+          if (act.restaurantId || act.restaurant) itemType = 'RESTAURANT';
+          else if (act.accommodationId || act.accommodation) itemType = 'ACCOMMODATION';
+          else if (act.customLocation || act.customTitle) itemType = 'CUSTOM';
+        }
+
         let destName = act.destination?.name || act.customTitle || 'Aktivitas';
         let categoryName = act.destination?.category?.name || 'Aktivitas Wisata';
         let imgUrl = act.destination?.coverImageUrl || null;
@@ -1401,13 +1475,50 @@ export class ItinerariesService {
             }
           : null;
 
+        // Collect destination images
+        const destImages: string[] = [];
+        if (act.destination) {
+          if (act.destination.coverImageUrl) destImages.push(act.destination.coverImageUrl);
+          if (Array.isArray(act.destination.images)) {
+            for (const img of act.destination.images) {
+              const url = typeof img === 'string' ? img : img?.imageUrl;
+              if (url && !destImages.includes(url)) destImages.push(url);
+            }
+          }
+        }
+
+        // Collect restaurant images
+        const restImages: string[] = [];
+        if (act.restaurant) {
+          if (act.restaurant.coverImageUrl) restImages.push(act.restaurant.coverImageUrl);
+          if (Array.isArray(act.restaurant.images)) {
+            for (const img of act.restaurant.images) {
+              const url = typeof img === 'string' ? img : img?.imageUrl;
+              if (url && !restImages.includes(url)) restImages.push(url);
+            }
+          }
+        }
+
+        // Collect accommodation images
+        const accomImages: string[] = [];
+        if (act.accommodation) {
+          if (act.accommodation.coverImageUrl) accomImages.push(act.accommodation.coverImageUrl);
+          if (Array.isArray(act.accommodation.images)) {
+            for (const img of act.accommodation.images) {
+              const url = typeof img === 'string' ? img : img?.imageUrl;
+              if (url && !accomImages.includes(url)) accomImages.push(url);
+            }
+          }
+        }
+
         const destSummary: DestinationSummaryDto | null = act.destination
           ? {
               id: act.destination.id,
               name: act.destination.name,
               slug: act.destination.slug,
-              coverImageUrl: imgUrl,
-              imageUrl: imgUrl,
+              coverImageUrl: act.destination.coverImageUrl || destImages[0] || imgUrl,
+              imageUrl: destImages[0] || imgUrl,
+              images: destImages,
               latitude: act.destination.latitude,
               longitude: act.destination.longitude,
               rating: act.destination.rating,
@@ -1426,7 +1537,9 @@ export class ItinerariesService {
               priceRange: act.restaurant.priceRange,
               rating: act.restaurant.rating,
               isHalalCertified: act.restaurant.isHalalCertified,
-              coverImageUrl: act.restaurant.coverImageUrl,
+              coverImageUrl: act.restaurant.coverImageUrl || restImages[0] || null,
+              imageUrl: restImages[0] || act.restaurant.coverImageUrl || null,
+              images: restImages,
               address: act.restaurant.address,
               region: act.restaurant.region,
               latitude: act.restaurant.latitude,
@@ -1442,7 +1555,9 @@ export class ItinerariesService {
               type: act.accommodation.type,
               pricePerNight: Number(act.accommodation.pricePerNight),
               rating: act.accommodation.rating,
-              coverImageUrl: act.accommodation.coverImageUrl,
+              coverImageUrl: act.accommodation.coverImageUrl || accomImages[0] || null,
+              imageUrl: accomImages[0] || act.accommodation.coverImageUrl || null,
+              images: accomImages,
               address: act.accommodation.address,
               region: act.accommodation.region,
               latitude: act.accommodation.latitude,
@@ -1450,14 +1565,24 @@ export class ItinerariesService {
             }
           : null;
 
+        let activityImages: string[] = [];
+
         if (itemType === 'RESTAURANT' && act.restaurant) {
           destName = act.restaurant.name;
-          imgUrl = act.restaurant.coverImageUrl || imgUrl;
+          imgUrl = act.restaurant.coverImageUrl || restImages[0] || imgUrl;
           categoryName = act.restaurant.cuisineType || 'Restoran & Kuliner';
+          activityImages = restImages;
         } else if (itemType === 'ACCOMMODATION' && act.accommodation) {
           destName = act.accommodation.name;
-          imgUrl = act.accommodation.coverImageUrl || imgUrl;
+          imgUrl = act.accommodation.coverImageUrl || accomImages[0] || imgUrl;
           categoryName = act.accommodation.type || 'Penginapan';
+          activityImages = accomImages;
+        } else if (itemType === 'DESTINATION') {
+          activityImages = destImages;
+        }
+
+        if (activityImages.length === 0 && imgUrl) {
+          activityImages = [imgUrl];
         }
 
         if (destNames.length < 3) {
@@ -1487,6 +1612,8 @@ export class ItinerariesService {
           destinationName: destName,
           destinationCategory: categoryName,
           imageUrl: imgUrl,
+          coverImageUrl: imgUrl,
+          images: activityImages,
           destination: destSummary,
           restaurantId: act.restaurantId || (act.restaurant ? act.restaurant.id : null),
           restaurant: restaurantSummary,

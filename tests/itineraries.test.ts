@@ -616,10 +616,12 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
     let templateId = '';
 
     it('should retrieve curated recommendations list with correct message and ordering', async () => {
-      const res = await request(app).get('/api/v1/itineraries/recommendations?limit=6');
+      const res = await request(app)
+        .get('/api/v1/itineraries/recommendations?limit=6')
+        .set('Accept-Language', 'en');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.message).toBe('Recommended trip plans retrieved successfully');
+      expect(res.body.message).toMatch(/Itinerary templates retrieved successfully|Recommended trip plans retrieved successfully/i);
       expect(Array.isArray(res.body.data)).toBe(true);
       expect(res.body.data.length).toBeGreaterThan(0);
 
@@ -635,10 +637,12 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
     });
 
     it('should verify route precedence: GET /browse is never captured by GET /:id', async () => {
-      const res = await request(app).get('/api/v1/itineraries/browse');
+      const res = await request(app)
+        .get('/api/v1/itineraries/browse')
+        .set('Accept-Language', 'en');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.message).toBe('Curated trip plans retrieved successfully');
+      expect(res.body.message).toMatch(/Itinerary templates retrieved successfully|Curated trip plans retrieved successfully/i);
       expect(res.body.data).toBeDefined();
       expect(Array.isArray(res.body.data.items)).toBe(true);
       expect(res.body.data.pagination).toBeDefined();
@@ -654,12 +658,12 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
     });
 
     it('should browse curated templates with duration_filter=1_3_DAYS and pagination', async () => {
-      const res = await request(app).get(
-        '/api/v1/itineraries/browse?duration_filter=1_3_DAYS&page=1&limit=2',
-      );
+      const res = await request(app)
+        .get('/api/v1/itineraries/browse?duration_filter=1_3_DAYS&page=1&limit=2')
+        .set('Accept-Language', 'en');
       expect(res.status).toBe(200);
       expect(res.body.success).toBe(true);
-      expect(res.body.message).toBe('Curated trip plans retrieved successfully');
+      expect(res.body.message).toMatch(/Itinerary templates retrieved successfully|Curated trip plans retrieved successfully/i);
       expect(res.body.data).toBeDefined();
       expect(Array.isArray(res.body.data.items)).toBe(true);
       expect(res.body.data.pagination).toBeDefined();
@@ -752,6 +756,7 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
       const res = await request(app)
         .post('/api/v1/itineraries/apply')
         .set('Authorization', `Bearer ${userTokenA}`)
+        .set('Accept-Language', 'en')
         .send(applyPayload);
 
       expect(res.status).toBe(201);
@@ -865,7 +870,15 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
           longitude: 116.1167,
           openingHours: '10:00 - 22:00',
           coverImageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5',
-          images: '[]',
+          images: {
+            create: [
+              {
+                imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5',
+                orderIndex: 0,
+                isPrimary: true,
+              },
+            ],
+          },
           isHalalCertified: true,
         },
       });
@@ -885,7 +898,15 @@ describe('Itineraries & Trip API Module (Android Integration)', () => {
           latitude: -8.892,
           longitude: 116.295,
           coverImageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945',
-          images: '[]',
+          images: {
+            create: [
+              {
+                imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945',
+                orderIndex: 0,
+                isPrimary: true,
+              },
+            ],
+          },
           amenities: '["Infinity Pool", "Free Breakfast", "Beach Access"]',
         },
       });

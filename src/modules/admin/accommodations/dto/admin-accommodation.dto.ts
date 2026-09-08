@@ -57,6 +57,24 @@ export const AccommodationTranslationInputSchema = z.object({
   description: z.string().trim().min(10, 'Description must be at least 10 characters'),
 });
 
+const optionalUrlSchema = z
+  .preprocess((val) => {
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      return trimmed === '' ? null : trimmed;
+    }
+    return val;
+  }, z.string().url('Website URL must be a valid URL').nullable().optional());
+
+const optionalStringSchema = z
+  .preprocess((val) => {
+    if (typeof val === 'string') {
+      const trimmed = val.trim();
+      return trimmed === '' ? null : trimmed;
+    }
+    return val;
+  }, z.string().nullable().optional());
+
 export const CreateAccommodationSchema = z.object({
   name: z.string().trim().min(3, 'Accommodation name must be at least 3 characters'),
   slug: z.string().trim().optional(),
@@ -76,8 +94,8 @@ export const CreateAccommodationSchema = z.object({
   images: z.array(z.union([CloudinaryAssetInputSchema, z.string().trim()])).default([]),
   facilities: z.array(z.string().trim()).optional(),
   amenities: z.array(z.string().trim()).optional(),
-  contactPhone: z.string().trim().optional(),
-  websiteUrl: z.string().trim().url().optional(),
+  contactPhone: optionalStringSchema,
+  websiteUrl: optionalUrlSchema,
   status: z.nativeEnum(DestinationStatus).default(DestinationStatus.PUBLISHED),
   isFeatured: z.boolean().default(false),
   translations: z
@@ -104,8 +122,8 @@ export const UpdateAccommodationSchema = z.object({
   images: z.array(z.union([CloudinaryAssetInputSchema, z.string().trim()])).optional(),
   facilities: z.array(z.string().trim()).optional(),
   amenities: z.array(z.string().trim()).optional(),
-  contactPhone: z.string().trim().optional(),
-  websiteUrl: z.string().trim().url().optional(),
+  contactPhone: optionalStringSchema,
+  websiteUrl: optionalUrlSchema,
   status: z.nativeEnum(DestinationStatus).optional(),
   isFeatured: z.boolean().optional(),
   translations: z

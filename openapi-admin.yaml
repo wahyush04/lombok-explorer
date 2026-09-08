@@ -4865,9 +4865,11 @@ components:
             - Ocean View
         contactPhone:
           type: string
+          nullable: true
           example: +62 370 6197000
         websiteUrl:
           type: string
+          nullable: true
           example: https://jeevaresorts.com
         status:
           type: string
@@ -4928,8 +4930,10 @@ components:
             type: string
         contactPhone:
           type: string
+          nullable: true
         websiteUrl:
           type: string
+          nullable: true
         status:
           type: string
           enum:
@@ -6102,5 +6106,3 @@ components:
           type: string
           nullable: true
           example: Relaxed pace with private rented car
-
-

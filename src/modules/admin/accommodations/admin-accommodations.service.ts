@@ -240,8 +240,8 @@ export class AdminAccommodationsService {
               },
             }),
             amenities: JSON.stringify(amenitiesList),
-            contactPhone: dto.contactPhone || null,
-            websiteUrl: dto.websiteUrl || null,
+            contactPhone: dto.contactPhone && dto.contactPhone.trim() !== '' ? dto.contactPhone.trim() : null,
+            websiteUrl: dto.websiteUrl && dto.websiteUrl.trim() !== '' ? dto.websiteUrl.trim() : null,
             status: dto.status,
             isFeatured: dto.isFeatured,
             ...(dto.translations && dto.translations.length > 0
@@ -439,8 +439,12 @@ export class AdminAccommodationsService {
               },
             }),
             ...(amenitiesList && { amenities: JSON.stringify(amenitiesList) }),
-            ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone }),
-            ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),
+            ...(dto.contactPhone !== undefined && {
+              contactPhone: dto.contactPhone && dto.contactPhone.trim() !== '' ? dto.contactPhone.trim() : null,
+            }),
+            ...(dto.websiteUrl !== undefined && {
+              websiteUrl: dto.websiteUrl && dto.websiteUrl.trim() !== '' ? dto.websiteUrl.trim() : null,
+            }),
             ...(dto.status && { status: dto.status }),
             ...(dto.isFeatured !== undefined && { isFeatured: dto.isFeatured }),
           },
