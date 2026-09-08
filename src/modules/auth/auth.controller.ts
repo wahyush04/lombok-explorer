@@ -82,6 +82,14 @@ export class AuthController {
     const result = await this.service.getAuthProviders(userId);
     return ResponseUtil.sendSuccess(res, result, 'Auth providers retrieved successfully');
   });
+
+  public changePassword = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const dto = req.body;
+    const { usersService } = await import('../users/users.service');
+    await usersService.changePassword(userId, dto);
+    return ResponseUtil.sendLocalizedAction(req, res, 'PASSWORD_CHANGED_SUCCESS');
+  });
 }
 
 export const authController = new AuthController();

@@ -1250,6 +1250,144 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /restaurants/{id}/images:
+    get:
+      summary: List Restaurant Gallery Images
+      description: Returns all gallery images associated with a restaurant, sorted by orderIndex.
+      operationId: getRestaurantImages
+      tags:
+        - Admin Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restaurant images retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImageListResponse"
+        "404":
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Add Image to Restaurant
+      description: Adds a new image to restaurant gallery via Cloudinary direct asset metadata or legacy image URL reference.
+      operationId: createRestaurantImage
+      tags:
+        - Admin Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRestaurantImageRequest"
+      responses:
+        "201":
+          description: Image added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImageDetailResponse"
+        "400":
+          description: Validation or upload error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /restaurants/{id}/images/{imageId}:
+    put:
+      summary: Update Restaurant Image
+      description: Updates image attributes (caption, altText, orderIndex, isPrimary) or replaces the image with new Cloudinary asset metadata.
+      operationId: updateRestaurantImage
+      tags:
+        - Admin Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRestaurantImageRequest"
+      responses:
+        "200":
+          description: Restaurant image updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestaurantImageDetailResponse"
+        "404":
+          description: Image or restaurant not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete Restaurant Image
+      description: Deletes an image from the restaurant gallery.
+      operationId: deleteRestaurantImage
+      tags:
+        - Admin Restaurants
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Image deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
+          description: Image not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
   /accommodations:
     get:
       summary: List Accommodations (Admin)
@@ -1520,6 +1658,144 @@ paths:
                 $ref: "#/components/schemas/AdminAccommodationDetailResponse"
         "404":
           description: Accommodation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /accommodations/{id}/images:
+    get:
+      summary: List Accommodation Gallery Images
+      description: Returns all gallery images associated with an accommodation, sorted by orderIndex.
+      operationId: getAccommodationImages
+      tags:
+        - Admin Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Accommodation images retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccommodationImageListResponse"
+        "404":
+          description: Accommodation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    post:
+      summary: Add Image to Accommodation
+      description: Adds a new image to accommodation gallery via Cloudinary direct asset metadata or legacy image URL reference.
+      operationId: createAccommodationImage
+      tags:
+        - Admin Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateAccommodationImageRequest"
+      responses:
+        "201":
+          description: Image added successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccommodationImageDetailResponse"
+        "400":
+          description: Validation or upload error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Accommodation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /accommodations/{id}/images/{imageId}:
+    put:
+      summary: Update Accommodation Image
+      description: Updates image attributes (caption, altText, orderIndex, isPrimary) or replaces the image with new Cloudinary asset metadata.
+      operationId: updateAccommodationImage
+      tags:
+        - Admin Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAccommodationImageRequest"
+      responses:
+        "200":
+          description: Accommodation image updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccommodationImageDetailResponse"
+        "404":
+          description: Image or accommodation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+    delete:
+      summary: Delete Accommodation Image
+      description: Deletes an image from the accommodation gallery.
+      operationId: deleteAccommodationImage
+      tags:
+        - Admin Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: imageId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Image deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StandardActionResponse"
+        "404":
+          description: Image not found
           content:
             application/json:
               schema:
@@ -4266,6 +4542,152 @@ components:
           example: Restaurant details retrieved successfully
         data:
           $ref: "#/components/schemas/AdminRestaurantDto"
+    RestaurantImageDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: d290f1ee-6c54-4b01-90e6-d701748f0851
+        restaurantId:
+          type: string
+          example: rest_ayam_taliwang_khas
+        imageUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/restaurants/ayam-taliwang-gallery.jpg
+        imagePublicId:
+          type: string
+          nullable: true
+          example: lombok-explorer/admin/usr_admin_01/restaurants/rest_ayam_taliwang_khas/img_01
+        caption:
+          type: string
+          nullable: true
+          example: Suasana ruang makan lesehan khas Lombok
+        altText:
+          type: string
+          nullable: true
+          example: Interior Rumah Makan Ayam Taliwang Asli
+        orderIndex:
+          type: integer
+          example: 0
+        isPrimary:
+          type: boolean
+          example: true
+        width:
+          type: integer
+          nullable: true
+          example: 1920
+        height:
+          type: integer
+          nullable: true
+          example: 1080
+        format:
+          type: string
+          nullable: true
+          example: webp
+        bytes:
+          type: integer
+          nullable: true
+          example: 215400
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateRestaurantImageRequest:
+      type: object
+      properties:
+        image:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
+        publicId:
+          type: string
+          example: lombok-explorer/admin/usr_admin_01/restaurants/rest_ayam_taliwang_khas/img_01
+        secureUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/restaurants/img_01.jpg
+        imageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1544025162-d76694265947
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+        format:
+          type: string
+          example: webp
+        caption:
+          type: string
+          example: Hidangan Ayam Bakar Taliwang Panas
+        altText:
+          type: string
+          example: Menu Ayam Taliwang Khas Lombok
+        orderIndex:
+          type: integer
+          example: 1
+        isPrimary:
+          type: boolean
+          example: false
+    UpdateRestaurantImageRequest:
+      type: object
+      properties:
+        image:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
+        publicId:
+          type: string
+          example: lombok-explorer/admin/usr_admin_01/restaurants/rest_ayam_taliwang_khas/img_01
+        secureUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/restaurants/img_01.jpg
+        imageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1544025162-d76694265947
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+        format:
+          type: string
+          example: webp
+        caption:
+          type: string
+          example: Detail bumbu pedas plecing kangkung
+        altText:
+          type: string
+          example: Plecing Kangkung Lombok
+        orderIndex:
+          type: integer
+          example: 2
+        isPrimary:
+          type: boolean
+          example: true
+    RestaurantImageListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Restaurant images retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestaurantImageDto"
+    RestaurantImageDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Restaurant image created successfully
+        data:
+          $ref: "#/components/schemas/RestaurantImageDto"
     AdminAccommodationDto:
       type: object
       properties:
@@ -4560,6 +4982,152 @@ components:
           example: Accommodation details retrieved successfully
         data:
           $ref: "#/components/schemas/AdminAccommodationDto"
+    AccommodationImageDto:
+      type: object
+      properties:
+        id:
+          type: string
+          example: f47ac10b-58cc-4372-a567-0e02b2c3d479
+        accommodationId:
+          type: string
+          example: acc_katamaran_resort
+        imageUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/accommodations/katamaran-infinity-pool.jpg
+        imagePublicId:
+          type: string
+          nullable: true
+          example: lombok-explorer/admin/usr_admin_01/accommodations/acc_katamaran_resort/img_01
+        caption:
+          type: string
+          nullable: true
+          example: Sunset view from glass-front infinity pool
+        altText:
+          type: string
+          nullable: true
+          example: Katamaran Resort glass infinity pool sunset
+        orderIndex:
+          type: integer
+          example: 0
+        isPrimary:
+          type: boolean
+          example: true
+        width:
+          type: integer
+          nullable: true
+          example: 1920
+        height:
+          type: integer
+          nullable: true
+          example: 1080
+        format:
+          type: string
+          nullable: true
+          example: webp
+        bytes:
+          type: integer
+          nullable: true
+          example: 285000
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+    CreateAccommodationImageRequest:
+      type: object
+      properties:
+        image:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
+        publicId:
+          type: string
+          example: lombok-explorer/admin/usr_admin_01/accommodations/acc_katamaran_resort/img_01
+        secureUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/accommodations/img_01.jpg
+        imageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1571896349842-33c89424de2d
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+        format:
+          type: string
+          example: webp
+        caption:
+          type: string
+          example: Ocean View Suite Balcony
+        altText:
+          type: string
+          example: Ocean view suite at Katamaran Resort
+        orderIndex:
+          type: integer
+          example: 1
+        isPrimary:
+          type: boolean
+          example: false
+    UpdateAccommodationImageRequest:
+      type: object
+      properties:
+        image:
+          $ref: "#/components/schemas/CloudinaryAssetInput"
+        publicId:
+          type: string
+          example: lombok-explorer/admin/usr_admin_01/accommodations/acc_katamaran_resort/img_01
+        secureUrl:
+          type: string
+          example: https://res.cloudinary.com/lombok-explorer/image/upload/v1/admin/accommodations/img_01.jpg
+        imageUrl:
+          type: string
+          example: https://images.unsplash.com/photo-1571896349842-33c89424de2d
+        width:
+          type: integer
+          example: 1920
+        height:
+          type: integer
+          example: 1080
+        format:
+          type: string
+          example: webp
+        caption:
+          type: string
+          example: Updated beachfront villa interior
+        altText:
+          type: string
+          example: Beachfront villa bedroom
+        orderIndex:
+          type: integer
+          example: 2
+        isPrimary:
+          type: boolean
+          example: true
+    AccommodationImageListResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Accommodation images retrieved successfully
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AccommodationImageDto"
+    AccommodationImageDetailResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: Accommodation image created successfully
+        data:
+          $ref: "#/components/schemas/AccommodationImageDto"
     UpdateUserRequest:
       type: object
       properties:

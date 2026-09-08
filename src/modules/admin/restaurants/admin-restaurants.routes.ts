@@ -11,11 +11,15 @@ import {
 import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
+import { adminRestaurantImageRoutes } from '../restaurant-images/admin-restaurant-images.routes';
 
 const router = Router();
 
 // Apply authenticateAdmin across all restaurant management routes
 router.use(authenticateAdmin);
+
+// Restaurant Images Sub-Router (/api/v1/admin/restaurants/:id/images/*)
+router.use('/:id/images', adminRestaurantImageRoutes);
 
 // 1. List & filter restaurants
 router.get(

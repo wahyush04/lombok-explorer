@@ -88,7 +88,9 @@ export interface SanitizedUser {
   username: string;
   email: string;
   name: string;
+  shortBio?: string | null;
   avatarUrl: string | null;
+  avatarPublicId?: string | null;
   phone: string | null;
   role: UserRole;
   travelStyle: TravelStyle | null;

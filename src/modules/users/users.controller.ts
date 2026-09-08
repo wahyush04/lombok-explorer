@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { HttpStatus } from '../../common/constants';
 import { ResponseUtil } from '../../common/utils/api-response.util';
 import { asyncHandler } from '../../common/utils/async-handler.util';
-import { CheckUsernameQueryDto, UpdateProfileDto } from './dto/user.dto';
+import { ChangePasswordDto, CheckUsernameQueryDto, UpdateProfileDto } from './dto/user.dto';
 import { usersService, UsersService } from './users.service';
 
 export class UsersController {
@@ -67,6 +67,19 @@ export class UsersController {
       'Avatar uploaded successfully',
       HttpStatus.OK,
     );
+  });
+
+  public changePassword = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const dto = req.body as ChangePasswordDto;
+    await this.service.changePassword(userId, dto);
+    return ResponseUtil.sendLocalizedAction(req, res, 'PASSWORD_CHANGED_SUCCESS');
+  });
+
+  public deleteAccount = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    await this.service.deleteAccount(userId);
+    return ResponseUtil.sendLocalizedAction(req, res, 'ACCOUNT_DELETED_SUCCESS');
   });
 }
 

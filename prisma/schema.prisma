@@ -148,6 +148,7 @@ model User {
   username        String        @unique
   password        String?
   name            String
+  shortBio        String?       @db.Text
   avatarUrl       String?       @db.Text
   avatarPublicId  String?       @db.Text
   phone           String?
@@ -593,7 +594,6 @@ model Restaurant {
   openingHours       String
   coverImageUrl      String            @db.Text
   coverImagePublicId String?           @db.Text
-  images             String            @db.Text // JSON array of image URLs
   isHalalCertified   Boolean           @default(true)
   status             DestinationStatus @default(PUBLISHED)
   isFeatured         Boolean           @default(false)
@@ -602,6 +602,7 @@ model Restaurant {
   deletedAt          DateTime?
 
   // Relations
+  images             RestaurantImage[]
   itineraryItems     ItineraryItem[]
   templateActivities TemplateActivity[]
   translations       RestaurantTranslation[]
@@ -612,6 +613,24 @@ model Restaurant {
   @@index([status])
   @@index([isFeatured])
   @@map("restaurants")
+}
+
+model RestaurantImage {
+  id            String      @id @default(uuid())
+  restaurantId  String
+  restaurant    Restaurant  @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  imageUrl      String      @db.Text
+  imagePublicId String?     @db.Text
+  caption       String?
+  altText       String?
+  orderIndex    Int         @default(0)
+  isPrimary     Boolean     @default(false)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @default(now()) @updatedAt
+
+  @@index([restaurantId])
+  @@index([orderIndex])
+  @@map("restaurant_images")
 }
 
 model Accommodation {
@@ -630,7 +649,6 @@ model Accommodation {
   longitude          Float
   coverImageUrl      String            @db.Text
   coverImagePublicId String?           @db.Text
-  images             String            @db.Text // JSON array of image URLs
   amenities          String            @db.Text // JSON array of amenities
   contactPhone       String?
   websiteUrl         String?           @db.Text
@@ -641,6 +659,7 @@ model Accommodation {
   deletedAt          DateTime?
 
   // Relations
+  images             AccommodationImage[]
   itineraryItems     ItineraryItem[]
   templateActivities TemplateActivity[]
   translations       AccommodationTranslation[]
@@ -652,6 +671,24 @@ model Accommodation {
   @@index([status])
   @@index([isFeatured])
   @@map("accommodations")
+}
+
+model AccommodationImage {
+  id              String        @id @default(uuid())
+  accommodationId String
+  accommodation   Accommodation @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  imageUrl        String        @db.Text
+  imagePublicId   String?       @db.Text
+  caption         String?
+  altText         String?
+  orderIndex      Int           @default(0)
+  isPrimary       Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @default(now()) @updatedAt
+
+  @@index([accommodationId])
+  @@index([orderIndex])
+  @@map("accommodation_images")
 }
 
 // ==========================================

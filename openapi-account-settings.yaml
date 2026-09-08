@@ -1,0 +1,698 @@
+openapi: 3.0.3
+info:
+  title: Lombok Explorer — Account Settings API
+  description: |
+    # Lombok Explorer Account Settings API Specification
+
+    Spesifikasi OpenAPI 3.0.3 resmi khusus untuk subsistem **Pengaturan Akun (Account Settings)** pada platform Lombok Explorer.
+    Dokumentasi ini dirancang khusus untuk tim frontend web, aplikasi mobile Android/iOS, dan integrasi pihak ketiga.
+
+    ### Modul & Fitur Utama:
+    1. **Edit Profile (`GET /users/me`, `PATCH /users/me`, `POST /users/me/avatar`)**:
+       - Mengambil data profil lengkap milik pengguna yang sedang login.
+       - Memperbarui informasi profil pengguna secara parsial (*partial update*).
+       - Mengubah: nama lengkap (`fullName` / `name`), username unik (`username`), nomor telepon (`phoneNumber` / `phone`), dan bio singkat (`shortBio` / `bio`).
+       - Validasi keunikan `username` publik secara *case-insensitive* dan pencegahan kata terlarang (*reserved keywords*).
+       - Integrasi Cloudinary avatar: validasi kepemilikan asset signed upload (`avatarPublicId`), serta pembersihan aman asset lama pasca commit database.
+       - Upload avatar langsung (*direct upload*) via `POST /users/me/avatar` (*multipart/form-data*).
+    2. **Change Password (`POST /auth/change-password` & `POST /users/me/change-password`)**:
+       - Verifikasi kata sandi saat ini (`currentPassword`) untuk pengguna berbasis password.
+       - Validasi kata sandi baru (`newPassword`) dengan standar keamanan minimal 6 karakter dan maksimal 100 karakter.
+       - Menolak jika kata sandi baru sama persis dengan kata sandi lama (`SAME_PASSWORD`).
+       - Penanganan akun Google OAuth: pengguna yang mendaftar via Google dan belum memiliki password dapat menetapkan kata sandi pertamanya tanpa perlu memasukkan `currentPassword`.
+       - Invalidasi seluruh sesi refresh token aktif di database untuk memastikan keamanan akun.
+    3. **Logout & Session Revocation (`POST /auth/logout`)**:
+       - Menggunakan mekanisme revokasi sesi resmi sistem existing.
+       - Menghapus refresh token yang tersimpan di database pengguna sehingga token lama tidak dapat diperbarui kembali.
+    4. **Delete Account (`DELETE /users/me`)**:
+       - Penghapusan akun pengguna secara aman (*soft delete*) sesuai arsitektur data integrity Lombok Explorer.
+       - Menandai status akun menjadi `INACTIVE` dan menetapkan timestamp `deletedAt`.
+       - Menginvalidasi seluruh refresh token sesi aktif dan menghapus token perangkat push notification (`DeviceToken`).
+       - Menyembunyikan postingan feed aktif milik traveler (`PostStatus.DELETED`).
+       - Menghapus asset foto profil Cloudinary secara aman di background pasca transaksi database.
+  version: 1.0.0
+  contact:
+    name: Lombok Explorer Engineering Team
+    email: support@lombokexplorer.com
+
+servers:
+  - url: https://api.lombokexplorer.com/api/v1
+    description: Production Server (v1 API Base)
+  - url: http://localhost:8080/api/v1
+    description: Local Development Server (v1 API Base)
+  - url: http://localhost:8080/v1
+    description: Legacy Compatibility Alias Server
+
+tags:
+  - name: Profile Management
+    description: Pengambilan dan pembaruan profil pengguna, biodata singkat, dan upload avatar Cloudinary
+  - name: Password Management
+    description: Penggantian kata sandi, verifikasi keamanan kredensial, dan penetapan password akun Google
+  - name: Session & Logout
+    description: Pengakhiran sesi aktif dan revokasi refresh token pengguna
+  - name: Account Deletion
+    description: Penghapusan akun pengguna secara aman (soft delete) dan pembersihan relasi data terkait
+
+paths:
+  # ==========================================
+  # 1. PROFILE MANAGEMENT (GET, PATCH, AVATAR)
+  # ==========================================
+  /users/me:
+    get:
+      summary: Get current authenticated user profile
+      description: |
+        Mengambil profil lengkap pengguna yang sedang terautentikasi berdasarkan JWT Access Token pada header `Authorization`.
+        Mengembalikan informasi akun, biodata singkat (`shortBio`), foto profil (`avatarUrl`, `avatarPublicId`), preferensi wisata, serta status ketersediaan password.
+      operationId: getCurrentUserProfile
+      tags:
+        - Profile Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguageHeader'
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          description: User not found or account is deactivated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 404
+                message: "User not found"
+                errorCode: "USER_NOT_FOUND"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update current authenticated user profile
+      description: |
+        Memperbarui data profil pengguna sendiri secara parsial (*partial update*).
+        Hanya field yang dikirimkan pada request body yang akan diperbarui di database.
+        
+        **Fitur Validasi & Mapping:**
+        - `fullName` / `name`: Nama lengkap pengguna (2-100 karakter).
+        - `phoneNumber` / `phone`: Nomor telepon pengguna (maks 20 karakter).
+        - `shortBio` / `bio`: Biodata singkat (maks 500 karakter).
+        - `username`: Username unik publik (3-30 karakter, lowercase alphanumeric & underscore). Divalidasi keunikan dan pencegahan kata reserved (`admin`, `system`, dll).
+        - `avatarUrl` & `avatarPublicId`: URL dan Cloudinary publicId. Backend memvalidasi kepemilikan asset pada folder `users/{userId}/` dan membersihkan asset lama pasca commit DB.
+        - `travelStyle` & `preferredRegion`: Preferensi traveling dan wilayah favorit di Lombok.
+      operationId: updateCurrentUserProfile
+      tags:
+        - Profile Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguageHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Asset ownership violation (attempting to claim another user's Cloudinary asset)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 403
+                message: "You are not authorized to use or link this image asset"
+                errorCode: "UNAUTHORIZED_ASSET_ACCESS"
+        '409':
+          description: Username is already taken by another account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 409
+                message: "Username sudah digunakan"
+                errorCode: "USERNAME_ALREADY_EXISTS"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete currently authenticated user account
+      description: |
+        Menghapus akun pengguna yang sedang login secara permanen dari akses publik melalui mekanisme **Soft Delete**:
+        1. Menandai akun dengan `status: "INACTIVE"` dan `deletedAt: current_timestamp`.
+        2. Menghapus sesi refresh token dari database (`refreshToken: null`).
+        3. Menghapus seluruh token notifikasi perangkat FCM (`DeviceToken`).
+        4. Menyembunyikan postingan feed aktif yang dibuat oleh traveler (`PostStatus.DELETED`).
+        5. Membersihkan asset foto profil pada Cloudinary storage secara aman di background pasca commit database.
+        6. Pengguna tidak akan dapat login kembali menggunakan kredensial email/password maupun Google Sign-In (akan ditolak dengan HTTP 401 `ACCOUNT_DELETED`).
+      operationId: deleteCurrentUserAccount
+      tags:
+        - Account Deletion
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguageHeader'
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+              example:
+                success: true
+                message: "Akun Anda telah berhasil dihapus"
+                code: "ACCOUNT_DELETED_SUCCESS"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/avatar:
+    post:
+      summary: Upload and update user avatar image
+      description: |
+        Mengunggah file gambar avatar pengguna secara langsung ke backend melalui form multipart.
+        File akan dioptimasi dan disimpan di Cloudinary, kemudian record profil pengguna diperbarui secara otomatis.
+        File avatar lama (jika ada) akan dihapus secara aman dari Cloudinary storage.
+      operationId: uploadUserAvatar
+      tags:
+        - Profile Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguageHeader'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+                  description: File gambar avatar (JPG, PNG, atau WEBP, maks 5MB)
+      responses:
+        '200':
+          description: Avatar uploaded and profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          description: No file provided or unsupported file format
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                success: false
+                statusCode: 400
+                message: "No avatar file provided in \"avatar\", \"file\", or \"image\" field"
+                errorCode: "FILE_REQUIRED"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # 2. PASSWORD MANAGEMENT (CHANGE PASSWORD)
+  # ==========================================
+  /auth/change-password:
+    post:
+      summary: Change account password (Primary Auth Endpoint)
+      description: |
+        Mengubah kata sandi akun pengguna yang sedang terautentikasi.
+        
+        **Aturan Bisnis & Validasi:**
+        - **Akun Standar (Berbasis Password)**: Memerlukan `currentPassword` yang valid. Ditolak dengan HTTP 400 `INVALID_CURRENT_PASSWORD` jika salah.
+        - **Akun Google OAuth**: Pengguna yang awalnya mendaftar via Google Sign-In (belum memiliki password lokal) diizinkan menetapkan kata sandi pertamanya tanpa mengisi `currentPassword`.
+        - **Validasi Password Baru**: Minimal 6 karakter, maksimal 100 karakter. Ditolak jika sama persis dengan kata sandi saat ini (`SAME_PASSWORD`).
+        - **Session Revocation**: Setelah berhasil mengubah kata sandi, seluruh refresh token pengguna di database dibatalkan (`refreshToken: null`) demi mencegah pembajakan sesi.
+      operationId: changePassword
+      tags:
+        - Password Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguageHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+              example:
+                success: true
+                message: "Kata sandi berhasil diubah"
+                code: "PASSWORD_CHANGED_SUCCESS"
+        '400':
+          description: Invalid current password, identical password, or validation failure
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                wrongPassword:
+                  summary: Wrong Current Password
+                  value:
+                    success: false
+                    statusCode: 400
+                    message: "Kata sandi saat ini yang Anda masukkan salah"
+                    errorCode: "INVALID_CURRENT_PASSWORD"
+                samePassword:
+                  summary: New Password Same as Current
+                  value:
+                    success: false
+                    statusCode: 400
+                    message: "Kata sandi baru tidak boleh sama dengan kata sandi saat ini"
+                    errorCode: "SAME_PASSWORD"
+                mismatchedConfirm:
+                  summary: Mismatched Confirmation
+                  value:
+                    success: false
+                    statusCode: 400
+                    message: "Data yang dikirimkan tidak valid"
+                    errorCode: "VALIDATION_ERROR"
+                    details:
+                      - "confirmPassword: Confirm password does not match new password"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/change-password:
+    post:
+      summary: Change account password (Users Route Alias)
+      description: |
+        Endpoint alias kompatibilitas rute `/users/me/change-password` yang mengarahkan ke fungsionalitas yang sama dengan `POST /auth/change-password`.
+      operationId: changePasswordUserAlias
+      tags:
+        - Password Management
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguageHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # 3. LOGOUT & SESSION REVOCATION
+  # ==========================================
+  /auth/logout:
+    post:
+      summary: Logout current user and revoke refresh session
+      description: |
+        Mengakhiri sesi login pengguna dengan menghapus refresh token yang tersimpan di database pengguna.
+        Setelah logout, refresh token tersebut tidak lagi dapat digunakan pada endpoint `POST /auth/refresh`.
+      operationId: logoutUser
+      tags:
+        - Session & Logout
+      security:
+        - BearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AcceptLanguageHeader'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken:
+                  type: string
+                  description: Optional refresh token string to confirm specific session revocation
+                  example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+      responses:
+        '200':
+          description: Logged out successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+              example:
+                success: true
+                message: "Logout berhasil"
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+# ==========================================
+# COMPONENTS & SCHEMAS
+# ==========================================
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Masukkan JWT Access Token dengan format: `Bearer <accessToken>`.
+        Token diperoleh setelah login via `POST /auth/login` atau `POST /auth/google`.
+
+  parameters:
+    AcceptLanguageHeader:
+      name: Accept-Language
+      in: header
+      description: |
+        Header negosiasi bahasa pesan sistem dan respons error.
+        - `id-ID`: Bahasa Indonesia (Default)
+        - `en-US`: English
+      required: false
+      schema:
+        type: string
+        enum:
+          - id-ID
+          - en-US
+        default: id-ID
+        example: id-ID
+
+  responses:
+    BadRequestError:
+      description: Bad Request — Data request tidak valid atau gagal validasi Zod
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 400
+            message: "Data yang dikirimkan tidak valid"
+            errorCode: "VALIDATION_ERROR"
+            details:
+              - "newPassword: Password must be at least 6 characters"
+
+    UnauthorizedError:
+      description: Unauthorized — Access token tidak disertakan, tidak valid, atau telah kedaluwarsa
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 401
+            message: "Token autentikasi tidak valid atau telah kedaluwarsa"
+            errorCode: "UNAUTHORIZED"
+
+    InternalServerError:
+      description: Internal Server Error — Kesalahan internal server yang tidak terduga
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            success: false
+            statusCode: 500
+            message: "Terjadi kesalahan internal pada server"
+            errorCode: "INTERNAL_SERVER_ERROR"
+
+  schemas:
+    # --- ENUMS ---
+    UserRole:
+      type: string
+      enum:
+        - USER
+        - ADMIN
+      example: "USER"
+
+    TravelStyle:
+      type: string
+      enum:
+        - NATURE_ADVENTURE
+        - BEACH_RELAXATION
+        - CULTURE_HERITAGE
+        - CULINARY_EXPLORER
+        - PHOTOGRAPHY_SPOTS
+        - FAMILY_FRIENDLY
+      example: "BEACH_RELAXATION"
+
+    LombokRegion:
+      type: string
+      enum:
+        - LOMBOK_SELATAN
+        - LOMBOK_UTARA
+        - LOMBOK_BARAT
+        - LOMBOK_TIMUR
+        - LOMBOK_TENGAH
+        - GILI_ISLANDS
+      example: "LOMBOK_SELATAN"
+
+    # --- ENTITY MODELS ---
+    SanitizedUserDto:
+      type: object
+      required:
+        - id
+        - username
+        - email
+        - name
+        - role
+        - isEmailVerified
+        - createdAt
+        - updatedAt
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "e8a942f9-190a-400f-b598-ec9e489c03f2"
+        username:
+          type: string
+          example: "wahyu_traveler"
+        email:
+          type: string
+          format: email
+          example: "traveler@lombokexplorer.com"
+        name:
+          type: string
+          example: "Wahyu Pratama"
+        shortBio:
+          type: string
+          nullable: true
+          example: "Pecinta pantai tersembunyi dan penikmat sunset pulau Lombok."
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v12345/lombok-explorer/users/e8a942f9-190a-400f-b598-ec9e489c03f2/avatar.webp"
+        avatarPublicId:
+          type: string
+          nullable: true
+          example: "lombok-explorer/users/e8a942f9-190a-400f-b598-ec9e489c03f2/avatar"
+        phone:
+          type: string
+          nullable: true
+          example: "+6281234567890"
+        role:
+          $ref: '#/components/schemas/UserRole'
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+          nullable: true
+        preferredRegion:
+          $ref: '#/components/schemas/LombokRegion'
+          nullable: true
+        isEmailVerified:
+          type: boolean
+          example: true
+        hasPassword:
+          type: boolean
+          description: Menunjukkan apakah akun memiliki kata sandi lokal (false untuk pengguna murni Google Sign-In)
+          example: true
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-08-27T08:00:00.000Z"
+        updatedAt:
+          type: string
+          format: date-time
+          example: "2026-09-07T21:00:00.000Z"
+
+    # --- REQUEST MODELS ---
+    UpdateProfileRequest:
+      type: object
+      description: Payload untuk partial update profil akun. Semua field bersifat opsional.
+      properties:
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Nama lengkap pengguna (alias untuk field name)
+          example: "Wahyu Pratama"
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Nama lengkap pengguna
+          example: "Wahyu Pratama"
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9_]{3,30}$'
+          description: Username unik publik (hanya huruf kecil, angka, dan underscore)
+          example: "wahyu_pratama"
+        shortBio:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Biodata singkat pengguna (maksimal 500 karakter)
+          example: "Pecinta pantai tersembunyi dan penikmat sunset pulau Lombok."
+        bio:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Alias untuk shortBio
+          example: "Pecinta pantai tersembunyi dan penikmat sunset pulau Lombok."
+        phoneNumber:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: Nomor telepon pengguna (alias untuk phone)
+          example: "+6281234567890"
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: Nomor telepon pengguna
+          example: "+6281234567890"
+        avatarUrl:
+          type: string
+          nullable: true
+          description: URL publik foto avatar
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v12345/lombok-explorer/users/e8a942f9-190a-400f-b598-ec9e489c03f2/avatar.webp"
+        avatarPublicId:
+          type: string
+          nullable: true
+          description: Public ID Cloudinary foto avatar (diverifikasi kepemilikan foldernya)
+          example: "lombok-explorer/users/e8a942f9-190a-400f-b598-ec9e489c03f2/avatar"
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+          nullable: true
+        preferredRegion:
+          $ref: '#/components/schemas/LombokRegion'
+          nullable: true
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          description: Kata sandi saat ini (wajib untuk akun berbasis password, opsional untuk akun Google-only)
+          example: "OldPassword123!"
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: Kata sandi baru minimal 6 karakter
+          example: "NewPassword123!"
+        confirmPassword:
+          type: string
+          description: Konfirmasi kata sandi baru (opsional, jika disertakan harus cocok dengan newPassword)
+          example: "NewPassword123!"
+
+    # --- RESPONSE MODELS ---
+    UserProfileResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "User profile retrieved successfully"
+        data:
+          $ref: '#/components/schemas/SanitizedUserDto'
+
+    StandardActionResponse:
+      type: object
+      required:
+        - success
+        - message
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Action completed successfully"
+        code:
+          type: string
+          example: "SUCCESS"
+
+    ErrorResponse:
+      type: object
+      required:
+        - success
+        - message
+        - errorCode
+      properties:
+        success:
+          type: boolean
+          example: false
+        statusCode:
+          type: integer
+          example: 400
+        message:
+          type: string
+          example: "Deskripsi pesan kesalahan yang terjadi"
+        errorCode:
+          type: string
+          example: "ERROR_CODE_KEY"
+        details:
+          type: array
+          nullable: true
+          items:
+            type: string
+          example:
+            - "field_name: message error detail"

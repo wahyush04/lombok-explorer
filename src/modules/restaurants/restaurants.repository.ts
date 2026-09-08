@@ -1,9 +1,10 @@
-import { Prisma, Restaurant, RestaurantTranslation } from '@prisma/client';
+import { Prisma, Restaurant, RestaurantImage, RestaurantTranslation } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import { RestaurantFilterQuery } from './dto/restaurant.dto';
 
 export type RestaurantWithTranslations = Restaurant & {
   translations?: RestaurantTranslation[];
+  images?: RestaurantImage[];
 };
 
 export class RestaurantsRepository {
@@ -61,6 +62,9 @@ export class RestaurantsRepository {
         },
         include: {
           translations: true,
+          images: {
+            orderBy: { orderIndex: 'asc' },
+          },
         },
       }),
       prisma.restaurant.count({ where }),
@@ -80,6 +84,9 @@ export class RestaurantsRepository {
       orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }
@@ -90,14 +97,24 @@ export class RestaurantsRepository {
     if (isUuid) {
       const byId = await prisma.restaurant.findFirst({
         where: { id: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-        include: { translations: true },
+        include: {
+          translations: true,
+          images: {
+            orderBy: { orderIndex: 'asc' },
+          },
+        },
       });
       if (byId) return byId;
     }
 
     return prisma.restaurant.findFirst({
       where: { slug: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-      include: { translations: true },
+      include: {
+        translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
     });
   }
 }

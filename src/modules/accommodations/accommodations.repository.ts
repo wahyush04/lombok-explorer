@@ -1,9 +1,10 @@
-import { Accommodation, AccommodationTranslation, Prisma } from '@prisma/client';
+import { Accommodation, AccommodationImage, AccommodationTranslation, Prisma } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import { AccommodationFilterQuery } from './dto/accommodation.dto';
 
 export type AccommodationWithTranslations = Accommodation & {
   translations?: AccommodationTranslation[];
+  images?: AccommodationImage[];
 };
 
 export class AccommodationsRepository {
@@ -61,6 +62,9 @@ export class AccommodationsRepository {
         },
         include: {
           translations: true,
+          images: {
+            orderBy: { orderIndex: 'asc' },
+          },
         },
       }),
       prisma.accommodation.count({ where }),
@@ -80,6 +84,9 @@ export class AccommodationsRepository {
       orderBy: [{ rating: 'desc' }, { reviewCount: 'desc' }],
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }
@@ -90,14 +97,24 @@ export class AccommodationsRepository {
     if (isUuid) {
       const byId = await prisma.accommodation.findFirst({
         where: { id: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-        include: { translations: true },
+        include: {
+          translations: true,
+          images: {
+            orderBy: { orderIndex: 'asc' },
+          },
+        },
       });
       if (byId) return byId;
     }
 
     return prisma.accommodation.findFirst({
       where: { slug: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-      include: { translations: true },
+      include: {
+        translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
+      },
     });
   }
 }

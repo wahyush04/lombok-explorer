@@ -31,6 +31,16 @@ export const destinationImageParamsSchema = z.object({
   imageId: z.string().trim().optional(),
 });
 
+export const accommodationImageParamsSchema = z.object({
+  id: z.string().trim().min(1, 'Accommodation ID cannot be empty'),
+  imageId: z.string().trim().optional(),
+});
+
+export const restaurantImageParamsSchema = z.object({
+  id: z.string().trim().min(1, 'Restaurant ID cannot be empty'),
+  imageId: z.string().trim().optional(),
+});
+
 export const paginationSchema = z.object({
   page: z.coerce.number().int().min(1, 'Page must be greater than or equal to 1').default(1),
   limit: z.coerce

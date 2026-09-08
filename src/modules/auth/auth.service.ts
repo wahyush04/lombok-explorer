@@ -95,7 +95,9 @@ export class AuthService {
       username: user.username,
       email: user.email,
       name: user.name,
+      shortBio: user.shortBio ?? null,
       avatarUrl: user.avatarUrl,
+      avatarPublicId: user.avatarPublicId ?? null,
       phone: user.phone,
       role: user.role,
       travelStyle: user.travelStyle,
@@ -177,7 +179,7 @@ export class AuthService {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }
 
-    const user = await this.repository.findByEmailOrUsername(rawIdentifier);
+    const user = await this.repository.findByEmailOrUsername(rawIdentifier, true);
     if (!user) {
       throw new UnauthorizedError('Invalid email or password', 'INVALID_CREDENTIALS');
     }

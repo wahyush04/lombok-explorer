@@ -17,7 +17,9 @@ const RESOURCE_FOLDER_MAP: Record<AdminUploadResourceType, string> = {
   DESTINATION: 'destinations',
   DESTINATION_IMAGE: 'destinations',
   RESTAURANT: 'restaurants',
+  RESTAURANT_IMAGE: 'restaurants',
   ACCOMMODATION: 'accommodations',
+  ACCOMMODATION_IMAGE: 'accommodations',
   ITINERARY_TEMPLATE: 'itinerary-templates',
   CATEGORY: 'categories',
   USER: 'users',
@@ -170,22 +172,43 @@ export class CloudinaryService {
 
   /**
    * Validates that the publicId belongs to the authenticated user and matches expected folder hierarchy.
+   * Supports both 'feeds/{userId}/...' and 'users/{userId}/...' structures.
    */
-  public validateAssetOwnership(publicId: string, expectedUserId: string): boolean {
+  public validateAssetOwnership(
+    publicId: string,
+    expectedUserId: string,
+    allowedFolderType: 'feeds' | 'users' | 'any' = 'any',
+  ): boolean {
     if (!publicId || typeof publicId !== 'string') {
       throw new BadRequestError('Invalid or empty image publicId', 'INVALID_PUBLIC_ID');
     }
 
-    // Expected pattern: (optional root/)feeds/{userId}/{uuid}/{image_id}
-    const expectedPrefix = `${this.rootFolder}/feeds/${expectedUserId}/`;
-    const fallbackPrefix = `feeds/${expectedUserId}/`;
+    const feedPrefix = `${this.rootFolder}/feeds/${expectedUserId}/`;
+    const fallbackFeedPrefix = `feeds/${expectedUserId}/`;
+    const userPrefix = `${this.rootFolder}/users/${expectedUserId}/`;
+    const fallbackUserPrefix = `users/${expectedUserId}/`;
+    const userDirectPrefix = `${this.rootFolder}/users/${expectedUserId}`;
+    const fallbackUserDirectPrefix = `users/${expectedUserId}`;
 
-    const isValidUserAsset =
-      publicId.startsWith(expectedPrefix) || publicId.startsWith(fallbackPrefix);
+    const isFeedAsset = publicId.startsWith(feedPrefix) || publicId.startsWith(fallbackFeedPrefix);
+    const isUserAsset =
+      publicId.startsWith(userPrefix) ||
+      publicId.startsWith(fallbackUserPrefix) ||
+      publicId === userDirectPrefix ||
+      publicId === fallbackUserDirectPrefix;
 
-    if (!isValidUserAsset) {
+    let isValid = false;
+    if (allowedFolderType === 'feeds') {
+      isValid = isFeedAsset;
+    } else if (allowedFolderType === 'users') {
+      isValid = isUserAsset;
+    } else {
+      isValid = isFeedAsset || isUserAsset;
+    }
+
+    if (!isValid) {
       logger.warn(
-        { publicId, expectedUserId, expectedPrefix },
+        { publicId, expectedUserId, allowedFolderType },
         '⛔ Security Violation: User attempted to use a Cloudinary asset not belonging to their folder',
       );
       throw new ForbiddenError(

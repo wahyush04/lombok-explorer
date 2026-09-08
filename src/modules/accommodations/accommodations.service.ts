@@ -9,12 +9,35 @@ export class AccommodationsService {
   constructor(private readonly repository: AccommodationsRepository = accommodationsRepository) {}
 
   public mapToDto = (accommodation: AccommodationWithTranslations, locale: string = DEFAULT_LOCALE): AccommodationDto => {
-    let parsedImages: string[] = [];
-    if (accommodation.images) {
+    const imagesList: string[] = [];
+    if (accommodation.coverImageUrl) {
+      imagesList.push(accommodation.coverImageUrl);
+    }
+    if (Array.isArray(accommodation.images)) {
+      accommodation.images.forEach((img: any) => {
+        if (typeof img === 'string') {
+          if (!imagesList.includes(img)) imagesList.push(img);
+        } else if (
+          img &&
+          typeof img === 'object' &&
+          'imageUrl' in img &&
+          !imagesList.includes(img.imageUrl)
+        ) {
+          imagesList.push(img.imageUrl);
+        }
+      });
+    } else if (typeof (accommodation as any).images === 'string') {
       try {
-        parsedImages = JSON.parse(accommodation.images);
+        const parsed = JSON.parse((accommodation as any).images);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((url: string) => {
+            if (url && !imagesList.includes(url)) imagesList.push(url);
+          });
+        }
       } catch {
-        parsedImages = [accommodation.images];
+        if (!imagesList.includes((accommodation as any).images)) {
+          imagesList.push((accommodation as any).images);
+        }
       }
     }
 
@@ -50,7 +73,7 @@ export class AccommodationsService {
       longitude: accommodation.longitude,
       coverImageUrl: accommodation.coverImageUrl,
       coverImagePublicId: accommodation.coverImagePublicId,
-      images: parsedImages,
+      images: imagesList,
       amenities: parsedAmenities,
       contactPhone: accommodation.contactPhone,
       websiteUrl: accommodation.websiteUrl,

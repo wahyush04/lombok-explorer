@@ -8,6 +8,7 @@ import {
   RefreshTokenDtoSchema,
   RegisterDtoSchema,
 } from './dto/auth.dto';
+import { ChangePasswordSchema } from '../users/dto/user.dto';
 import { authenticate } from '../../common/middleware/auth.middleware';
 import { authLimiter } from '../../common/middleware/rate-limit.middleware';
 
@@ -32,6 +33,12 @@ router.post('/refresh-token', validate(RefreshTokenDtoSchema), authController.re
 router.post('/google/link', authenticate, validate(GoogleAuthDtoSchema), authController.linkGoogle);
 router.delete('/google/link', authenticate, authController.unlinkGoogle);
 router.get('/providers', authenticate, authController.getAuthProviders);
+router.post(
+  '/change-password',
+  authenticate,
+  validate({ body: ChangePasswordSchema }),
+  authController.changePassword,
+);
 router.post('/logout', authenticate, authController.logout);
 router.get('/me', authenticate, authController.getMe);
 

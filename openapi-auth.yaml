@@ -447,6 +447,158 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /auth/change-password:
+    post:
+      summary: Change password for authenticated user
+      description: |
+        Mengubah kata sandi pengguna yang sedang login.
+        - Memverifikasi `currentPassword` untuk pengguna berbasis password.
+        - Memvalidasi `newPassword` (6-100 karakter, tidak boleh sama dengan password lama).
+        - Mengizinkan penetapan password pertama bagi akun Google-only tanpa `currentPassword`.
+        - Menginvalidasi seluruh refresh token / sesi aktif setelah berhasil.
+      operationId: changePassword
+      tags:
+        - User Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  # ==========================================
+  # USER PROFILE & ACCOUNT SETTINGS
+  # ==========================================
+  /users/me:
+    get:
+      summary: Get currently authenticated user profile
+      description: |
+        Mengambil profil lengkap pengguna yang sedang login termasuk status autentikasi, bio, dan kontak.
+      operationId: getUserProfileMe
+      tags:
+        - Username & Identity
+        - User Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      summary: Update currently authenticated user profile
+      description: |
+        Memperbarui data profil pengguna sendiri (partial update).
+        - Dapat mengubah: `name` / `fullName`, `username` (tetap unik), `phone` / `phoneNumber`, `shortBio` / `bio`, `avatarUrl`, `avatarPublicId`, serta preferensi wisata.
+        - Memvalidasi kepemilikan asset Cloudinary (`avatarPublicId`) dan membersihkan avatar lama pasca transaksi DB.
+      operationId: updateUserProfileMe
+      tags:
+        - Username & Identity
+        - User Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateProfileRequest'
+      responses:
+        '200':
+          description: Profile updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfileResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '409':
+          description: Username already taken
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      summary: Delete currently authenticated user account
+      description: |
+        Menghapus akun pengguna yang sedang login secara aman (soft delete).
+        - Menandai akun sebagai `INACTIVE` dengan `deletedAt`.
+        - Menginvalidasi seluruh refresh token sesi dan FCM device tokens.
+        - Menyembunyikan feed post milik traveler.
+        - Membersihkan asset avatar Cloudinary secara aman.
+      operationId: deleteUserAccountMe
+      tags:
+        - User Authentication
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/change-password:
+    post:
+      summary: Change password (User profile alias)
+      description: Alias untuk endpoint `POST /auth/change-password`.
+      operationId: changePasswordUsersMe
+      tags:
+        - User Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # ==========================================
   # USERNAME VALIDATION & AVAILABILITY CHECK
   # ==========================================
@@ -824,10 +976,18 @@ components:
         name:
           type: string
           example: "Wahyu Traveler"
+        shortBio:
+          type: string
+          nullable: true
+          example: "Travel enthusiast exploring every corner of Lombok."
         avatarUrl:
           type: string
           nullable: true
           example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        avatarPublicId:
+          type: string
+          nullable: true
+          example: "lombok-explorer/users/user123/avatar"
         phone:
           type: string
           nullable: true
@@ -996,6 +1156,83 @@ components:
           maxLength: 100
           description: Kata sandi yang akan ditetapkan untuk akun baru
           example: "securePassword@2026"
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          description: Kata sandi saat ini (diperlukan bagi akun yang sudah memiliki kata sandi)
+          example: "CurrentPassword123!"
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: Kata sandi baru minimal 6 karakter
+          example: "NewPassword123!"
+        confirmPassword:
+          type: string
+          description: Konfirmasi kata sandi baru (opsional, jika dikirim harus sama persis dengan newPassword)
+          example: "NewPassword123!"
+
+    UpdateProfileRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "Wahyu Pratama"
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Alias untuk name
+          example: "Wahyu Pratama"
+        username:
+          type: string
+          minLength: 3
+          maxLength: 30
+          pattern: '^[a-z0-9_]{3,30}$'
+          example: "wahyu_new"
+        shortBio:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: "Petualang dan penikmat wisata alam pulau Lombok."
+        bio:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Alias untuk shortBio
+          example: "Petualang dan penikmat wisata alam pulau Lombok."
+        phone:
+          type: string
+          maxLength: 20
+          nullable: true
+          example: "+6281234567890"
+        phoneNumber:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: Alias untuk phone
+          example: "+6281234567890"
+        avatarUrl:
+          type: string
+          nullable: true
+          example: "https://res.cloudinary.com/tzccdgab/image/upload/v12345/lombok-explorer/users/user123/avatar.webp"
+        avatarPublicId:
+          type: string
+          nullable: true
+          example: "lombok-explorer/users/user123/avatar"
+        travelStyle:
+          $ref: '#/components/schemas/TravelStyle'
+          nullable: true
+        preferredRegion:
+          $ref: '#/components/schemas/LombokRegion'
+          nullable: true
 
     # --- RESPONSE PAYLOAD SCHEMAS ---
     AuthTokenData:

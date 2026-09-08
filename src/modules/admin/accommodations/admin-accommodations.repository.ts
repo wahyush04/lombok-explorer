@@ -1,9 +1,10 @@
-import { Prisma, Accommodation, AccommodationTranslation } from '@prisma/client';
+import { Prisma, Accommodation, AccommodationImage, AccommodationTranslation } from '@prisma/client';
 import { prisma } from '../../../database/prisma';
 import { AdminAccommodationFilterQuery } from './dto/admin-accommodation.dto';
 
 export type AccommodationWithTranslations = Accommodation & {
   translations?: AccommodationTranslation[];
+  images?: AccommodationImage[];
 };
 
 export class AdminAccommodationsRepository {
@@ -74,6 +75,9 @@ export class AdminAccommodationsRepository {
         orderBy: { [sortBy]: order },
         include: {
           translations: true,
+          images: {
+            orderBy: { orderIndex: 'asc' },
+          },
         },
       }),
       prisma.accommodation.count({ where }),
@@ -93,6 +97,9 @@ export class AdminAccommodationsRepository {
       },
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }
@@ -114,6 +121,9 @@ export class AdminAccommodationsRepository {
       data,
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }
@@ -124,6 +134,9 @@ export class AdminAccommodationsRepository {
       data,
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }

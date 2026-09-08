@@ -162,6 +162,55 @@ export const createApp = (): Application => {
       );
     }
 
+    const accountSettingsOpenApiPath = path.resolve(process.cwd(), 'openapi-account-settings.yaml');
+
+    // 8b.1 Account Settings OpenAPI Documentation (/api/docs/account-settings)
+    if (fs.existsSync(accountSettingsOpenApiPath)) {
+      const accountSettingsFileContent = fs.readFileSync(accountSettingsOpenApiPath, 'utf8');
+      const accountSettingsSwaggerDoc = yaml.parse(accountSettingsFileContent);
+
+      const accountSettingsUiOptions: swaggerUi.SwaggerUiOptions = {
+        customSiteTitle: 'Lombok Explorer Account Settings API Documentation',
+        customCss: `
+          .swagger-ui .topbar { display: none }
+          .swagger-ui .info { margin-bottom: 24px; }
+          .swagger-ui .scheme-container { background: #fdf2f8; padding: 16px; border-radius: 8px; margin-bottom: 24px; }
+        `,
+        swaggerOptions: {
+          persistAuthorization: true,
+          displayRequestDuration: true,
+          docExpansion: 'none',
+          filter: true,
+          tryItOutEnabled: true,
+        },
+      };
+
+      app.get('/api/docs/account-settings/json', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'application/json');
+        res.json(accountSettingsSwaggerDoc);
+      });
+      app.get('/api/docs/account-settings/yaml', (_req: Request, res: Response) => {
+        res.setHeader('Content-Type', 'text/yaml; charset=utf-8');
+        res.send(accountSettingsFileContent);
+      });
+
+      app.use(
+        '/api/docs/account-settings',
+        swaggerUi.serveFiles(accountSettingsSwaggerDoc, accountSettingsUiOptions),
+        swaggerUi.setup(accountSettingsSwaggerDoc, accountSettingsUiOptions),
+      );
+      app.use(
+        '/docs/account-settings',
+        swaggerUi.serveFiles(accountSettingsSwaggerDoc, accountSettingsUiOptions),
+        swaggerUi.setup(accountSettingsSwaggerDoc, accountSettingsUiOptions),
+      );
+      app.use(
+        '/docs/account',
+        swaggerUi.serveFiles(accountSettingsSwaggerDoc, accountSettingsUiOptions),
+        swaggerUi.setup(accountSettingsSwaggerDoc, accountSettingsUiOptions),
+      );
+    }
+
     const feedOpenApiPath = path.resolve(process.cwd(), 'openapi-feed.yaml');
 
     // 8c. Feed & Community OpenAPI Documentation (/api/docs/feed & /api/docs/feeds)
@@ -376,6 +425,7 @@ export const createApp = (): Application => {
         docs: '/api/docs',
         exploreDocs: '/api/docs/explore',
         authDocs: '/api/docs/auth',
+        accountSettingsDocs: '/api/docs/account-settings',
         feedDocs: '/api/docs/feed',
         itineraryDocs: '/api/docs/itinerary',
         adminDocs: '/api/docs/admin',

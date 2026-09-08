@@ -555,6 +555,36 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /auth/change-password:
+    post:
+      summary: Change password for currently authenticated user
+      description: |
+        Verifies current password and updates to new password. Invalidates refresh token sessions upon success.
+      operationId: changePasswordAuth
+      tags:
+        - Authentication
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # ==========================================
   # USERS & PROFILES
   # ==========================================
@@ -642,6 +672,55 @@ paths:
                 success: false
                 message: "Username is already taken"
                 errorCode: "USERNAME_ALREADY_EXISTS"
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Delete currently authenticated user account
+      description: |
+        Safely deletes the user account (soft delete), revokes active session tokens, deactivates device tokens, and cleans up Cloudinary assets.
+      operationId: deleteUserAccount
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Account deleted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /users/me/change-password:
+    post:
+      summary: Change password for currently authenticated user (Users alias)
+      description: Alias for POST /auth/change-password
+      operationId: changePasswordUserMe
+      tags:
+        - Users
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ActionSuccessResponse'
+        '400':
+          $ref: '#/components/responses/BadRequestError'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -3176,6 +3255,14 @@ components:
           type: string
           nullable: true
           example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        avatarPublicId:
+          type: string
+          nullable: true
+          example: "lombok-explorer/users/user123/avatar"
+        shortBio:
+          type: string
+          nullable: true
+          example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
         bio:
           type: string
           nullable: true
@@ -3426,38 +3513,84 @@ components:
     UpdateProfileRequest:
       type: object
       properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+          example: "Wahyu Syarif"
+        fullName:
+          type: string
+          minLength: 2
+          maxLength: 100
+          description: Alias for name
+          example: "Wahyu Syarif"
         username:
           type: string
           minLength: 3
           maxLength: 30
           pattern: '^[a-z0-9_]{3,30}$'
           example: "wahyu_syarif"
-        name:
-          type: string
-          minLength: 2
-          maxLength: 100
-          example: "Wahyu Syarif"
         avatarUrl:
           type: string
           nullable: true
           example: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?q=80&w=200"
+        avatarPublicId:
+          type: string
+          nullable: true
+          example: "lombok-explorer/users/user123/avatar"
+        shortBio:
+          type: string
+          maxLength: 500
+          nullable: true
+          example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
         bio:
           type: string
           maxLength: 500
+          nullable: true
+          description: Alias for shortBio
           example: "Travel enthusiast passionate about exploring tropical beaches & waterfalls."
         phone:
           type: string
+          maxLength: 20
           nullable: true
+          example: "+6281234567890"
+        phoneNumber:
+          type: string
+          maxLength: 20
+          nullable: true
+          description: Alias for phone
           example: "+6281234567890"
         travelStyle:
           $ref: '#/components/schemas/TravelStyle'
+          nullable: true
         preferredRegion:
           $ref: '#/components/schemas/LombokRegion'
+          nullable: true
         preferences:
           type: array
           items:
             type: string
           example: ["Snorkeling", "Sunset Point", "Culinary"]
+
+    ChangePasswordRequest:
+      type: object
+      required:
+        - newPassword
+      properties:
+        currentPassword:
+          type: string
+          description: Current user password (required for password-based accounts)
+          example: "CurrentPassword123!"
+        newPassword:
+          type: string
+          minLength: 6
+          maxLength: 100
+          description: New password (min 6 characters)
+          example: "NewPassword123!"
+        confirmPassword:
+          type: string
+          description: Optional confirmation matching newPassword
+          example: "NewPassword123!"
 
     UpdateProfileResponse:
       type: object
@@ -4333,6 +4466,9 @@ components:
           type: array
           items:
             type: string
+          example:
+            - "https://images.unsplash.com/photo-1504674900247-0877df9cc836?q=80&w=600"
+            - "https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=600"
         isHalalCertified:
           type: boolean
           example: true
@@ -4422,6 +4558,9 @@ components:
           type: array
           items:
             type: string
+          example:
+            - "https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=600"
+            - "https://images.unsplash.com/photo-1582719508461-905c673771fd?q=80&w=600"
         amenities:
           type: array
           items:

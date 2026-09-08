@@ -14,4 +14,9 @@ export const authId: TranslationDictionary = {
   FORBIDDEN_ROLE: 'Anda tidak memiliki hak akses untuk tindakan ini',
   PASSWORD_RESET_SUCCESS: 'Kata sandi berhasil direset',
   PASSWORD_RESET_REQUESTED: 'Instruksi reset kata sandi telah dikirim ke email Anda',
+  PASSWORD_CHANGED_SUCCESS: 'Kata sandi berhasil diubah',
+  INVALID_CURRENT_PASSWORD: 'Kata sandi saat ini yang Anda masukkan salah',
+  SAME_PASSWORD: 'Kata sandi baru tidak boleh sama dengan kata sandi saat ini',
+  ACCOUNT_DELETED_SUCCESS: 'Akun Anda telah berhasil dihapus',
 };
+

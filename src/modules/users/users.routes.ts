@@ -1,10 +1,14 @@
 import { Router } from 'express';
 import { authenticate, optionalAuthenticate } from '../../common/middleware/auth.middleware';
-import { generalLimiter } from '../../common/middleware/rate-limit.middleware';
+import { authLimiter, generalLimiter } from '../../common/middleware/rate-limit.middleware';
 import { validate } from '../../common/middleware/validate.middleware';
 import { uploadFlexibleSingleImage } from '../storage/storage.middleware';
 import { FeedQueryDtoSchema, feedsController } from '../feeds';
-import { CheckUsernameQuerySchema, UpdateProfileSchema } from './dto/user.dto';
+import {
+  ChangePasswordSchema,
+  CheckUsernameQuerySchema,
+  UpdateProfileSchema,
+} from './dto/user.dto';
 import { usersController } from './users.controller';
 
 const router = Router();
@@ -31,7 +35,19 @@ router.patch(
 // 4. Upload User Avatar (Authenticated, Cloudinary)
 router.post('/me/avatar', authenticate, uploadFlexibleSingleImage, usersController.uploadAvatar);
 
-// 4. Public Profile Feed Posts
+// 5. Change Password (Authenticated, Rate-limited)
+router.post(
+  '/me/change-password',
+  authenticate,
+  authLimiter,
+  validate({ body: ChangePasswordSchema }),
+  usersController.changePassword,
+);
+
+// 6. Delete Account (Authenticated)
+router.delete('/me', authenticate, usersController.deleteAccount);
+
+// 7. Public Profile Feed Posts
 router.get(
   '/:userId/posts',
   optionalAuthenticate,

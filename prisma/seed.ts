@@ -136,6 +136,8 @@ async function main(): Promise<void> {
   await prisma.review.deleteMany({});
   await prisma.favorite.deleteMany({});
   await prisma.destinationImage.deleteMany({});
+  await prisma.restaurantImage.deleteMany({});
+  await prisma.accommodationImage.deleteMany({});
   await prisma.destination.deleteMany({});
   await prisma.category.deleteMany({});
   await prisma.restaurant.deleteMany({});
@@ -155,6 +157,7 @@ async function main(): Promise<void> {
       username: 'bima_arya',
       password: passwordHash,
       name: 'Bima Arya Pratama',
+      shortBio: 'Pecinta pantai eksotis dan penjelajah hidden gems Lombok Selatan.',
       avatarUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
       avatarPublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
       role: UserRole.USER,
@@ -218,6 +221,7 @@ async function main(): Promise<void> {
       username: 'hendra_rinjani',
       password: passwordHash,
       name: 'Lalu Hendra Rinjani',
+      shortBio: 'Pemandu lokal berlisensi dan pendaki aktif Taman Nasional Gunung Rinjani.',
       avatarUrl: CLOUDINARY_MEDIA.gunung_rinjani.url,
       avatarPublicId: CLOUDINARY_MEDIA.gunung_rinjani.publicId,
       role: UserRole.USER,
@@ -1611,12 +1615,39 @@ async function main(): Promise<void> {
   ];
 
   for (const rest of restaurantsData) {
+    const { images: _unused, ...restData } = rest;
     await prisma.restaurant.create({
       data: {
-        ...rest,
+        ...restData,
         coverImageUrl: CLOUDINARY_MEDIA.kuliner_sasak.url,
         coverImagePublicId: CLOUDINARY_MEDIA.kuliner_sasak.publicId,
-        images: JSON.stringify([CLOUDINARY_MEDIA.kuliner_sasak.url, CLOUDINARY_MEDIA.sunset_senggigi.url]),
+        images: {
+          create: [
+            {
+              imageUrl: CLOUDINARY_MEDIA.kuliner_sasak.url,
+              imagePublicId: CLOUDINARY_MEDIA.kuliner_sasak.publicId,
+              caption: `${rest.name} Main View`,
+              altText: rest.name,
+              orderIndex: 0,
+              isPrimary: true,
+            },
+            {
+              imageUrl: CLOUDINARY_MEDIA.sunset_senggigi.url,
+              imagePublicId: CLOUDINARY_MEDIA.sunset_senggigi.publicId,
+              caption: `${rest.name} Dining Atmosphere`,
+              altText: `${rest.name} Atmosphere`,
+              orderIndex: 1,
+              isPrimary: false,
+            },
+            {
+              imageUrl: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=800',
+              caption: `${rest.name} Signature Culinary`,
+              altText: `${rest.name} Culinary`,
+              orderIndex: 2,
+              isPrimary: false,
+            },
+          ],
+        },
       },
     });
   }
@@ -1768,12 +1799,39 @@ async function main(): Promise<void> {
   ];
 
   for (const acc of accommodationsData) {
+    const { images: _unused, ...accData } = acc;
     await prisma.accommodation.create({
       data: {
-        ...acc,
+        ...accData,
         coverImageUrl: CLOUDINARY_MEDIA.sunset_senggigi.url,
         coverImagePublicId: CLOUDINARY_MEDIA.sunset_senggigi.publicId,
-        images: JSON.stringify([CLOUDINARY_MEDIA.sunset_senggigi.url, CLOUDINARY_MEDIA.pantai_kuta.url]),
+        images: {
+          create: [
+            {
+              imageUrl: CLOUDINARY_MEDIA.sunset_senggigi.url,
+              imagePublicId: CLOUDINARY_MEDIA.sunset_senggigi.publicId,
+              caption: `${acc.name} Exterior`,
+              altText: acc.name,
+              orderIndex: 0,
+              isPrimary: true,
+            },
+            {
+              imageUrl: CLOUDINARY_MEDIA.pantai_kuta.url,
+              imagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
+              caption: `${acc.name} Scenic View`,
+              altText: `${acc.name} View`,
+              orderIndex: 1,
+              isPrimary: false,
+            },
+            {
+              imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?q=80&w=800',
+              caption: `${acc.name} Suite & Room`,
+              altText: `${acc.name} Room`,
+              orderIndex: 2,
+              isPrimary: false,
+            },
+          ],
+        },
       },
     });
   }

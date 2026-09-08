@@ -11,11 +11,15 @@ import {
 import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
 import { authenticateAdmin } from '../../../common/middleware/auth.middleware';
+import { adminAccommodationImageRoutes } from '../accommodation-images/admin-accommodation-images.routes';
 
 const router = Router();
 
 // Apply authenticateAdmin across all accommodation management routes
 router.use(authenticateAdmin);
+
+// Accommodation Images Sub-Router (/api/v1/admin/accommodations/:id/images/*)
+router.use('/:id/images', adminAccommodationImageRoutes);
 
 // 1. List & filter accommodations
 router.get(

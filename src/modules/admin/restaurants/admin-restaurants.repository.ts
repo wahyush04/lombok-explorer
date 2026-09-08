@@ -1,9 +1,10 @@
-import { Prisma, Restaurant, RestaurantTranslation } from '@prisma/client';
+import { Prisma, Restaurant, RestaurantImage, RestaurantTranslation } from '@prisma/client';
 import { prisma } from '../../../database/prisma';
 import { AdminRestaurantFilterQuery } from './dto/admin-restaurant.dto';
 
 export type RestaurantWithTranslations = Restaurant & {
   translations?: RestaurantTranslation[];
+  images?: RestaurantImage[];
 };
 
 export class AdminRestaurantsRepository {
@@ -73,6 +74,9 @@ export class AdminRestaurantsRepository {
         orderBy: { [sortBy]: order },
         include: {
           translations: true,
+          images: {
+            orderBy: { orderIndex: 'asc' },
+          },
         },
       }),
       prisma.restaurant.count({ where }),
@@ -92,6 +96,9 @@ export class AdminRestaurantsRepository {
       },
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }
@@ -113,6 +120,9 @@ export class AdminRestaurantsRepository {
       data,
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }
@@ -123,6 +133,9 @@ export class AdminRestaurantsRepository {
       data,
       include: {
         translations: true,
+        images: {
+          orderBy: { orderIndex: 'asc' },
+        },
       },
     });
   }

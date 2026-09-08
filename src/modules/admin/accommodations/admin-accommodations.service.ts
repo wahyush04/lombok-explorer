@@ -23,12 +23,29 @@ export class AdminAccommodationsService {
   ) {}
 
   public mapToDto = (accommodation: Accommodation): AdminAccommodationDto => {
-    let parsedImages: string[] = [];
-    if (accommodation.images) {
+    const imagesList: string[] = [];
+    if (accommodation.coverImageUrl) {
+      imagesList.push(accommodation.coverImageUrl);
+    }
+    const rawImages = (accommodation as any).images;
+    if (Array.isArray(rawImages)) {
+      rawImages.forEach((img: any) => {
+        if (typeof img === 'string') {
+          if (!imagesList.includes(img)) imagesList.push(img);
+        } else if (img && typeof img === 'object' && 'imageUrl' in img) {
+          if (!imagesList.includes(img.imageUrl)) imagesList.push(img.imageUrl);
+        }
+      });
+    } else if (typeof rawImages === 'string') {
       try {
-        parsedImages = JSON.parse(accommodation.images);
+        const parsed = JSON.parse(rawImages);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((url: string) => {
+            if (url && !imagesList.includes(url)) imagesList.push(url);
+          });
+        }
       } catch {
-        parsedImages = [];
+        if (!imagesList.includes(rawImages)) imagesList.push(rawImages);
       }
     }
 
@@ -68,7 +85,7 @@ export class AdminAccommodationsService {
       longitude: accommodation.longitude,
       coverImageUrl: accommodation.coverImageUrl,
       coverImagePublicId: accommodation.coverImagePublicId,
-      images: parsedImages,
+      images: imagesList,
       facilities: parsedAmenities,
       amenities: parsedAmenities,
       contactPhone: accommodation.contactPhone,
@@ -156,10 +173,18 @@ export class AdminAccommodationsService {
       throw new BadRequestError('Cover image is required', 'COVER_IMAGE_REQUIRED');
     }
 
-    // 3. Resolve gallery images
-    const imagesList: string[] = [];
+    // 3. Resolve multiple gallery images
+    const imagesToCreate: Array<{
+      imageUrl: string;
+      imagePublicId?: string | null;
+      caption?: string | null;
+      altText?: string | null;
+      orderIndex: number;
+      isPrimary: boolean;
+    }> = [];
+
     if (Array.isArray(dto.images) && dto.images.length > 0) {
-      dto.images.forEach((item) => {
+      dto.images.forEach((item, index) => {
         if (typeof item === 'object' && item !== null) {
           const asset = item as CloudinaryAssetInput;
           if (asset.publicId) {
@@ -172,9 +197,20 @@ export class AdminAccommodationsService {
             }
             newPublicIds.push(asset.publicId);
           }
-          imagesList.push(asset.secureUrl);
+          imagesToCreate.push({
+            imageUrl: asset.secureUrl,
+            imagePublicId: asset.publicId || null,
+            caption: asset.caption || null,
+            altText: asset.altText || null,
+            orderIndex: asset.orderIndex !== undefined ? asset.orderIndex : index,
+            isPrimary: asset.isPrimary ?? false,
+          });
         } else if (typeof item === 'string' && item.trim().length > 0) {
-          imagesList.push(item.trim());
+          imagesToCreate.push({
+            imageUrl: item.trim(),
+            orderIndex: index,
+            isPrimary: false,
+          });
         }
       });
     }
@@ -198,7 +234,11 @@ export class AdminAccommodationsService {
             longitude: dto.longitude,
             coverImageUrl,
             coverImagePublicId,
-            images: JSON.stringify(imagesList),
+            ...(imagesToCreate.length > 0 && {
+              images: {
+                create: imagesToCreate,
+              },
+            }),
             amenities: JSON.stringify(amenitiesList),
             contactPhone: dto.contactPhone || null,
             websiteUrl: dto.websiteUrl || null,
@@ -317,24 +357,32 @@ export class AdminAccommodationsService {
     }
 
     // Resolve gallery images
-    let imagesJsonToUpdate: string | undefined = undefined;
-    let existingImagesList: string[] = [];
-    if (existing.images) {
-      try {
-        existingImagesList = JSON.parse(existing.images);
-      } catch {
-        existingImagesList = [existing.images];
-      }
-    }
-    const existingImagesSet = new Set(existingImagesList.filter(Boolean));
+    let imagesCreateData:
+      | Array<{
+          imageUrl: string;
+          imagePublicId?: string | null;
+          caption?: string | null;
+          altText?: string | null;
+          orderIndex: number;
+          isPrimary: boolean;
+        }>
+      | undefined = undefined;
+
+    const existingImagePublicIds = new Set(
+      ((existing as any).images || []).map((img: any) => img.imagePublicId).filter(Boolean),
+    );
+    const existingImageUrls = new Set(
+      ((existing as any).images || []).map((img: any) => img.imageUrl).filter(Boolean),
+    );
 
     if (Array.isArray(dto.images)) {
-      const imagesList: string[] = [];
-      dto.images.forEach((item) => {
+      imagesCreateData = [];
+      dto.images.forEach((item, index) => {
         if (typeof item === 'object' && item !== null) {
           const asset = item as CloudinaryAssetInput;
           const isExistingGalleryImage = Boolean(
-            asset.secureUrl && existingImagesSet.has(asset.secureUrl),
+            (asset.publicId && existingImagePublicIds.has(asset.publicId)) ||
+            (asset.secureUrl && existingImageUrls.has(asset.secureUrl)),
           );
 
           if (asset.publicId && adminUserId && !isExistingGalleryImage) {
@@ -345,12 +393,22 @@ export class AdminAccommodationsService {
             );
             newPublicIds.push(asset.publicId);
           }
-          imagesList.push(asset.secureUrl);
+          imagesCreateData!.push({
+            imageUrl: asset.secureUrl,
+            imagePublicId: asset.publicId || null,
+            caption: asset.caption || null,
+            altText: asset.altText || null,
+            orderIndex: asset.orderIndex !== undefined ? asset.orderIndex : index,
+            isPrimary: asset.isPrimary ?? false,
+          });
         } else if (typeof item === 'string' && item.trim().length > 0) {
-          imagesList.push(item.trim());
+          imagesCreateData!.push({
+            imageUrl: item.trim(),
+            orderIndex: index,
+            isPrimary: false,
+          });
         }
       });
-      imagesJsonToUpdate = JSON.stringify(imagesList);
     }
 
     const amenitiesList = dto.facilities || dto.amenities;
@@ -374,7 +432,12 @@ export class AdminAccommodationsService {
             ...(coverImagePublicIdToUpdate !== undefined && {
               coverImagePublicId: coverImagePublicIdToUpdate,
             }),
-            ...(imagesJsonToUpdate !== undefined && { images: imagesJsonToUpdate }),
+            ...(imagesCreateData !== undefined && {
+              images: {
+                deleteMany: {},
+                create: imagesCreateData,
+              },
+            }),
             ...(amenitiesList && { amenities: JSON.stringify(amenitiesList) }),
             ...(dto.contactPhone !== undefined && { contactPhone: dto.contactPhone }),
             ...(dto.websiteUrl !== undefined && { websiteUrl: dto.websiteUrl }),

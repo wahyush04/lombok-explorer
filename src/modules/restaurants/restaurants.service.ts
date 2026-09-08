@@ -9,12 +9,35 @@ export class RestaurantsService {
   constructor(private readonly repository: RestaurantsRepository = restaurantsRepository) {}
 
   public mapToDto = (restaurant: RestaurantWithTranslations, locale: string = DEFAULT_LOCALE): RestaurantDto => {
-    let parsedImages: string[] = [];
-    if (restaurant.images) {
+    const imagesList: string[] = [];
+    if (restaurant.coverImageUrl) {
+      imagesList.push(restaurant.coverImageUrl);
+    }
+    if (Array.isArray(restaurant.images)) {
+      restaurant.images.forEach((img: any) => {
+        if (typeof img === 'string') {
+          if (!imagesList.includes(img)) imagesList.push(img);
+        } else if (
+          img &&
+          typeof img === 'object' &&
+          'imageUrl' in img &&
+          !imagesList.includes(img.imageUrl)
+        ) {
+          imagesList.push(img.imageUrl);
+        }
+      });
+    } else if (typeof (restaurant as any).images === 'string') {
       try {
-        parsedImages = JSON.parse(restaurant.images);
+        const parsed = JSON.parse((restaurant as any).images);
+        if (Array.isArray(parsed)) {
+          parsed.forEach((url: string) => {
+            if (url && !imagesList.includes(url)) imagesList.push(url);
+          });
+        }
       } catch {
-        parsedImages = [restaurant.images];
+        if (!imagesList.includes((restaurant as any).images)) {
+          imagesList.push((restaurant as any).images);
+        }
       }
     }
 
@@ -44,7 +67,7 @@ export class RestaurantsService {
       openingHours: restaurant.openingHours,
       coverImageUrl: restaurant.coverImageUrl,
       coverImagePublicId: restaurant.coverImagePublicId,
-      images: parsedImages,
+      images: imagesList,
       isHalalCertified: restaurant.isHalalCertified,
       status: restaurant.status,
       isFeatured: restaurant.isFeatured,
