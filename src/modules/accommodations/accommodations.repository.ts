@@ -98,8 +98,6 @@ export class AccommodationsRepository {
   }
 
   public async findByIdOrSlug(idOrSlug: string, userId?: string): Promise<AccommodationWithTranslations | null> {
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
-
     const include = {
       translations: true,
       images: {
@@ -108,16 +106,12 @@ export class AccommodationsRepository {
       ...(userId ? { favorites: { where: { userId }, select: { id: true } } } : {}),
     };
 
-    if (isUuid) {
-      const byId = await prisma.accommodation.findFirst({
-        where: { id: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-        include,
-      });
-      if (byId) return byId;
-    }
-
     return prisma.accommodation.findFirst({
-      where: { slug: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
+      where: {
+        OR: [{ id: idOrSlug }, { slug: idOrSlug }],
+        deletedAt: null,
+        status: 'PUBLISHED',
+      },
       include,
     });
   }

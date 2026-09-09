@@ -7,10 +7,11 @@ import { FavoritesService } from '../src/modules/favorites/favorites.service';
 import { FavoritesRepository } from '../src/modules/favorites/favorites.repository';
 import { DestinationsRepository } from '../src/modules/destinations/destinations.repository';
 import { DestinationsService } from '../src/modules/destinations/destinations.service';
-import { AccommodationsRepository } from '../src/modules/accommodations/accommodations.repository';
+import { AccommodationsRepository, accommodationsRepository } from '../src/modules/accommodations/accommodations.repository';
 import { AccommodationsService } from '../src/modules/accommodations/accommodations.service';
-import { RestaurantsRepository } from '../src/modules/restaurants/restaurants.repository';
+import { RestaurantsRepository, restaurantsRepository } from '../src/modules/restaurants/restaurants.repository';
 import { RestaurantsService } from '../src/modules/restaurants/restaurants.service';
+import { prisma } from '../src/database/prisma';
 import jwt from 'jsonwebtoken';
 import { config } from '../src/config/config';
 
@@ -478,12 +479,11 @@ describe('Unified Favorites API & Accommodation/Restaurant Favorites', () => {
             coverImageUrl: 'https://example.com/kuta.jpg',
             images: [],
             facilities: [],
-            status: 'PUBLISHED',
             isFeatured: true,
             isFavorite: true,
             createdAt: new Date(),
             updatedAt: new Date(),
-          },
+          } as any,
         ],
         meta: {
           page: 1,
@@ -527,6 +527,48 @@ describe('Unified Favorites API & Accommodation/Restaurant Favorites', () => {
 
       expect(res.status).toBe(200);
       expect(spyUnified).toHaveBeenCalled();
+    });
+  });
+
+  describe('5. Repository Non-UUID Custom ID Support', () => {
+    it('accommodationsRepository.findByIdOrSlug should query OR with id and slug for custom prefix IDs', async () => {
+      const mockFindFirst = vi.spyOn(prisma.accommodation, 'findFirst').mockResolvedValue({
+        id: 'acc_jeeva_beloam_camp',
+        slug: 'jeeva-beloam-beach-camp',
+        name: 'Jeeva Beloam Beach Camp',
+      } as any);
+
+      const result = await accommodationsRepository.findByIdOrSlug('acc_jeeva_beloam_camp');
+      expect(mockFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [{ id: 'acc_jeeva_beloam_camp' }, { slug: 'acc_jeeva_beloam_camp' }],
+            deletedAt: null,
+            status: 'PUBLISHED',
+          },
+        }),
+      );
+      expect(result?.id).toBe('acc_jeeva_beloam_camp');
+    });
+
+    it('restaurantsRepository.findByIdOrSlug should query OR with id and slug for custom prefix IDs', async () => {
+      const mockFindFirst = vi.spyOn(prisma.restaurant, 'findFirst').mockResolvedValue({
+        id: 'resto_ayam_taliwang_ipip',
+        slug: 'ayam-taliwang-irama',
+        name: 'Ayam Taliwang Irama',
+      } as any);
+
+      const result = await restaurantsRepository.findByIdOrSlug('resto_ayam_taliwang_ipip');
+      expect(mockFindFirst).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            OR: [{ id: 'resto_ayam_taliwang_ipip' }, { slug: 'resto_ayam_taliwang_ipip' }],
+            deletedAt: null,
+            status: 'PUBLISHED',
+          },
+        }),
+      );
+      expect(result?.id).toBe('resto_ayam_taliwang_ipip');
     });
   });
 });
