@@ -1,3 +1,13 @@
+import { createHash } from 'crypto';
+
+/**
+ * Generates a deterministic RFC 4122 compliant UUID v4 string from a unique seed key.
+ * Formatted as: 8-4-4-4-12 with version '4' and variant 'a' (RFC 4122).
+ */
+export function toSeedUuid(key: string): string {
+  const hash = createHash('md5').update(`lombok-seed-${key}`).digest('hex');
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-4${hash.slice(13, 16)}-a${hash.slice(17, 20)}-${hash.slice(20, 32)}`;
+}
 import {
   PrismaClient,
   LombokRegion,
@@ -85,8 +95,8 @@ function getMediaForCategory(slug: string) {
   }
 }
 
-function getMediaForDestination(catId: string, destId: string) {
-  const lower = destId.toLowerCase();
+function getMediaForDestination(catId: string, destSlugOrId: string) {
+  const lower = destSlugOrId.toLowerCase();
   if (lower.includes('rinjani') || lower.includes('pergasingan') || lower.includes('sembalun')) return CLOUDINARY_MEDIA.gunung_rinjani;
   if (lower.includes('waterfall') || lower.includes('kelep') || lower.includes('sendang') || lower.includes('benang') || lower.includes('sakti') || lower.includes('pupus')) return CLOUDINARY_MEDIA.air_terjun;
   if (lower.includes('shark') || lower.includes('turtle') || lower.includes('diving') || lower.includes('snorkeling') || lower.includes('meno')) return CLOUDINARY_MEDIA.snorkeling_penyu;
@@ -97,7 +107,7 @@ function getMediaForDestination(catId: string, destId: string) {
   if (lower.includes('nipah') || lower.includes('culinary') || lower.includes('taliwang')) return CLOUDINARY_MEDIA.kuliner_sasak;
   if (lower.includes('sunset') || lower.includes('senggigi')) return CLOUDINARY_MEDIA.sunset_senggigi;
   if (lower.includes('kuta') || lower.includes('aan') || lower.includes('mawun') || lower.includes('pink') || lower.includes('tangsi')) return CLOUDINARY_MEDIA.pantai_kuta;
-  return getMediaForCategory(catId.replace('cat_', ''));
+  return CLOUDINARY_MEDIA.bukit_merese;
 }
 
 async function main(): Promise<void> {
@@ -152,7 +162,7 @@ async function main(): Promise<void> {
 
   const demoUser = await prisma.user.create({
     data: {
-      id: 'usr_demo_lombok',
+      id: toSeedUuid('usr_demo_lombok'),
       email: 'traveler@lombokexplorer.com',
       username: 'bima_arya',
       password: passwordHash,
@@ -170,7 +180,7 @@ async function main(): Promise<void> {
   // Base Admin Account (For test suite and baseline integration)
   const baseAdmin = await prisma.user.create({
     data: {
-      id: 'usr_admin_lombok',
+      id: toSeedUuid('usr_admin_lombok'),
       email: 'admin@lombokexplorer.com',
       username: 'super_admin',
       password: passwordHash,
@@ -191,7 +201,7 @@ async function main(): Promise<void> {
     const devAdminHash = await bcrypt.hash(devAdminRawPassword, 12);
     await prisma.user.create({
       data: {
-        id: 'usr_dev_admin_env',
+        id: toSeedUuid('usr_dev_admin_env'),
         email: devAdminEmail.toLowerCase().trim(),
         username: 'dev_admin',
         password: devAdminHash,
@@ -216,7 +226,7 @@ async function main(): Promise<void> {
 
   const localGuideUser = await prisma.user.create({
     data: {
-      id: 'usr_guide_sasak',
+      id: toSeedUuid('usr_guide_sasak'),
       email: 'guide.rinjani@lombokexplorer.com',
       username: 'hendra_rinjani',
       password: passwordHash,
@@ -236,7 +246,7 @@ async function main(): Promise<void> {
   // =========================================================================
   const categoriesData = [
     {
-      id: 'cat_beach',
+      id: toSeedUuid('cat_beach'),
       slug: 'beach',
       name: 'Pantai & Pesisir',
       description: 'Eksplorasi pantai pasir putih, teluk toska tersembunyi, dan pasir merica khas Lombok.',
@@ -245,7 +255,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_waterfall',
+      id: toSeedUuid('cat_waterfall'),
       slug: 'waterfall',
       name: 'Air Terjun Alami',
       description: 'Kesejukan air terjun alami dan tirai air abadi di kaki Gunung Rinjani dan hutan tropis.',
@@ -254,7 +264,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_mountain',
+      id: toSeedUuid('cat_mountain'),
       slug: 'mountain',
       name: 'Gunung & Puncak',
       description: 'Pendakian megah puncak Rinjani, Danau Segara Anak, dan petualangan vulkanik geopark dunia.',
@@ -263,7 +273,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_hill',
+      id: toSeedUuid('cat_hill'),
       slug: 'hill',
       name: 'Bukit & Savana',
       description: 'Perbukitan savana hijau eksotis dengan pemandangan bentang laut dan lembah pertanian.',
@@ -272,7 +282,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_gili',
+      id: toSeedUuid('cat_gili'),
       slug: 'gili',
       name: 'Wisata Kepulauan Gili',
       description: 'Trio Gili dan gili-gili perawan di Sekotong yang tenang tanpa kendaraan bermotor.',
@@ -281,7 +291,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_culture',
+      id: toSeedUuid('cat_culture'),
       slug: 'culture',
       name: 'Budaya & Adat Sasak',
       description: 'Warisan leluhur suku Sasak, masjid kuno, tradisi Bau Nyale, dan kearifan lokal NTB.',
@@ -290,7 +300,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_village',
+      id: toSeedUuid('cat_village'),
       slug: 'village',
       name: 'Desa Wisata & Kerajinan',
       description: 'Desa tenun songket ikat tradisional Sukarara, kerajinan gerabah Banyumulek, dan kriya lokal.',
@@ -299,7 +309,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_culinary',
+      id: toSeedUuid('cat_culinary'),
       slug: 'culinary',
       name: 'Kuliner Tradisional',
       description: 'Sajian pedas aromatik khas Sasak: Ayam Taliwang, Plecing Kangkung, Sate Bulayak, dan Nasi Balap.',
@@ -308,7 +318,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_surfing',
+      id: toSeedUuid('cat_surfing'),
       slug: 'surfing',
       name: 'Spot Selancar Ombak',
       description: 'Spot surfing kelas dunia di pesisir selatan Lombok dari pemula hingga ombak reef break profesional.',
@@ -317,7 +327,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_snorkeling',
+      id: toSeedUuid('cat_snorkeling'),
       slug: 'snorkeling',
       name: 'Snorkeling & Bawah Laut',
       description: 'Berenang bersama penyu liar, patung bawah laut Nest Gili Meno, dan terumbu karang warna-warni.',
@@ -326,7 +336,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_diving',
+      id: toSeedUuid('cat_diving'),
       slug: 'diving',
       name: 'Spot Menyelam / Scuba Diving',
       description: 'Pusat selam sertifikasi PADI, shark point, manta point, dan wall diving karang laut dalam.',
@@ -335,7 +345,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_sunset',
+      id: toSeedUuid('cat_sunset'),
       slug: 'sunset',
       name: 'Spot Sunset & Golden Hour',
       description: 'Titik terbaik menikmati matahari terbenam magis berlatar Samudra Hindia dan siluet Gunung Agung Bali.',
@@ -344,7 +354,7 @@ async function main(): Promise<void> {
       coverImagePublicId: CLOUDINARY_MEDIA.pantai_kuta.publicId,
     },
     {
-      id: 'cat_adventure',
+      id: toSeedUuid('cat_adventure'),
       slug: 'adventure',
       name: 'Petualangan Alam & Caving',
       description: 'Eksplorasi gua kelelawar alami, susur tebing karang laut, dan offroad lereng pegunungan.',
@@ -371,13 +381,13 @@ async function main(): Promise<void> {
   const destinationsData = [
     // 1. Pantai Tanjung Aan
     {
-      id: 'dest_tanjung_aan',
+      id: toSeedUuid('dest_tanjung_aan'),
       slug: 'pantai-tanjung-aan',
       name: 'Pantai Tanjung Aan',
       shortDescription: 'Pantai berpasir putih merica dengan teluk toska tenang memukau di Kawasan Mandalika.',
       description:
         'Pantai Tanjung Aan adalah ikon pesisir selatan Lombok Tengah dengan keunikan formasi pasir bulat seperti butiran merica. Dikelilingi Bukit Merese, teluk terlindung ini memiliki ombak yang tenang, sangat ideal untuk berenang, bermain stand-up paddle, atau bersantai menikmati kelapa muda.',
-      categoryId: 'cat_beach',
+      categoryId: toSeedUuid('cat_beach'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Pujut, Lombok Tengah',
       address: 'Sengkol, Kec. Pujut, Kabupaten Lombok Tengah, NTB',
@@ -400,13 +410,13 @@ async function main(): Promise<void> {
     },
     // 2. Bukit Merese
     {
-      id: 'dest_bukit_merese',
+      id: toSeedUuid('dest_bukit_merese'),
       slug: 'bukit-merese',
       name: 'Bukit Merese',
       shortDescription: 'Bukit savana pesisir selatan dengan panorama matahari terbenam paling spektakuler.',
       description:
         'Bukit Merese membentang memagari Tanjung Aan dengan padang savana berbukit-bukit dan tebing karang dramatis. Titik puncak bukit menyuguhkan pemandangan 360 derajat Samudra Hindia dan teluk toska.',
-      categoryId: 'cat_hill',
+      categoryId: toSeedUuid('cat_hill'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Pujut, Lombok Tengah',
       address: 'Jl. Kuta Lombok, Sengkol, Pujut, Lombok Tengah, NTB',
@@ -429,13 +439,13 @@ async function main(): Promise<void> {
     },
     // 3. Gunung Rinjani & Danau Segara Anak
     {
-      id: 'dest_gunung_rinjani',
+      id: toSeedUuid('dest_gunung_rinjani'),
       slug: 'gunung-rinjani',
       name: 'Gunung Rinjani & Danau Segara Anak',
       shortDescription: 'Gunung berapi tertinggi kedua di Indonesia dengan kawah Danau Segara Anak yang magis.',
       description:
         'Taman Nasional Gunung Rinjani (3.726 mdpl) adalah situs UNESCO Global Geopark dengan Danau Segara Anak berwarna biru toska, mata air panas alami Aik Kalak, dan pemandangan sunrise di atas awan yang luar biasa.',
-      categoryId: 'cat_mountain',
+      categoryId: toSeedUuid('cat_mountain'),
       region: LombokRegion.LOMBOK_UTARA,
       locationName: 'Sembalun / Senaru, Lombok Utara & Timur',
       address: 'Taman Nasional Gunung Rinjani, NTB',
@@ -458,13 +468,13 @@ async function main(): Promise<void> {
     },
     // 4. Air Terjun Tiu Kelep
     {
-      id: 'dest_tiu_kelep',
+      id: toSeedUuid('dest_tiu_kelep'),
       slug: 'air-terjun-tiu-kelep',
       name: 'Air Terjun Tiu Kelep',
       shortDescription: 'Air terjun megah di kaki Gunung Rinjani dengan tirai air alami dan kabut sejuk.',
       description:
         'Terletak di dalam hutan lebat Senaru, Air Terjun Tiu Kelep memiliki ketinggian 42 meter dengan debit air deras yang membentuk kabut sejuk abadi. Perjalanan trekking melintasi jembatan saluran air dan sungai memberikan sensasi petualangan tropis.',
-      categoryId: 'cat_waterfall',
+      categoryId: toSeedUuid('cat_waterfall'),
       region: LombokRegion.LOMBOK_UTARA,
       locationName: 'Senaru, Bayan, Lombok Utara',
       address: 'Desa Senaru, Kec. Bayan, Kabupaten Lombok Utara, NTB',
@@ -487,13 +497,13 @@ async function main(): Promise<void> {
     },
     // 5. Air Terjun Sendang Gile
     {
-      id: 'dest_sendang_gile',
+      id: toSeedUuid('dest_sendang_gile'),
       slug: 'air-terjun-sendang-gile',
       name: 'Air Terjun Sendang Gile',
       shortDescription: 'Air terjun bertingkat dua yang mudah diakses di pintu gerbang pendakian Senaru.',
       description:
         'Air Terjun Sendang Gile adalah air terjun tingkat pertama sebelum menuju Tiu Kelep. Berjarak hanya 15 menit menuruni anak tangga beton dari pintu masuk Senaru, tempat ini sangat ramah keluarga dengan kolam alami yang jernih.',
-      categoryId: 'cat_waterfall',
+      categoryId: toSeedUuid('cat_waterfall'),
       region: LombokRegion.LOMBOK_UTARA,
       locationName: 'Senaru, Bayan, Lombok Utara',
       address: 'Desa Senaru, Kec. Bayan, Lombok Utara, NTB',
@@ -516,13 +526,13 @@ async function main(): Promise<void> {
     },
     // 6. Gili Trawangan
     {
-      id: 'dest_gili_trawangan',
+      id: toSeedUuid('dest_gili_trawangan'),
       slug: 'gili-trawangan',
       name: 'Gili Trawangan',
       shortDescription: 'Pulau tropis bebas polusi kendaraan dengan pesona bawah laut, terumbu karang, dan penyu.',
       description:
         'Gili Trawangan adalah pulau terbesar di trio kepulauan Gili Lombok. Bebas kendaraan bermotor (hanya sepeda dan andong cidomo), pulau ini memadukan snorkeling terumbu karang jernih, penyu liar, kafe tepi pantai, dan pemandangan sunset berlatar Gunung Agung.',
-      categoryId: 'cat_gili',
+      categoryId: toSeedUuid('cat_gili'),
       region: LombokRegion.GILI_ISLANDS,
       locationName: 'Gili Indah, Pemenang, Lombok Utara',
       address: 'Desa Gili Indah, Kec. Pemenang, Lombok Utara, NTB',
@@ -545,13 +555,13 @@ async function main(): Promise<void> {
     },
     // 7. Gili Meno
     {
-      id: 'dest_gili_meno',
+      id: toSeedUuid('dest_gili_meno'),
       slug: 'gili-meno',
       name: 'Gili Meno & Patung Bawah Laut Nest',
       shortDescription: 'Pulau paling tenang dan romantis dengan spot patung bawah laut karya Jason deCaires Taylor.',
       description:
         'Gili Meno adalah pulau terkecil di antara trio Gili yang terkenal dengan atmosfer hening dan damai. Spot ikoniknya adalah instalasi patung melingkar "Nest" di kedalaman 4 meter serta suaka konservasi penyu hijau.',
-      categoryId: 'cat_snorkeling',
+      categoryId: toSeedUuid('cat_snorkeling'),
       region: LombokRegion.GILI_ISLANDS,
       locationName: 'Gili Indah, Pemenang, Lombok Utara',
       address: 'Desa Gili Indah, Kec. Pemenang, Lombok Utara, NTB',
@@ -574,13 +584,13 @@ async function main(): Promise<void> {
     },
     // 8. Gili Air
     {
-      id: 'dest_gili_air',
+      id: toSeedUuid('dest_gili_air'),
       slug: 'gili-air',
       name: 'Gili Air',
       shortDescription: 'Perpaduan harmoni suasana santai pulau tropis, kafe yoga, dan terumbu karang hidup.',
       description:
         'Gili Air menawarkan perpaduan sempurna antara ketenangan Gili Meno dan fasilitas Gili Trawangan. Pulau ini sangat digemari traveler yang mencari suasana bohemian, pusat yoga, kafe vegan, dan spot snorkeling ikan badut.',
-      categoryId: 'cat_gili',
+      categoryId: toSeedUuid('cat_gili'),
       region: LombokRegion.GILI_ISLANDS,
       locationName: 'Gili Indah, Pemenang, Lombok Utara',
       address: 'Desa Gili Indah, Pemenang, Lombok Utara, NTB',
@@ -603,13 +613,13 @@ async function main(): Promise<void> {
     },
     // 9. Desa Adat Sade
     {
-      id: 'dest_desa_sade',
+      id: toSeedUuid('dest_desa_sade'),
       slug: 'desa-adat-sade',
       name: 'Desa Adat Sade',
       shortDescription: 'Perkampungan tradisional suku Sasak yang mempertahankan arsitektur dan adat turun temurun.',
       description:
         'Desa Sade adalah cagar budaya hidup suku Sasak Lombok dengan rumah berdinding anyaman bambu, atap alang-alang, lantai tanah yang dipel dengan kotoran kerbau secara berkala, dan tradisi menenun songket.',
-      categoryId: 'cat_culture',
+      categoryId: toSeedUuid('cat_culture'),
       region: LombokRegion.LOMBOK_TENGAH,
       locationName: 'Rembitan, Pujut, Lombok Tengah',
       address: 'Rembitan, Pujut, Kabupaten Lombok Tengah, NTB',
@@ -632,13 +642,13 @@ async function main(): Promise<void> {
     },
     // 10. Desa Tenun Sukarara
     {
-      id: 'dest_desa_sukarara',
+      id: toSeedUuid('dest_desa_sukarara'),
       slug: 'desa-tenun-sukarara',
       name: 'Desa Tenun Sukarara',
       shortDescription: 'Sentra kerajinan tenun ikat dan songket Lombok dengan kesempatan belajar menenun langsung.',
       description:
         'Desa Sukarara adalah sentra kain tenun songket khas Lombok di mana setiap wanita desa diwajibkan pandai menenun sebelum menikah. Wisatawan dapat mencoba menenun menggunakan alat tradisional dan berfoto mengenakan pakaian adat Sasak gratis.',
-      categoryId: 'cat_village',
+      categoryId: toSeedUuid('cat_village'),
       region: LombokRegion.LOMBOK_TENGAH,
       locationName: 'Jonggat, Lombok Tengah',
       address: 'Sukarara, Kec. Jonggat, Kabupaten Lombok Tengah, NTB',
@@ -661,13 +671,13 @@ async function main(): Promise<void> {
     },
     // 11. Pantai Selong Belanak
     {
-      id: 'dest_selong_belanak',
+      id: toSeedUuid('dest_selong_belanak'),
       slug: 'pantai-selong-belanak',
       name: 'Pantai Selong Belanak',
       shortDescription: 'Pantai pasir putih landai bulan sabit yang menjadi surga belajar surfing pemula.',
       description:
         'Pantai Selong Belanak memiliki garis pantai melengkung seperti bulan sabit dengan dasar pasir lembut tanpa karang. Ombaknya yang bergulung lembut menjadikannya lokasi nomor satu di Lombok untuk kursus surfing pemula.',
-      categoryId: 'cat_surfing',
+      categoryId: toSeedUuid('cat_surfing'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Praya Barat, Lombok Tengah',
       address: 'Desa Selong Belanak, Kec. Praya Barat, Lombok Tengah, NTB',
@@ -690,13 +700,13 @@ async function main(): Promise<void> {
     },
     // 12. Pantai Mawun
     {
-      id: 'dest_pantai_mawun',
+      id: toSeedUuid('dest_pantai_mawun'),
       slug: 'pantai-mawun',
       name: 'Pantai Mawun',
       shortDescription: 'Teluk tapal kuda tersembunyi dengan gradasi air biru toska diapit dua bukit hijau.',
       description:
         'Pantai Mawun memiliki bentuk teluk tapal kuda yang menakjubkan diapit bukit hijau di sisi timur dan barat. Pasir putihnya bersih dengan air laut toska jernih berkilau di bawah sinar matahari tropis.',
-      categoryId: 'cat_beach',
+      categoryId: toSeedUuid('cat_beach'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Pujut, Lombok Tengah',
       address: 'Desa Tumpak, Kec. Pujut, Lombok Tengah, NTB',
@@ -719,13 +729,13 @@ async function main(): Promise<void> {
     },
     // 13. Pantai Mawi
     {
-      id: 'dest_pantai_mawi',
+      id: toSeedUuid('dest_pantai_mawi'),
       slug: 'pantai-mawi',
       name: 'Pantai Mawi',
       shortDescription: 'Spot selancar ombak kelas dunia bagi para pro surfer dengan pemandangan tebing karang.',
       description:
         'Pantai Mawi adalah surga selancar ombak kiri (left-hander reef break) paling terkenal di Lombok Selatan. Dikelilingi perbukitan karang terjal, pantai ini menarik peselancar profesional mancanegara.',
-      categoryId: 'cat_surfing',
+      categoryId: toSeedUuid('cat_surfing'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Praya Barat, Lombok Tengah',
       address: 'Desa Selong Belanak, Kec. Praya Barat, Lombok Tengah, NTB',
@@ -748,13 +758,13 @@ async function main(): Promise<void> {
     },
     // 14. Bukit Pergasingan
     {
-      id: 'dest_bukit_pergasingan',
+      id: toSeedUuid('dest_bukit_pergasingan'),
       slug: 'bukit-pergasingan',
       name: 'Bukit Pergasingan Sembalun',
       shortDescription: 'Bukit pendakian 1.700 mdpl dengan panorama kotak-kotak sawah Sembalun dan megahnya Rinjani.',
       description:
         'Bukit Pergasingan di Sembalun menawarkan jalur pendakian sekitar 2-3 jam menuju puncak berketinggian 1.700 mdpl. Dari puncak, traveler disuguhi permadani petak sawah warna-warni Sembalun dan dinding kawah Rinjani.',
-      categoryId: 'cat_hill',
+      categoryId: toSeedUuid('cat_hill'),
       region: LombokRegion.LOMBOK_TIMUR,
       locationName: 'Sembalun, Lombok Timur',
       address: 'Desa Sembalun Lawang, Kec. Sembalun, Lombok Timur, NTB',
@@ -777,13 +787,13 @@ async function main(): Promise<void> {
     },
     // 15. Bukit Selong
     {
-      id: 'dest_bukit_selong',
+      id: toSeedUuid('dest_bukit_selong'),
       slug: 'bukit-selong',
       name: 'Bukit Selong Sembalun',
       shortDescription: 'Spot gardu pandang mudah diakses menghadap hamparan sawah Desa Beleq Sembalun.',
       description:
         'Bukit Selong adalah gardu pandang favorit yang sangat mudah diakses hanya dengan berjalan kaki 10 menit dari Desa Adat Beleq Sembalun. Menyuguhkan panorama simetri sawah lereng pegunungan yang sangat fotogenik.',
-      categoryId: 'cat_hill',
+      categoryId: toSeedUuid('cat_hill'),
       region: LombokRegion.LOMBOK_TIMUR,
       locationName: 'Sembalun, Lombok Timur',
       address: 'Desa Sembalun Lawang, Kec. Sembalun, Lombok Timur, NTB',
@@ -806,13 +816,13 @@ async function main(): Promise<void> {
     },
     // 16. Pantai Pink (Pantai Tangsi)
     {
-      id: 'dest_pantai_pink',
+      id: toSeedUuid('dest_pantai_pink'),
       slug: 'pantai-pink-tangsi',
       name: 'Pantai Pink (Pantai Tangsi)',
       shortDescription: 'Pantai pasir berwarna merah muda alami dari serpihan terumbu karang foraminifera merah.',
       description:
         'Pantai Tangsi atau Pantai Pink Lombok Timur adalah salah satu dari sedikit pantai berpasir merah muda di dunia. Warna pink terlihat semakin menyala saat pasir basah terkena sapuan ombak jernih dan sinar matahari.',
-      categoryId: 'cat_beach',
+      categoryId: toSeedUuid('cat_beach'),
       region: LombokRegion.LOMBOK_TIMUR,
       locationName: 'Jerowaru, Lombok Timur',
       address: 'Desa Sekaroh, Kec. Jerowaru, Kabupaten Lombok Timur, NTB',
@@ -835,13 +845,13 @@ async function main(): Promise<void> {
     },
     // 17. Tanjung Ringgit
     {
-      id: 'dest_tanjung_ringgit',
+      id: toSeedUuid('dest_tanjung_ringgit'),
       slug: 'tanjung-ringgit',
       name: 'Tanjung Ringgit & Tebing Samudra',
       shortDescription: 'Ujung tenggara pulau Lombok dengan tebing karang tegak lurus dan peninggalan meriam Jepang.',
       description:
         'Tanjung Ringgit menyajikan pemandangan tebing putih tegak lurus menghadap Samudra Hindia luas dan Selat Alas dengan latar siluet Pulau Sumbawa. Terdapat juga situs sejarah gua dan meriam peninggalan perang dunia ke-2.',
-      categoryId: 'cat_adventure',
+      categoryId: toSeedUuid('cat_adventure'),
       region: LombokRegion.LOMBOK_TIMUR,
       locationName: 'Jerowaru, Lombok Timur',
       address: 'Desa Pamotan, Kec. Jerowaru, Lombok Timur, NTB',
@@ -864,13 +874,13 @@ async function main(): Promise<void> {
     },
     // 18. Pantai Senggigi
     {
-      id: 'dest_pantai_senggigi',
+      id: toSeedUuid('dest_pantai_senggigi'),
       slug: 'pantai-senggigi',
       name: 'Pantai Senggigi & Pesisir Barat',
       shortDescription: 'Kawasan resort legendaris dengan deretan teluk, kafe tepi pantai, dan pemandangan sunset Agung.',
       description:
         'Pantai Senggigi adalah pusat pariwisata klasik Lombok di pesisir barat. Membentang berkilo-kilometer dengan garis pantai tenang, deretan restoran tepi pantai, hotel resort, dan pemandangan sunset siluet Gunung Agung Bali.',
-      categoryId: 'cat_sunset',
+      categoryId: toSeedUuid('cat_sunset'),
       region: LombokRegion.LOMBOK_BARAT,
       locationName: 'Batu Layar, Lombok Barat',
       address: 'Jl. Raya Senggigi, Batu Layar, Kabupaten Lombok Barat, NTB',
@@ -893,13 +903,13 @@ async function main(): Promise<void> {
     },
     // 19. Bukit Malimbu
     {
-      id: 'dest_bukit_malimbu',
+      id: toSeedUuid('dest_bukit_malimbu'),
       slug: 'bukit-malimbu',
       name: 'Bukit Malimbu',
       shortDescription: 'Spot jalan pesisir ikonik dengan pemandangan deretan pohon kelapa dan gugusan 3 Gili.',
       description:
         'Bukit Malimbu dan Malimbu 2 adalah titik peristirahatan di tepi jalan berliku Senggigi-Pemenang. Menyajikan panorama teluk melengkung yang dihiasi ribuan pohon kelapa, laut biru bergradasi, dan pulau Gili di kejauhan.',
-      categoryId: 'cat_sunset',
+      categoryId: toSeedUuid('cat_sunset'),
       region: LombokRegion.LOMBOK_BARAT,
       locationName: 'Pemenang, Lombok Barat/Utara',
       address: 'Jl. Raya Malimbu, Pemenang, NTB',
@@ -922,13 +932,13 @@ async function main(): Promise<void> {
     },
     // 20. Air Terjun Benang Kelambu & Benang Stokel
     {
-      id: 'dest_benang_kelambu',
+      id: toSeedUuid('dest_benang_kelambu'),
       slug: 'air-terjun-benang-kelambu',
       name: 'Air Terjun Benang Kelambu & Benang Stokel',
       shortDescription: 'Air terjun unik yang keluar langsung dari rimbun celah dedaunan tebing seperti kelambu alami.',
       description:
         'Terletak di Geopark Rinjani Lombok Tengah, Air Terjun Benang Kelambu memiliki fenomena unik di mana aliran air keluar langsung dari mata air di balik rimbunnya tanaman pakis dan semak tebing, menyerupai tirai kelambu alami.',
-      categoryId: 'cat_waterfall',
+      categoryId: toSeedUuid('cat_waterfall'),
       region: LombokRegion.LOMBOK_TENGAH,
       locationName: 'Batukliang Utara, Lombok Tengah',
       address: 'Desa Aik Berik, Kec. Batukliang Utara, Lombok Tengah, NTB',
@@ -951,13 +961,13 @@ async function main(): Promise<void> {
     },
     // 21. Gili Nanggu (Sekotong)
     {
-      id: 'dest_gili_nanggu',
+      id: toSeedUuid('dest_gili_nanggu'),
       slug: 'gili-nanggu',
       name: 'Gili Nanggu Sekotong',
       shortDescription: 'Pulau perawan di Sekotong dengan akuarium laut alami di mana ikan langsung mengerubungi perenang.',
       description:
         'Gili Nanggu di kawasan Sekotong Lombok Barat adalah pulau surga bawah laut yang sangat tenang. Ribuan ikan hias karang warna-warni akan langsung mengerubungi Anda begitu memasuki air setinggi pinggang.',
-      categoryId: 'cat_snorkeling',
+      categoryId: toSeedUuid('cat_snorkeling'),
       region: LombokRegion.LOMBOK_BARAT,
       locationName: 'Sekotong, Lombok Barat',
       address: 'Kecamatan Sekotong, Kabupaten Lombok Barat, NTB',
@@ -980,13 +990,13 @@ async function main(): Promise<void> {
     },
     // 22. Gili Kedis & Gili Sudak
     {
-      id: 'dest_gili_kedis',
+      id: toSeedUuid('dest_gili_kedis'),
       slug: 'gili-kedis-sudak',
       name: 'Gili Kedis & Gili Sudak',
       shortDescription: 'Gili mungil berbentuk hati berpasir putih bersih di tengah laut biru Sekotong.',
       description:
         'Gili Kedis adalah pulau tak berpenghuni berukuran mungil berbentuk hati yang dapat dikelilingi hanya dalam 5 menit jalan kaki. Dipadukan dengan Gili Sudak yang terkenal dengan santap siang kuliner ikan bakar di tepi pantai.',
-      categoryId: 'cat_gili',
+      categoryId: toSeedUuid('cat_gili'),
       region: LombokRegion.LOMBOK_BARAT,
       locationName: 'Sekotong, Lombok Barat',
       address: 'Kecamatan Sekotong, Kabupaten Lombok Barat, NTB',
@@ -1009,13 +1019,13 @@ async function main(): Promise<void> {
     },
     // 23. Desa Gerabah Banyumulek
     {
-      id: 'dest_desa_banyumulek',
+      id: toSeedUuid('dest_desa_banyumulek'),
       slug: 'desa-gerabah-banyumulek',
       name: 'Desa Gerabah Banyumulek',
       shortDescription: 'Pusat kerajinan tanah liat dan gerabah tradisional Lombok dengan teknik kuno khas Sasak.',
       description:
         'Desa Banyumulek terkenal sebagai pusat produksi tembikar dan gerabah tanah liat ekspor Lombok. Salah satu produk ikoniknya adalah Kendi Maling (kendi unik yang diisi air dari lubang bagian bawahnya).',
-      categoryId: 'cat_village',
+      categoryId: toSeedUuid('cat_village'),
       region: LombokRegion.LOMBOK_BARAT,
       locationName: 'Kediri, Lombok Barat',
       address: 'Banyumulek, Kec. Kediri, Kabupaten Lombok Barat, NTB',
@@ -1038,13 +1048,13 @@ async function main(): Promise<void> {
     },
     // 24. Pura Batu Bolong
     {
-      id: 'dest_pura_batu_bolong',
+      id: toSeedUuid('dest_pura_batu_bolong'),
       slug: 'pura-batu-bolong',
       name: 'Pura Batu Bolong Senggigi',
       shortDescription: 'Pura tepi tebing karang berlubang menghadap Selat Lombok dengan siluet sunset magis.',
       description:
         'Pura Batu Bolong berdiri megah di atas formasi batu karang hitam yang berlubang menjorok ke laut di pesisir Senggigi. Tempat ibadah umat Hindu yang tenang ini menyajikan panorama sunset paling sakral di Lombok.',
-      categoryId: 'cat_culture',
+      categoryId: toSeedUuid('cat_culture'),
       region: LombokRegion.LOMBOK_BARAT,
       locationName: 'Batu Layar, Lombok Barat',
       address: 'Jl. Raya Senggigi, Batu Layar, Lombok Barat, NTB',
@@ -1067,13 +1077,13 @@ async function main(): Promise<void> {
     },
     // 25. Taman Narmada
     {
-      id: 'dest_taman_narmada',
+      id: toSeedUuid('dest_taman_narmada'),
       slug: 'taman-narmada',
       name: 'Taman Air Narmada (Air Awet Muda)',
       shortDescription: 'Taman istana air bersejarah peninggalan Raja Mataram Karangasem dengan mata air awet muda.',
       description:
         'Dibangun pada tahun 1727 oleh Raja Anak Agung Ngurah Karangasem, Taman Narmada adalah miniatur Gunung Rinjani dan Danau Segara Anak. Di dalamnya terdapat Bale Petirtaan dengan mata air murni yang dipercaya membuat awet muda.',
-      categoryId: 'cat_culture',
+      categoryId: toSeedUuid('cat_culture'),
       region: LombokRegion.LOMBOK_BARAT,
       locationName: 'Narmada, Lombok Barat',
       address: 'Lembuak, Kec. Narmada, Kabupaten Lombok Barat, NTB',
@@ -1096,13 +1106,13 @@ async function main(): Promise<void> {
     },
     // 26. Hutan Monyet Baun Pusuk
     {
-      id: 'dest_baun_pusuk',
+      id: toSeedUuid('dest_baun_pusuk'),
       slug: 'hutan-monyet-baun-pusuk',
       name: 'Hutan Monyet Baun Pusuk',
       shortDescription: 'Hutan lindung di puncak lintasan pegunungan dengan ratusan kera abu-abu ramah di tepi jalan.',
       description:
         'Baun Pusuk adalah jalur pegunungan hijau yang menghubungkan Lombok Barat dan Lombok Utara. Di titik tertingginya, ratusan kera ekor panjang liar yang ramah berkumpul di sepanjang tepi jalan menunggu diberi kacang.',
-      categoryId: 'cat_adventure',
+      categoryId: toSeedUuid('cat_adventure'),
       region: LombokRegion.LOMBOK_UTARA,
       locationName: 'Pemenang, Lombok Utara',
       address: 'Jalan Raya Pusuk, Pemenang, Lombok Utara, NTB',
@@ -1125,13 +1135,13 @@ async function main(): Promise<void> {
     },
     // 27. Shark Point Gili Trawangan
     {
-      id: 'dest_shark_point_gili',
+      id: toSeedUuid('dest_shark_point_gili'),
       slug: 'shark-point-gili-trawangan',
       name: 'Shark Point & Turtle Point Diving',
       shortDescription: 'Spot selam nomor satu di Gili untuk menjumpai hiu karang, penyu sisik, dan ikan pari manta.',
       description:
         'Shark Point di sisi barat laut Gili Trawangan adalah destinasi scuba diving paling populer. Topografi terumbu karang berundak mulai kedalaman 10 hingga 30 meter menjadi habitat hiu karang sirip putih dan penyu hijau besar.',
-      categoryId: 'cat_diving',
+      categoryId: toSeedUuid('cat_diving'),
       region: LombokRegion.GILI_ISLANDS,
       locationName: 'Gili Trawangan, Lombok Utara',
       address: 'Gili Trawangan, Lombok Utara, NTB',
@@ -1154,13 +1164,13 @@ async function main(): Promise<void> {
     },
     // 28. Gua Bangkang (Prabu)
     {
-      id: 'dest_gua_bangkang',
+      id: toSeedUuid('dest_gua_bangkang'),
       slug: 'gua-bangkang-prabu',
       name: 'Gua Bangkang (Gua Gale-Gale)',
       shortDescription: 'Gua kelelawar alami dengan pendaran cahaya surga (ray of light) dramatis menembus atap gua.',
       description:
         'Gua Bangkang terletak di perbukitan Desa Prabu dekat Kuta Mandalika. Daya tarik utamanya adalah berkas sinar matahari ("cahaya surga") yang menembus lubang atap gua di tengah kepulan asap dupa dan ribuan kelelawar.',
-      categoryId: 'cat_adventure',
+      categoryId: toSeedUuid('cat_adventure'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Pujut, Lombok Tengah',
       address: 'Desa Prabu, Kec. Pujut, Lombok Tengah, NTB',
@@ -1183,13 +1193,13 @@ async function main(): Promise<void> {
     },
     // 29. Pantai Kuta Lombok & Mandalika
     {
-      id: 'dest_pantai_kuta_lombok',
+      id: toSeedUuid('dest_pantai_kuta_lombok'),
       slug: 'pantai-kuta-mandalika',
       name: 'Pantai Kuta Mandalika & Bazaar',
       shortDescription: 'Pusat keramaian Mandalika dengan pedestrian modern tepi pantai dan sirkuit internasional MotoGP.',
       description:
         'Pantai Kuta Mandalika adalah jantung kawasan ekonomi khusus pariwisata Lombok Selatan. Dilengkapi promenade pedestrian luas, spot tulisan ikonik Mandalika, pusat kuliner kafe modern, dan berdekatan dengan Sirkuit Internasional Pertamina Mandalika.',
-      categoryId: 'cat_beach',
+      categoryId: toSeedUuid('cat_beach'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Kuta, Pujut, Lombok Tengah',
       address: 'Kuta, Pujut, Kabupaten Lombok Tengah, NTB',
@@ -1212,13 +1222,13 @@ async function main(): Promise<void> {
     },
     // 30. Pantai Gerupuk & Teluk Bumbang
     {
-      id: 'dest_pantai_gerupuk',
+      id: toSeedUuid('dest_pantai_gerupuk'),
       slug: 'pantai-gerupuk',
       name: 'Pantai Gerupuk & Surfing Hub',
       shortDescription: 'Desa nelayan dan pusat selancar dengan beragam pilihan ombak perahu di Teluk Bumbang.',
       description:
         'Gerupuk adalah desa nelayan di ujung timur Mandalika yang menjadi hub utama para surfer. Memiliki 5 titik spot ombak berbeda (Inside, Outside, Don-Don, Kid’s Point) yang diakses menggunakan perahu nelayan kayu.',
-      categoryId: 'cat_surfing',
+      categoryId: toSeedUuid('cat_surfing'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Pujut, Lombok Tengah',
       address: 'Desa Gerupuk, Sengkol, Kec. Pujut, Lombok Tengah, NTB',
@@ -1241,13 +1251,13 @@ async function main(): Promise<void> {
     },
     // 31. Air Terjun Mangku Sakti
     {
-      id: 'dest_mangku_sakti',
+      id: toSeedUuid('dest_mangku_sakti'),
       slug: 'air-terjun-mangku-sakti',
       name: 'Air Terjun Mangku Sakti Sembalun',
       shortDescription: 'Air terjun belerang berwarna putih toska mengalir di antara celah ngarai bebatuan artistik.',
       description:
         'Air Terjun Mangku Sakti di Sajang Sembalun memiliki keunikan air belerang berwarna hijau toska susu yang bersumber langsung dari kawah Gunung Rinjani, mengalir meliuk di antara ngarai tebing bebatuan marmer putih alami.',
-      categoryId: 'cat_waterfall',
+      categoryId: toSeedUuid('cat_waterfall'),
       region: LombokRegion.LOMBOK_TIMUR,
       locationName: 'Sajang, Sembalun, Lombok Timur',
       address: 'Desa Sajang, Kec. Sembalun, Lombok Timur, NTB',
@@ -1270,13 +1280,13 @@ async function main(): Promise<void> {
     },
     // 32. Pantai Seger & Monumen Putri Mandalika
     {
-      id: 'dest_pantai_seger',
+      id: toSeedUuid('dest_pantai_seger'),
       slug: 'pantai-seger-mandalika',
       name: 'Pantai Seger & Bukit Seger',
       shortDescription: 'Pusat festival legenda Putri Mandalika (Bau Nyale) dengan pemandangan langsung sirkuit balap.',
       description:
         'Pantai Seger adalah pantai legendaris tempat diselenggarakannya Festival Bau Nyale tahunan. Di tepi pantainya berdiri monumen patung Putri Mandalika, dan Bukit Seger di atasnya menyuguhkan sudut pandang terbaik ke lintasan Sirkuit Mandalika.',
-      categoryId: 'cat_culture',
+      categoryId: toSeedUuid('cat_culture'),
       region: LombokRegion.LOMBOK_SELATAN,
       locationName: 'Kuta, Pujut, Lombok Tengah',
       address: 'Kuta, Kec. Pujut, Kabupaten Lombok Tengah, NTB',
@@ -1299,13 +1309,13 @@ async function main(): Promise<void> {
     },
     // 33. Lembah Sembalun & Kebun Strawberry
     {
-      id: 'dest_kebun_strawberry_sembalun',
+      id: toSeedUuid('dest_kebun_strawberry_sembalun'),
       slug: 'lembah-sembalun-strawberry',
       name: 'Lembah Sembalun & Agrowisata Strawberry',
       shortDescription: 'Kawasan agrowisata sejuk pegunungan Sembalun dengan pengalaman petik buah strawberry segar.',
       description:
         'Lembah Sembalun terletak di ketinggian 1.100 mdpl dengan hawa sejuk pegunungan. Traveler dapat menikmati agrowisata memetik langsung buah strawberry segar dari kebun petani lokal sambil memandangi tebing perbukitan megah.',
-      categoryId: 'cat_village',
+      categoryId: toSeedUuid('cat_village'),
       region: LombokRegion.LOMBOK_TIMUR,
       locationName: 'Sembalun, Lombok Timur',
       address: 'Desa Sembalun Bumbung, Kec. Sembalun, Lombok Timur, NTB',
@@ -1328,13 +1338,13 @@ async function main(): Promise<void> {
     },
     // 34. Pantai Nipah
     {
-      id: 'dest_pantai_nipah',
+      id: toSeedUuid('dest_pantai_nipah'),
       slug: 'pantai-nipah',
       name: 'Pantai Nipah & Kuliner Ikan Bakar',
       shortDescription: 'Pantai berpasir putih teduh dengan deretan warung kuliner ikan bakar segar bumbu plecing.',
       description:
         'Pantai Nipah terletak di sepanjang jalan raya pesisir Senggigi-Pemenang. Terkenal dengan air laut tenang yang aman untuk anak-anak berenang dan warung kuliner ikan bakar segar tepi pantai berharga sangat terjangkau.',
-      categoryId: 'cat_culinary',
+      categoryId: toSeedUuid('cat_culinary'),
       region: LombokRegion.LOMBOK_UTARA,
       locationName: 'Pemenang, Lombok Utara',
       address: 'Desa Malaka, Kec. Pemenang, Kabupaten Lombok Utara, NTB',
@@ -1357,13 +1367,13 @@ async function main(): Promise<void> {
     },
     // 35. Desa Adat Ende
     {
-      id: 'dest_desa_ende',
+      id: toSeedUuid('dest_desa_ende'),
       slug: 'desa-adat-ende',
       name: 'Desa Adat Ende',
       shortDescription: 'Perkampungan asli suku Sasak yang asri dan tenang dengan tradisi tarian perang peresean.',
       description:
         'Desa Adat Ende terletak tidak jauh dari Bandara Internasional Lombok. Menawarkan pengalaman budaya Sasak yang lebih tenang dan mendalam, di mana pengunjung dapat menyaksikan atraksi pertarungan perisai tradisional "Peresean".',
-      categoryId: 'cat_culture',
+      categoryId: toSeedUuid('cat_culture'),
       region: LombokRegion.LOMBOK_TENGAH,
       locationName: 'Pujut, Lombok Tengah',
       address: 'Desa Sengkol, Kec. Pujut, Kabupaten Lombok Tengah, NTB',
@@ -1387,13 +1397,13 @@ async function main(): Promise<void> {
   ];
 
   for (const dest of destinationsData) {
-    const primaryMedia = getMediaForDestination(dest.categoryId, dest.id);
+    const primaryMedia = getMediaForDestination(dest.categoryId, dest.slug);
     const secondaryMedia =
-      dest.categoryId === 'cat_beach'
+      dest.categoryId === toSeedUuid('cat_beach')
         ? CLOUDINARY_MEDIA.sunset_senggigi
-        : dest.categoryId === 'cat_mountain'
+        : dest.categoryId === toSeedUuid('cat_mountain')
         ? CLOUDINARY_MEDIA.air_terjun
-        : dest.categoryId === 'cat_waterfall'
+        : dest.categoryId === toSeedUuid('cat_waterfall')
         ? CLOUDINARY_MEDIA.gunung_rinjani
         : CLOUDINARY_MEDIA.pantai_kuta;
 
@@ -1429,7 +1439,7 @@ async function main(): Promise<void> {
   // =========================================================================
   const restaurantsData = [
     {
-      id: 'rest_ayam_taliwang_h_ipip',
+      id: toSeedUuid('rest_ayam_taliwang_h_ipip'),
       name: 'Ayam Taliwang H. Ipip Mataram',
       slug: 'ayam-taliwang-h-ipip',
       description:
@@ -1452,7 +1462,7 @@ async function main(): Promise<void> {
       isHalalCertified: true,
     },
     {
-      id: 'rest_sate_bulayak_suranadi',
+      id: toSeedUuid('rest_sate_bulayak_suranadi'),
       name: 'Sate Bulayak Suranadi',
       slug: 'sate-bulayak-suranadi',
       description:
@@ -1475,7 +1485,7 @@ async function main(): Promise<void> {
       isHalalCertified: true,
     },
     {
-      id: 'rest_nasi_balap_puyung',
+      id: toSeedUuid('rest_nasi_balap_puyung'),
       name: 'Nasi Balap Puyung Inaq Esun',
       slug: 'nasi-balap-puyung-inaq-esun',
       description:
@@ -1498,7 +1508,7 @@ async function main(): Promise<void> {
       isHalalCertified: true,
     },
     {
-      id: 'rest_warung_menega_senggigi',
+      id: toSeedUuid('rest_warung_menega_senggigi'),
       name: 'Warung Menega Ikan Bakar Senggigi',
       slug: 'warung-menega-senggigi',
       description:
@@ -1521,7 +1531,7 @@ async function main(): Promise<void> {
       isHalalCertified: true,
     },
     {
-      id: 'rest_ashtari_kuta_mandalika',
+      id: toSeedUuid('rest_ashtari_kuta_mandalika'),
       name: 'Ashtari Lounge & Kitchen Mandalika',
       slug: 'ashtari-lounge-mandalika',
       description:
@@ -1544,7 +1554,7 @@ async function main(): Promise<void> {
       isHalalCertified: false,
     },
     {
-      id: 'rest_scallywags_gili_trawangan',
+      id: toSeedUuid('rest_scallywags_gili_trawangan'),
       name: 'Scallywags Organic Seafood Bar & Grill Gili',
       slug: 'scallywags-gili-trawangan',
       description:
@@ -1567,7 +1577,7 @@ async function main(): Promise<void> {
       isHalalCertified: false,
     },
     {
-      id: 'rest_warung_sasak_senaru',
+      id: toSeedUuid('rest_warung_sasak_senaru'),
       name: 'Warung Sasak Rinjani Senaru',
       slug: 'warung-sasak-rinjani-senaru',
       description:
@@ -1590,7 +1600,7 @@ async function main(): Promise<void> {
       isHalalCertified: true,
     },
     {
-      id: 'rest_el_bazar_kuta',
+      id: toSeedUuid('rest_el_bazar_kuta'),
       name: 'El Bazar Cafe & Restaurant Mandalika',
       slug: 'el-bazar-kuta-mandalika',
       description:
@@ -1657,7 +1667,7 @@ async function main(): Promise<void> {
   // =========================================================================
   const accommodationsData = [
     {
-      id: 'acc_pullman_mandalika',
+      id: toSeedUuid('acc_pullman_mandalika'),
       name: 'Pullman Lombok Merujani Mandalika Beach Resort',
       slug: 'pullman-lombok-mandalika',
       type: 'Resort Bintang 5',
@@ -1677,7 +1687,7 @@ async function main(): Promise<void> {
       amenities: JSON.stringify(['Private Beach', 'Infinity Pool', 'Spa & Wellness', 'Free WiFi', 'Breakfast Included', 'Fitness Center']),
     },
     {
-      id: 'acc_katamaran_resort_senggigi',
+      id: toSeedUuid('acc_katamaran_resort_senggigi'),
       name: 'Katamaran Hotel & Resort Senggigi',
       slug: 'katamaran-resort-senggigi',
       type: 'Resort Tepi Pantai Bintang 5',
@@ -1697,7 +1707,7 @@ async function main(): Promise<void> {
       amenities: JSON.stringify(['Glass Infinity Pool', 'Beachfront Restaurant', 'Sunset Bar', 'Spa Alami', 'Free High-Speed WiFi']),
     },
     {
-      id: 'acc_jeeva_beloam_camp',
+      id: toSeedUuid('acc_jeeva_beloam_camp'),
       name: 'Jeeva Beloam Beach Camp',
       slug: 'jeeva-beloam-beach-camp',
       type: 'Eco Luxury Glamping & Camp',
@@ -1717,7 +1727,7 @@ async function main(): Promise<void> {
       amenities: JSON.stringify(['Private Cove Beach', 'All-Inclusive Dining', 'Snorkeling Gear', 'Sea Kayaking', 'Eco-Friendly Solarpower']),
     },
     {
-      id: 'acc_rinjani_lodge_senaru',
+      id: toSeedUuid('acc_rinjani_lodge_senaru'),
       name: 'Rinjani Lodge Senaru',
       slug: 'rinjani-lodge-senaru',
       type: 'Boutique Mountain Lodge',
@@ -1737,7 +1747,7 @@ async function main(): Promise<void> {
       amenities: JSON.stringify(['Mountain View Infinity Pool', 'Restoran Kopi Rinjani', 'Dekat Pintu Masuk Air Terjun', 'WiFi']),
     },
     {
-      id: 'acc_villa_ombak_gili',
+      id: toSeedUuid('acc_villa_ombak_gili'),
       name: 'Hotel Villa Ombak Gili Trawangan',
       slug: 'hotel-villa-ombak-gili-trawangan',
       type: 'Resort Tradisional Sasak',
@@ -1757,7 +1767,7 @@ async function main(): Promise<void> {
       amenities: JSON.stringify(['Large Saltwater Pool', 'Beachfront Dining', 'PADI Dive Centre', 'Spa Treatment', 'Island Tour Service']),
     },
     {
-      id: 'acc_novotel_lombok',
+      id: toSeedUuid('acc_novotel_lombok'),
       name: 'Novotel Lombok Resort & Villas',
       slug: 'novotel-lombok-resort-villas',
       type: 'Resort Keluarga Tradisional',
@@ -1777,7 +1787,7 @@ async function main(): Promise<void> {
       amenities: JSON.stringify(['3 Outdoor Pools', 'Private Beach Access', 'Kids Club & Activities', 'Daily Buffet Breakfast', 'Water Sports']),
     },
     {
-      id: 'acc_sembalun_kita_cottage',
+      id: toSeedUuid('acc_sembalun_kita_cottage'),
       name: 'Sembalun Kita Cottage & Mountain Glamping',
       slug: 'sembalun-kita-cottage',
       type: 'Cottage & Glamping Pegunungan',
@@ -1842,7 +1852,7 @@ async function main(): Promise<void> {
   const reviewsData = [
     {
       userId: demoUser.id,
-      destinationId: 'dest_tanjung_aan',
+      destinationId: toSeedUuid('dest_tanjung_aan'),
       rating: 5.0,
       content:
         'Pemandangan luar biasa indah! Pasirnya benar-benar seperti butiran merica dan airnya sangat jernih. Wajib sewa kelapa muda di pinggir pantai.',
@@ -1850,7 +1860,7 @@ async function main(): Promise<void> {
     },
     {
       userId: localGuideUser.id,
-      destinationId: 'dest_bukit_merese',
+      destinationId: toSeedUuid('dest_bukit_merese'),
       rating: 5.0,
       content:
         'Sebagai guide lokal, saya selalu membawa tamu ke Bukit Merese untuk menikmati sunset. Tidak pernah gagal membuat mereka terpesona!',
@@ -1858,7 +1868,7 @@ async function main(): Promise<void> {
     },
     {
       userId: demoUser.id,
-      destinationId: 'dest_tiu_kelep',
+      destinationId: toSeedUuid('dest_tiu_kelep'),
       rating: 5.0,
       content:
         'Trekking menuju Tiu Kelep sangat seru melintasi jembatan air. Saat tiba di depan air terjun, angin dan kabut airnya sangat menyegarkan!',
@@ -1866,7 +1876,7 @@ async function main(): Promise<void> {
     },
     {
       userId: demoUser.id,
-      destinationId: 'dest_gili_trawangan',
+      destinationId: toSeedUuid('dest_gili_trawangan'),
       rating: 5.0,
       content:
         'Snorkeling langsung dari tepi pantai dan langsung bertemu penyu hijau besar! Sore hari keliling pulau naik sepeda adalah pengalaman terbaik.',
@@ -1874,7 +1884,7 @@ async function main(): Promise<void> {
     },
     {
       userId: localGuideUser.id,
-      destinationId: 'dest_gunung_rinjani',
+      destinationId: toSeedUuid('dest_gunung_rinjani'),
       rating: 5.0,
       content:
         'Puncak Dewi Anjani 3.726 mdpl selalu memberikan rasa takjub. Danau Segara Anak di bawah kawah adalah salah satu tempat terindah di dunia.',
@@ -1892,21 +1902,21 @@ async function main(): Promise<void> {
   await prisma.favorite.create({
     data: {
       userId: demoUser.id,
-      destinationId: 'dest_tanjung_aan',
+      destinationId: toSeedUuid('dest_tanjung_aan'),
     },
   });
 
   await prisma.favorite.create({
     data: {
       userId: demoUser.id,
-      destinationId: 'dest_bukit_merese',
+      destinationId: toSeedUuid('dest_bukit_merese'),
     },
   });
 
   await prisma.favorite.create({
     data: {
       userId: demoUser.id,
-      destinationId: 'dest_gili_trawangan',
+      destinationId: toSeedUuid('dest_gili_trawangan'),
     },
   });
 
@@ -1915,7 +1925,7 @@ async function main(): Promise<void> {
   // =========================================================================
   const sampleItinerary = await prisma.itinerary.create({
     data: {
-      id: 'itin_3days_lombok_classic',
+      id: toSeedUuid('itin_3days_lombok_classic'),
       userId: demoUser.id,
       title: '3 Hari Jelajah Pesona Lombok Selatan & Gili',
       description:
@@ -1940,7 +1950,7 @@ async function main(): Promise<void> {
                 {
                   orderIndex: 1,
                   timeSlot: '08:30 - 10:30',
-                  destinationId: 'dest_desa_sade',
+                  destinationId: toSeedUuid('dest_desa_sade'),
                   customTitle: 'Eksplorasi Budaya Tradisional Sade',
                   activityNotes: 'Mempelajari adat Sasak dan melihat proses tenun kain songket.',
                   estimatedDurationMinutes: 120,
@@ -1949,7 +1959,7 @@ async function main(): Promise<void> {
                 {
                   orderIndex: 2,
                   timeSlot: '11:00 - 14:00',
-                  destinationId: 'dest_tanjung_aan',
+                  destinationId: toSeedUuid('dest_tanjung_aan'),
                   customTitle: 'Santai & Berenang di Tanjung Aan',
                   activityNotes: 'Berenang di air tenang dan makan siang kelapa muda.',
                   estimatedDurationMinutes: 180,
@@ -1958,7 +1968,7 @@ async function main(): Promise<void> {
                 {
                   orderIndex: 3,
                   timeSlot: '16:00 - 18:30',
-                  destinationId: 'dest_bukit_merese',
+                  destinationId: toSeedUuid('dest_bukit_merese'),
                   customTitle: 'Sunset Magis di Puncak Bukit Merese',
                   activityNotes: 'Menikmati golden hour matahari terbenam berlatar Samudra Hindia.',
                   estimatedDurationMinutes: 150,
@@ -1976,7 +1986,7 @@ async function main(): Promise<void> {
                 {
                   orderIndex: 1,
                   timeSlot: '09:00 - 14:00',
-                  destinationId: 'dest_tiu_kelep',
+                  destinationId: toSeedUuid('dest_tiu_kelep'),
                   customTitle: 'Trekking Hutan & Air Terjun Tiu Kelep',
                   activityNotes: 'Berenang di kolam air terjun alami.',
                   estimatedDurationMinutes: 300,
@@ -1994,7 +2004,7 @@ async function main(): Promise<void> {
                 {
                   orderIndex: 1,
                   timeSlot: '08:30 - 16:30',
-                  destinationId: 'dest_gili_trawangan',
+                  destinationId: toSeedUuid('dest_gili_trawangan'),
                   customTitle: 'Snorkeling Penyu & Keliling Sepeda Gili Trawangan',
                   activityNotes: 'Sewa sepeda santai keliling pulau dan snorkeling.',
                   estimatedDurationMinutes: 480,
@@ -2013,7 +2023,7 @@ async function main(): Promise<void> {
   // =========================================================================
   await prisma.recommendation.create({
     data: {
-      id: 'rec_south_lombok_beach',
+      id: toSeedUuid('rec_south_lombok_beach'),
       title: 'Eksotika Bahari Lombok Selatan',
       subtitle: 'Jelajahi pantai pasir merica, bukit perawan, dan ombak Mandalika.',
       bannerUrl: CLOUDINARY_MEDIA.bukit_merese.url,
@@ -2025,10 +2035,10 @@ async function main(): Promise<void> {
       isActive: true,
       destinations: {
         create: [
-          { destinationId: 'dest_tanjung_aan', orderIndex: 0 },
-          { destinationId: 'dest_bukit_merese', orderIndex: 1 },
-          { destinationId: 'dest_desa_sade', orderIndex: 2 },
-          { destinationId: 'dest_selong_belanak', orderIndex: 3 },
+          { destinationId: toSeedUuid('dest_tanjung_aan'), orderIndex: 0 },
+          { destinationId: toSeedUuid('dest_bukit_merese'), orderIndex: 1 },
+          { destinationId: toSeedUuid('dest_desa_sade'), orderIndex: 2 },
+          { destinationId: toSeedUuid('dest_selong_belanak'), orderIndex: 3 },
         ],
       },
     },
@@ -2036,7 +2046,7 @@ async function main(): Promise<void> {
 
   await prisma.recommendation.create({
     data: {
-      id: 'rec_north_rinjani_adventure',
+      id: toSeedUuid('rec_north_rinjani_adventure'),
       title: 'Petualangan Alam Geopark Rinjani',
       subtitle: 'Trekking hutan tropis, air terjun tersembunyi, dan pesona Sembalun.',
       bannerUrl: CLOUDINARY_MEDIA.bukit_merese.url,
@@ -2048,9 +2058,9 @@ async function main(): Promise<void> {
       isActive: true,
       destinations: {
         create: [
-          { destinationId: 'dest_tiu_kelep', orderIndex: 0 },
-          { destinationId: 'dest_bukit_pergasingan', orderIndex: 1 },
-          { destinationId: 'dest_mangku_sakti', orderIndex: 2 },
+          { destinationId: toSeedUuid('dest_tiu_kelep'), orderIndex: 0 },
+          { destinationId: toSeedUuid('dest_bukit_pergasingan'), orderIndex: 1 },
+          { destinationId: toSeedUuid('dest_mangku_sakti'), orderIndex: 2 },
         ],
       },
     },
@@ -2061,7 +2071,7 @@ async function main(): Promise<void> {
   // =========================================================================
   await prisma.itineraryTemplate.create({
     data: {
-      id: 'rec_mandalika_3d',
+      id: toSeedUuid('rec_mandalika_3d'),
       title: '3 Hari Liburan Seru di Mandalika & Pantai Selatan',
       description:
         'Itinerary kurasi pesona pantai pasir putih, bukit sunset legendaris, dan kekayaan budaya tenun Sasak di Lombok Selatan.',
@@ -2090,7 +2100,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_tanjung_aan',
+                  destinationId: toSeedUuid('dest_tanjung_aan'),
                   orderIndex: 0,
                   startTime: '08:30',
                   endTime: '10:30',
@@ -2101,7 +2111,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Menikmati pantai pasir merica dan air laut toska jernih.',
                 },
                 {
-                  destinationId: 'dest_bukit_merese',
+                  destinationId: toSeedUuid('dest_bukit_merese'),
                   orderIndex: 1,
                   startTime: '11:00',
                   endTime: '13:00',
@@ -2112,7 +2122,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Trekking bukit hijau dengan panorama Samudra Hindia 360 derajat.',
                 },
                 {
-                  destinationId: 'dest_pantai_kuta_lombok',
+                  destinationId: toSeedUuid('dest_pantai_kuta_lombok'),
                   orderIndex: 2,
                   startTime: '15:30',
                   endTime: '18:00',
@@ -2135,7 +2145,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_selong_belanak',
+                  destinationId: toSeedUuid('dest_selong_belanak'),
                   orderIndex: 0,
                   startTime: '09:00',
                   endTime: '12:00',
@@ -2146,7 +2156,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Pantai landai berpasir halus surganya peselancar pemula.',
                 },
                 {
-                  destinationId: 'dest_pantai_mawun',
+                  destinationId: toSeedUuid('dest_pantai_mawun'),
                   orderIndex: 1,
                   startTime: '13:00',
                   endTime: '15:00',
@@ -2157,7 +2167,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Teluk berbentuk tapal kuda berair tenang untuk berenang.',
                 },
                 {
-                  destinationId: 'dest_pantai_mawi',
+                  destinationId: toSeedUuid('dest_pantai_mawi'),
                   orderIndex: 2,
                   startTime: '15:30',
                   endTime: '18:30',
@@ -2180,7 +2190,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_desa_sade',
+                  destinationId: toSeedUuid('dest_desa_sade'),
                   orderIndex: 0,
                   startTime: '09:00',
                   endTime: '11:30',
@@ -2191,7 +2201,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Rumah adat Bale Tani dan tarian adat suku Sasak.',
                 },
                 {
-                  destinationId: 'dest_desa_sukarara',
+                  destinationId: toSeedUuid('dest_desa_sukarara'),
                   orderIndex: 1,
                   startTime: '13:00',
                   endTime: '15:30',
@@ -2211,7 +2221,7 @@ async function main(): Promise<void> {
 
   await prisma.itineraryTemplate.create({
     data: {
-      id: 'rec_gili_3d',
+      id: toSeedUuid('rec_gili_3d'),
       title: '3 Hari Surga Bawah Laut & Snorkeling 3 Gili',
       description:
         'Paket perjalanan bahari lengkap mengarungi Gili Trawangan, patung bawah laut Gili Meno, dan ketenangan pasir putih Gili Air.',
@@ -2240,7 +2250,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_gili_trawangan',
+                  destinationId: toSeedUuid('dest_gili_trawangan'),
                   orderIndex: 0,
                   startTime: '09:00',
                   endTime: '13:00',
@@ -2251,7 +2261,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Menikmati pantai pasir putih dan kafe tepi pantai.',
                 },
                 {
-                  destinationId: 'dest_shark_point_gili',
+                  destinationId: toSeedUuid('dest_shark_point_gili'),
                   orderIndex: 1,
                   startTime: '14:30',
                   endTime: '17:30',
@@ -2274,7 +2284,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_gili_meno',
+                  destinationId: toSeedUuid('dest_gili_meno'),
                   orderIndex: 0,
                   startTime: '08:30',
                   endTime: '12:30',
@@ -2297,7 +2307,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_gili_air',
+                  destinationId: toSeedUuid('dest_gili_air'),
                   orderIndex: 0,
                   startTime: '09:00',
                   endTime: '13:00',
@@ -2317,7 +2327,7 @@ async function main(): Promise<void> {
 
   await prisma.itineraryTemplate.create({
     data: {
-      id: 'rec_sembalun_2d',
+      id: toSeedUuid('rec_sembalun_2d'),
       title: '2 Hari Petualangan Lereng Rinjani & Lembah Sembalun',
       description:
         'Rasakan udara pegunungan yang sejuk, panorama petak sawah warna-warni Sembalun, dan gemuruh air terjun Tiu Kelep.',
@@ -2346,7 +2356,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_bukit_pergasingan',
+                  destinationId: toSeedUuid('dest_bukit_pergasingan'),
                   orderIndex: 0,
                   startTime: '08:00',
                   endTime: '12:00',
@@ -2357,7 +2367,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Pemandangan spektakuler Gunung Rinjani dan hamparan sawah kotak.',
                 },
                 {
-                  destinationId: 'dest_kebun_strawberry_sembalun',
+                  destinationId: toSeedUuid('dest_kebun_strawberry_sembalun'),
                   orderIndex: 1,
                   startTime: '13:30',
                   endTime: '15:30',
@@ -2368,7 +2378,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Petik buah strawberry segar langsung dari kebun agrowisata.',
                 },
                 {
-                  destinationId: 'dest_bukit_selong',
+                  destinationId: toSeedUuid('dest_bukit_selong'),
                   orderIndex: 2,
                   startTime: '16:00',
                   endTime: '18:00',
@@ -2391,7 +2401,7 @@ async function main(): Promise<void> {
             activities: {
               create: [
                 {
-                  destinationId: 'dest_sendang_gile',
+                  destinationId: toSeedUuid('dest_sendang_gile'),
                   orderIndex: 0,
                   startTime: '08:30',
                   endTime: '10:30',
@@ -2402,7 +2412,7 @@ async function main(): Promise<void> {
                   activityNotes: 'Air terjun bertingkat megah di gerbang masuk pendakian Senaru.',
                 },
                 {
-                  destinationId: 'dest_tiu_kelep',
+                  destinationId: toSeedUuid('dest_tiu_kelep'),
                   orderIndex: 1,
                   startTime: '11:00',
                   endTime: '14:00',
@@ -2527,12 +2537,12 @@ async function main(): Promise<void> {
   // =========================================================================
   await prisma.post.create({
     data: {
-      id: 'post_seed_merese_sunset',
+      id: toSeedUuid('post_seed_merese_sunset'),
       userId: demoUser.id,
       title: 'Sunset Magis di Puncak Bukit Merese',
       description:
         'Pemandangan 360 derajat ke laut lepas Mandalika saat matahari terbenam luar biasa indah. Jangan lupa bawa jaket angin dan alas kaki yang nyaman!',
-      destinationId: 'dest_bukit_merese',
+      destinationId: toSeedUuid('dest_bukit_merese'),
       locationName: 'Bukit Merese, Pujut',
       latitude: -8.9083,
       longitude: 116.3218,
@@ -2546,7 +2556,7 @@ async function main(): Promise<void> {
           latitude: -8.9083,
           longitude: 116.3218,
           address: 'Kawasan Mandalika, Pujut, Kabupaten Lombok Tengah, NTB',
-          destinationId: 'dest_bukit_merese',
+          destinationId: toSeedUuid('dest_bukit_merese'),
         },
       },
       media: {
@@ -2573,12 +2583,12 @@ async function main(): Promise<void> {
 
   await prisma.post.create({
     data: {
-      id: 'post_seed_tanjung_aan_paddle',
+      id: toSeedUuid('post_seed_tanjung_aan_paddle'),
       userId: demoUser.id,
       title: 'Serunya Stand-Up Paddle di Teluk Tanjung Aan',
       description:
         'Ombak di teluk Tanjung Aan sangat tenang dengan air laut hijau toska yang jernih. Pasir mericanya juga sangat unik!',
-      destinationId: 'dest_tanjung_aan',
+      destinationId: toSeedUuid('dest_tanjung_aan'),
       locationName: 'Pantai Tanjung Aan',
       latitude: -8.9083,
       longitude: 116.3218,
@@ -2592,7 +2602,7 @@ async function main(): Promise<void> {
           latitude: -8.9083,
           longitude: 116.3218,
           address: 'Sengkol, Pujut, Kabupaten Lombok Tengah, NTB',
-          destinationId: 'dest_tanjung_aan',
+          destinationId: toSeedUuid('dest_tanjung_aan'),
         },
       },
       media: {
@@ -2616,55 +2626,55 @@ async function main(): Promise<void> {
 
   // Category English Translations Dictionary
   const categoryEnTranslations: Record<string, { name: string; description: string }> = {
-    cat_beach: {
+    [toSeedUuid('cat_beach')]: {
       name: 'Beaches & Coastline',
       description: 'Explore pristine white sand beaches, hidden turquoise bays, and Lombok\'s iconic pepper-grain sand.',
     },
-    cat_waterfall: {
+    [toSeedUuid('cat_waterfall')]: {
       name: 'Natural Waterfalls',
       description: 'Refreshing natural waterfalls and eternal mist cascades at the foot of Mount Rinjani and tropical jungles.',
     },
-    cat_mountain: {
+    [toSeedUuid('cat_mountain')]: {
       name: 'Mountains & Peaks',
       description: 'Majestic treks to Mount Rinjani summit, Segara Anak Lake, and global geopark volcanic adventures.',
     },
-    cat_hill: {
+    [toSeedUuid('cat_hill')]: {
       name: 'Hills & Savannas',
       description: 'Exotic green savanna hills with sweeping ocean views and lush agricultural valleys.',
     },
-    cat_gili: {
+    [toSeedUuid('cat_gili')]: {
       name: 'Gili Islands',
       description: 'The legendary Gili trio and tranquil virgin islands in Sekotong free from motorized vehicles.',
     },
-    cat_culture: {
+    [toSeedUuid('cat_culture')]: {
       name: 'Sasak Culture & Heritage',
       description: 'Ancestral Sasak heritage, ancient mosques, the Bau Nyale festival, and local wisdom.',
     },
-    cat_village: {
+    [toSeedUuid('cat_village')]: {
       name: 'Craft & Tourism Villages',
       description: 'Traditional Sukarara songket weaving villages, Banyumulek pottery, and authentic local crafts.',
     },
-    cat_culinary: {
+    [toSeedUuid('cat_culinary')]: {
       name: 'Traditional Culinary',
       description: 'Aromatic spicy Sasak dishes: Ayam Taliwang, Plecing Kangkung, Sate Bulayak, and Nasi Balap Puyung.',
     },
-    cat_surfing: {
+    [toSeedUuid('cat_surfing')]: {
       name: 'Surfing Spots',
       description: 'World-class surf breaks along Lombok\'s southern coast from beginner bays to professional reef breaks.',
     },
-    cat_snorkeling: {
+    [toSeedUuid('cat_snorkeling')]: {
       name: 'Snorkeling & Marine Life',
       description: 'Swim with wild sea turtles, explore Gili Meno\'s underwater Nest sculptures, and colorful coral reefs.',
     },
-    cat_diving: {
+    [toSeedUuid('cat_diving')]: {
       name: 'Scuba Diving Spots',
       description: 'PADI dive centers, shark points, manta points, and dramatic coral reef wall dives.',
     },
-    cat_sunset: {
+    [toSeedUuid('cat_sunset')]: {
       name: 'Sunset & Golden Hour',
       description: 'The best vantage points to enjoy magical sunsets against the Indian Ocean and Bali\'s Mount Agung silhouette.',
     },
-    cat_adventure: {
+    [toSeedUuid('cat_adventure')]: {
       name: 'Outdoor Adventure & Caving',
       description: 'Explore natural bat caves, dramatic sea cliffs, and mountain off-road trails.',
     },
@@ -2692,140 +2702,140 @@ async function main(): Promise<void> {
     string,
     { name: string; shortDescription: string; description: string; address?: string }
   > = {
-    dest_tanjung_aan: {
+    [toSeedUuid('dest_tanjung_aan')]: {
       name: 'Tanjung Aan Beach',
       shortDescription: 'Iconic pepper-grain white sand beach with a calm turquoise bay in the Mandalika area.',
       description:
         'Tanjung Aan Beach is the crown jewel of Central Lombok\'s southern coast, famed for its unique spherical pepper-like sand grains. Sheltered by Merese Hill, this calm bay is ideal for swimming, stand-up paddleboarding, or relaxing with fresh coconuts.',
       address: 'Sengkol, Pujut District, Central Lombok Regency, West Nusa Tenggara',
     },
-    dest_bukit_merese: {
+    [toSeedUuid('dest_bukit_merese')]: {
       name: 'Merese Hill (Bukit Merese)',
       shortDescription: 'Southern coastal savanna hill boasting Lombok\'s most spectacular sunset panoramas.',
       description:
         'Merese Hill frames Tanjung Aan Bay with rolling green savanna hills and dramatic sea cliffs. The summit delivers 360-degree vistas over the Indian Ocean and turquoise bays.',
       address: 'Jl. Kuta Lombok, Sengkol, Pujut, Central Lombok, West Nusa Tenggara',
     },
-    dest_gunung_rinjani: {
+    [toSeedUuid('dest_gunung_rinjani')]: {
       name: 'Mount Rinjani & Segara Anak Lake',
       shortDescription: 'The second highest volcano in Indonesia with the magical Segara Anak crater lake.',
       description:
         'Mount Rinjani National Park (3,726 m) is a UNESCO Global Geopark featuring the turquoise Segara Anak lake, Aik Kalak natural hot springs, and breathtaking sunrise views above the clouds.',
       address: 'Mount Rinjani National Park, North & East Lombok, West Nusa Tenggara',
     },
-    dest_tiu_kelep: {
+    [toSeedUuid('dest_tiu_kelep')]: {
       name: 'Tiu Kelep Waterfall',
       shortDescription: 'Majestic waterfall at the foot of Mount Rinjani with a natural water curtain and refreshing mist.',
       description:
         'Nestled within the lush rainforests of Senaru, Tiu Kelep Waterfall plunges 42 meters with powerful cascades generating an eternal cool mist. The jungle trek across waterways and bridges provides an authentic tropical adventure.',
       address: 'Senaru Village, Bayan, North Lombok Regency, West Nusa Tenggara',
     },
-    dest_gili_trawangan: {
+    [toSeedUuid('dest_gili_trawangan')]: {
       name: 'Gili Trawangan',
       shortDescription: 'Vehicle-free tropical island wonderland with vibrant marine life, coral reefs, and sea turtles.',
       description:
         'Gili Trawangan is the largest of the three Gili islands off Lombok. Free from motorized vehicles (bicycles and cidomo horse carts only), it combines crystal-clear snorkeling with wild turtles, beachfront dining, and sunset views overlooking Bali\'s Mount Agung.',
       address: 'Gili Indah Village, Pemenang, North Lombok, West Nusa Tenggara',
     },
-    dest_gili_meno: {
+    [toSeedUuid('dest_gili_meno')]: {
       name: 'Gili Meno & Underwater Sculptures',
       shortDescription: 'Tranquil, romantic island haven featuring the iconic Nest underwater sculptures.',
       description:
         'Gili Meno is the smallest and quietest of the Gili trio, famed for its serene ambiance. Its signature highlight is the "Nest" circular submerged sculpture at 4 meters depth and green turtle sanctuary.',
       address: 'Gili Indah Village, Pemenang, North Lombok, West Nusa Tenggara',
     },
-    dest_gili_air: {
+    [toSeedUuid('dest_gili_air')]: {
       name: 'Gili Air',
       shortDescription: 'A harmonious blend of relaxed tropical island vibe, yoga culture, and living coral reefs.',
       description:
         'Gili Air provides the perfect balance between Gili Meno\'s seclusion and Gili Trawangan\'s amenities. Popular with travelers seeking bohemian vibes, seaside yoga, vegan cafes, and clownfish snorkeling.',
       address: 'Gili Indah Village, Pemenang, North Lombok, West Nusa Tenggara',
     },
-    dest_selong_belanak: {
+    [toSeedUuid('dest_selong_belanak')]: {
       name: 'Selong Belanak Beach',
       shortDescription: 'Gentle crescent white sand bay that serves as the premier beginner surf haven in Lombok.',
       description:
         'Selong Belanak Beach boasts a crescent-shaped coastline with soft reef-free sand. Its gentle, rolling waves make it the premier location in Lombok for beginner surf lessons.',
       address: 'Selong Belanak Village, Praya Barat, Central Lombok, West Nusa Tenggara',
     },
-    dest_pantai_mawun: {
+    [toSeedUuid('dest_pantai_mawun')]: {
       name: 'Mawun Beach',
       shortDescription: 'Secluded horseshoe-shaped bay with turquoise waters nestled between two green hills.',
       description:
         'Mawun Beach forms a breathtaking horseshoe bay flanked by lush green headlands. Pristine white sands slope into sparkling turquoise waters under the tropical sun.',
       address: 'Tumpak Village, Pujut, Central Lombok, West Nusa Tenggara',
     },
-    dest_pantai_kuta_lombok: {
+    [toSeedUuid('dest_pantai_kuta_lombok')]: {
       name: 'Kuta Beach Mandalika & Promenade',
       shortDescription: 'The bustling hub of Mandalika featuring modern beachfront promenades and MotoGP circuit proximity.',
       description:
         'Kuta Mandalika Beach is the vibrant heart of southern Lombok\'s tourism zone, featuring a wide pedestrian promenade, iconic Mandalika landmark signs, modern cafes, and immediate proximity to the Pertamina Mandalika International Circuit.',
       address: 'Kuta, Pujut, Central Lombok Regency, West Nusa Tenggara',
     },
-    dest_bukit_pergasingan: {
+    [toSeedUuid('dest_bukit_pergasingan')]: {
       name: 'Pergasingan Hill Sembalun',
       shortDescription: '1,700m summit trek offering colorful patchwork rice field panoramas and Mount Rinjani views.',
       description:
         'Pergasingan Hill in Sembalun offers an exhilarating 2-3 hour trail ascending to a 1,700m peak. From the top, travelers are greeted by a breathtaking patchwork of colorful farm fields and Rinjani\'s crater rim.',
       address: 'Sembalun Lawang Village, Sembalun, East Lombok, West Nusa Tenggara',
     },
-    dest_shark_point_gili: {
+    [toSeedUuid('dest_shark_point_gili')]: {
       name: 'Shark Point & Turtle Point Diving',
       shortDescription: 'The premier scuba diving spot in the Gilis to encounter reef sharks, sea turtles, and rays.',
       description:
         'Shark Point on the northwest coast of Gili Trawangan is Lombok\'s most celebrated dive site. Tiered reef topography from 10 to 30 meters shelters white-tip reef sharks, massive green turtles, and vibrant marine biodiversity.',
       address: 'Gili Trawangan, North Lombok, West Nusa Tenggara',
     },
-    dest_gili_nanggu: {
+    [toSeedUuid('dest_gili_nanggu')]: {
       name: 'Gili Nanggu Sekotong',
       shortDescription: 'Virgin island sanctuary in Sekotong featuring an aquarium-like sea where fish flock to swimmers.',
       description:
         'Gili Nanggu in southwest Lombok is an ultra-peaceful underwater sanctuary. Thousands of colorful reef fish instantly gather around you the moment you step waist-deep into the crystal waters.',
       address: 'Sekotong District, West Lombok Regency, West Nusa Tenggara',
     },
-    dest_bukit_malimbu: {
+    [toSeedUuid('dest_bukit_malimbu')]: {
       name: 'Malimbu Hill',
       shortDescription: 'Iconic coastal viewpoint overlooking swaying coconut groves and the three Gili islands.',
       description:
         'Malimbu Hill along the scenic Senggigi-Pemenang coastal highway offers panoramic views over curving bays lined with thousands of palm trees, gradient blue waters, and distant Gili islands.',
       address: 'Jl. Raya Malimbu, Pemenang, West Nusa Tenggara',
     },
-    dest_gili_kedis: {
+    [toSeedUuid('dest_gili_kedis')]: {
       name: 'Gili Kedis & Gili Sudak',
       shortDescription: 'Tiny heart-shaped uninhabited islet surrounded by azure waters in Sekotong.',
       description:
         'Gili Kedis is a miniature heart-shaped uninhabited islet encircled by pure white sand that can be walked around in 5 minutes, paired with Gili Sudak renowned for beachfront grilled seafood.',
       address: 'Sekotong District, West Lombok Regency, West Nusa Tenggara',
     },
-    dest_mangku_sakti: {
+    [toSeedUuid('dest_mangku_sakti')]: {
       name: 'Mangku Sakti Waterfall Sembalun',
       shortDescription: 'Milky turquoise sulfur waterfall flowing through artistic marble stone canyons.',
       description:
         'Mangku Sakti Waterfall in Sajang Sembalun is celebrated for its milky turquoise sulfur water sourced directly from Mount Rinjani, winding through magnificent white marble rock canyons.',
       address: 'Sajang Village, Sembalun, East Lombok, West Nusa Tenggara',
     },
-    dest_pantai_nipah: {
+    [toSeedUuid('dest_pantai_nipah')]: {
       name: 'Nipah Beach & Fresh Grilled Fish',
       shortDescription: 'Shaded white sand beach lined with authentic seaside warungs serving fresh grilled fish.',
       description:
         'Nipah Beach along the scenic Senggigi road is famous for calm waters safe for family swimming and beachside wooden warungs serving fresh grilled snapper seasoned with spicy plecing sambal.',
       address: 'Malaka Village, Pemenang, North Lombok Regency, West Nusa Tenggara',
     },
-    dest_pantai_pink: {
+    [toSeedUuid('dest_pantai_pink')]: {
       name: 'Pink Beach (Tangsi Beach)',
       shortDescription: 'Natural pink sand beach colored by crushed red foraminifera coral fragments.',
       description:
         'Tangsi Beach, famously known as Pink Beach East Lombok, is one of the few natural pink sand beaches in the world. The blush pink tint gleams vividly when wet by crystal-clear waves under tropical sunlight.',
       address: 'Sekaroh Village, Jerowaru, East Lombok Regency, West Nusa Tenggara',
     },
-    dest_pantai_seger: {
+    [toSeedUuid('dest_pantai_seger')]: {
       name: 'Seger Beach & Princess Mandalika Monument',
       shortDescription: 'Hub of the historic Princess Mandalika Bau Nyale festival with direct MotoGP circuit views.',
       description:
         'Seger Beach is the legendary site of the annual Bau Nyale sea worm festival. Features the Princess Mandalika statue on the shoreline and Seger Hill overlooking the Mandalika Grand Prix track.',
       address: 'Kuta, Pujut, Central Lombok Regency, West Nusa Tenggara',
     },
-    dest_kebun_strawberry_sembalun: {
+    [toSeedUuid('dest_kebun_strawberry_sembalun')]: {
       name: 'Sembalun Valley & Strawberry Agrotourism',
       shortDescription: 'Cool mountain valley in Sembalun offering fresh hand-picked strawberry farm experiences.',
       description:
@@ -2883,22 +2893,22 @@ async function main(): Promise<void> {
 
   // Restaurant English Translations
   const restaurantEnTranslations: Record<string, { name: string; description: string }> = {
-    rest_ashtari_kuta_mandalika: {
+    [toSeedUuid('rest_ashtari_kuta_mandalika')]: {
       name: 'Ashtari Lounge & Kitchen Mandalika',
       description:
         'Hilltop restaurant and cafe in Prabu with a 180-degree panorama overlooking the entire Kuta Mandalika coastline.',
     },
-    rest_scallywags_gili_trawangan: {
+    [toSeedUuid('rest_scallywags_gili_trawangan')]: {
       name: 'Scallywags Organic Seafood Bar & Grill Gili',
       description:
         'Beachfront organic seafood barbecue restaurant on Gili Trawangan where you choose your fresh catch, lobster, and squid directly.',
     },
-    rest_warung_sasak_senaru: {
+    [toSeedUuid('rest_warung_sasak_senaru')]: {
       name: 'Warung Sasak Rinjani Senaru',
       description:
         'Cozy local eatery at the base of Mount Rinjani serving hearty bebalung beef rib soup and fresh Sembalun arabica coffee.',
     },
-    rest_el_bazar_kuta: {
+    [toSeedUuid('rest_el_bazar_kuta')]: {
       name: 'El Bazar Cafe & Restaurant Mandalika',
       description:
         'Mediterranean and Moroccan-inspired dining in central Kuta Mandalika offering succulent tagines, mezze platters, and artisan coffee.',
@@ -2922,37 +2932,37 @@ async function main(): Promise<void> {
 
   // Accommodation English Translations
   const accommodationEnTranslations: Record<string, { name: string; description: string }> = {
-    acc_pullman_mandalika: {
+    [toSeedUuid('acc_pullman_mandalika')]: {
       name: 'Pullman Lombok Merujani Mandalika Beach Resort',
       description:
         'Luxury 5-star beachfront resort in the heart of Mandalika offering uninterrupted Indian Ocean views, infinity pools, and a premium wellness spa.',
     },
-    acc_katamaran_resort_senggigi: {
+    [toSeedUuid('acc_katamaran_resort_senggigi')]: {
       name: 'Katamaran Hotel & Resort Senggigi',
       description:
         'Premier luxury beachfront resort featuring a glass-walled infinity pool on Mangsit Beach with prime sunset vistas over Mount Agung.',
     },
-    acc_jeeva_beloam_camp: {
+    [toSeedUuid('acc_jeeva_beloam_camp')]: {
       name: 'Jeeva Beloam Beach Camp',
       description:
         'Secluded eco-luxury glamping lodge on a private cove in Tanjung Ringgit with thatched timber cottages and a private white sand beach.',
     },
-    acc_rinjani_lodge_senaru: {
+    [toSeedUuid('acc_rinjani_lodge_senaru')]: {
       name: 'Rinjani Lodge Senaru',
       description:
         'Boutique hillside lodge in Senaru with breathtaking infinity pools facing the lush valley and Mount Rinjani summit.',
     },
-    acc_villa_ombak_gili: {
+    [toSeedUuid('acc_villa_ombak_gili')]: {
       name: 'Hotel Villa Ombak Gili Trawangan',
       description:
         'The first international resort on Gili Trawangan featuring traditional Sasak lumbung-style architecture directly along white sand shores.',
     },
-    acc_novotel_lombok: {
+    [toSeedUuid('acc_novotel_lombok')]: {
       name: 'Novotel Lombok Resort & Villas',
       description:
         'Traditional beachfront family resort on Seger Beach Mandalika with Sasak-style thatched roofs, tropical gardens, and calm lagoons.',
     },
-    acc_sembalun_kita_cottage: {
+    [toSeedUuid('acc_sembalun_kita_cottage')]: {
       name: 'Sembalun Kita Cottage & Mountain Glamping',
       description:
         'Warm wooden cottages amidst Sembalun strawberry plantations boasting uninterrupted front-row views of majestic Pergasingan Hill.',
@@ -2976,7 +2986,7 @@ async function main(): Promise<void> {
 
   // Itinerary Templates English Translations
   const templateEnTranslations: Record<string, { title: string; description: string; transportPaceNote?: string }> = {
-    rec_gili_3d: {
+    [toSeedUuid('rec_gili_3d')]: {
       title: '3-Day Underwater Paradise & 3 Gili Snorkeling Tour',
       description:
         'Experience the ultimate island adventure exploring Gili Trawangan, Meno, and Air with sea turtles, cycling, and sunsets.',
