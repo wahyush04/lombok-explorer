@@ -326,7 +326,7 @@ export class ItinerariesRepository {
    */
   public async addDay(
     itineraryId: string,
-    dayData: { title?: string; date?: Date | null; notes?: string | null },
+    dayData: { title?: string; date?: Date | null; notes?: string | null; startTime?: string | null },
   ) {
     return prisma.$transaction(async (tx) => {
       const maxDay = await tx.itineraryDay.findFirst({
@@ -345,7 +345,8 @@ export class ItinerariesRepository {
           title,
           date: dayData.date || null,
           notes: dayData.notes || null,
-        },
+          startTime: dayData.startTime || null,
+        } as any,
       });
 
       await tx.itinerary.update({
@@ -358,11 +359,11 @@ export class ItinerariesRepository {
   }
 
   /**
-   * Updates day metadata (title, date, notes).
+   * Updates day metadata (title, date, notes, startTime).
    */
   public async updateDay(
     dayId: string,
-    dayData: { title?: string; date?: Date | null; notes?: string | null },
+    dayData: { title?: string; date?: Date | null; notes?: string | null; startTime?: string | null },
   ) {
     return prisma.itineraryDay.update({
       where: { id: dayId },
@@ -370,14 +371,16 @@ export class ItinerariesRepository {
         ...(dayData.title !== undefined && { title: dayData.title }),
         ...(dayData.date !== undefined && { date: dayData.date }),
         ...(dayData.notes !== undefined && { notes: dayData.notes }),
+        ...(dayData.startTime !== undefined && { startTime: dayData.startTime }),
       },
     });
   }
 
   /**
    * Deletes a day and sequentially re-indexes remaining dayNumbers in a single transaction.
+   * If the last remaining day is deleted, automatically soft-deletes the itinerary.
    */
-  public async deleteDayAndReindex(itineraryId: string, dayId: string) {
+  public async deleteDayAndReindex(itineraryId: string, dayId: string): Promise<{ remainingDaysCount: number; itineraryDeleted: boolean }> {
     return prisma.$transaction(async (tx) => {
       // 1. Delete target day
       await tx.itineraryDay.delete({
@@ -389,6 +392,18 @@ export class ItinerariesRepository {
         where: { itineraryId },
         orderBy: { dayNumber: 'asc' },
       });
+
+      // If no days remain, soft-delete the itinerary
+      if (remainingDays.length === 0) {
+        await tx.itinerary.update({
+          where: { id: itineraryId },
+          data: {
+            deletedAt: new Date(),
+            totalDays: 0,
+          },
+        });
+        return { remainingDaysCount: 0, itineraryDeleted: true };
+      }
 
       // 3. Re-index sequentially (Day 1, 2, 3, ...)
       for (let i = 0; i < remainingDays.length; i++) {
@@ -415,8 +430,10 @@ export class ItinerariesRepository {
       // 4. Update totalDays on itinerary
       await tx.itinerary.update({
         where: { id: itineraryId },
-        data: { totalDays: Math.max(1, remainingDays.length) },
+        data: { totalDays: remainingDays.length },
       });
+
+      return { remainingDaysCount: remainingDays.length, itineraryDeleted: false };
     });
   }
 
@@ -635,6 +652,7 @@ export class ItinerariesRepository {
       shareToken?: string | null;
       startDate?: Date | null;
       endDate?: Date | null;
+      startTime?: string | null;
     },
   ) {
     return prisma.itinerary.update({
@@ -654,6 +672,7 @@ export class ItinerariesRepository {
         ...(data.shareToken !== undefined && { shareToken: data.shareToken }),
         ...(data.startDate !== undefined && { startDate: data.startDate }),
         ...(data.endDate !== undefined && { endDate: data.endDate }),
+        ...(data.startTime !== undefined && { startTime: data.startTime }),
       },
     });
   }

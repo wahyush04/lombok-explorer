@@ -66,6 +66,19 @@ export class ItinerariesController {
     return ResponseUtil.sendSuccess(res, result, 'Active trip retrieved successfully');
   });
 
+  public deleteActiveTrip = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const result = await this.service.deleteActiveTrip(userId);
+    return ResponseUtil.sendSuccess(res, result, 'Active trip deleted successfully');
+  });
+
+  public updateActiveTripStart = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const dto = req.body as import('./dto/itinerary.dto').UpdateTripStartDto;
+    const result = await this.service.updateActiveTripStart(userId, dto);
+    return ResponseUtil.sendSuccess(res, result, 'Active trip start setup updated successfully');
+  });
+
   public getById = asyncHandler(async (req: Request, res: Response) => {
     const id = String(req.params.id);
     const userId = req.user?.userId;
@@ -88,7 +101,7 @@ export class ItinerariesController {
   });
 
   public updateItinerary = asyncHandler(async (req: Request, res: Response) => {
-    const id = String(req.params.id);
+    const id = String(req.params.id || 'active');
     const userId = req.user!.userId;
     const userRole = req.user!.role;
     const dto = req.body as UpdateItineraryDto;
@@ -97,7 +110,7 @@ export class ItinerariesController {
   });
 
   public deleteItinerary = asyncHandler(async (req: Request, res: Response) => {
-    const id = String(req.params.id);
+    const id = String(req.params.id || 'active');
     const userId = req.user!.userId;
     const userRole = req.user!.role;
     await this.service.deleteItinerary(userId, userRole, id);
@@ -121,7 +134,7 @@ export class ItinerariesController {
 
   // --- DAY CONTROLLERS ---
   public addDay = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const userId = req.user!.userId;
     const userRole = req.user!.role;
     const dto = req.body as AddDayDto;
@@ -130,7 +143,7 @@ export class ItinerariesController {
   });
 
   public updateDay = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const dayId = String(req.params.dayId);
     const userId = req.user!.userId;
     const userRole = req.user!.role;
@@ -140,17 +153,21 @@ export class ItinerariesController {
   });
 
   public deleteDay = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const dayId = String(req.params.dayId);
     const userId = req.user!.userId;
     const userRole = req.user!.role;
     const data = await this.service.deleteDay(userId, userRole, itineraryId, dayId);
-    return ResponseUtil.sendSuccess(res, data, 'Day deleted and re-indexed successfully');
+    const message =
+      data && typeof data === 'object' && 'deletedTrip' in data && data.deletedTrip
+        ? data.message
+        : 'Day deleted and re-indexed successfully';
+    return ResponseUtil.sendSuccess(res, data, message);
   });
 
   // --- ACTIVITY / STOP CONTROLLERS ---
   public addActivity = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const dayId = String(req.params.dayId);
     const userId = req.user!.userId;
     const userRole = req.user!.role;
@@ -160,7 +177,7 @@ export class ItinerariesController {
   });
 
   public updateActivity = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const dayId = String(req.params.dayId);
     const activityId = String(req.params.activityId);
     const userId = req.user!.userId;
@@ -178,7 +195,7 @@ export class ItinerariesController {
   });
 
   public deleteActivity = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const dayId = String(req.params.dayId);
     const activityId = String(req.params.activityId);
     const userId = req.user!.userId;
@@ -198,7 +215,7 @@ export class ItinerariesController {
   });
 
   public reorderActivities = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const dayId = String(req.params.dayId);
     const userId = req.user!.userId;
     const userRole = req.user!.role;
@@ -213,7 +230,7 @@ export class ItinerariesController {
 
   // --- ROUTE OPTIMIZATION ---
   public optimizeRoute = asyncHandler(async (req: Request, res: Response) => {
-    const itineraryId = String(req.params.id);
+    const itineraryId = String(req.params.id || 'active');
     const userId = req.user!.userId;
     const userRole = req.user!.role;
     const dto = req.body as OptimizeItineraryDto;

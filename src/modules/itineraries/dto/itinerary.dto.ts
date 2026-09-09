@@ -37,6 +37,7 @@ export const ItineraryDayInputSchema = z.object({
   dayNumber: z.coerce.number().int().min(1).optional(),
   title: z.string().trim().min(1, 'Day title is required'),
   date: z.string().optional().nullable(),
+  startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   items: z.array(ItineraryItemInputSchema).optional(),
   activities: z.array(ItineraryItemInputSchema).optional(),
@@ -61,6 +62,7 @@ export const CreateItineraryDtoSchema = z.object({
   isPublic: z.boolean().default(false),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
   totalEstimatedBudget: z.coerce.number().min(0).optional(),
   days: z.array(ItineraryDayInputSchema).optional(),
 });
@@ -79,19 +81,34 @@ export const UpdateItineraryDtoSchema = z.object({
   isSaved: z.boolean().optional(),
   startDate: z.string().optional().nullable(),
   endDate: z.string().optional().nullable(),
+  startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
   totalEstimatedBudget: z.coerce.number().min(0).optional(),
   days: z.array(ItineraryDayInputSchema).optional(),
 });
 
+export const UpdateTripStartDtoSchema = z.object({
+  startLocation: CustomLocationInputSchema.optional().nullable(),
+  startDate: z.string().trim().optional().nullable(),
+  startTime: z
+    .string()
+    .trim()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)')
+    .optional()
+    .nullable(),
+});
+export type UpdateTripStartDto = z.infer<typeof UpdateTripStartDtoSchema>;
+
 export const AddDayDtoSchema = z.object({
   title: z.string().trim().min(1).max(150).optional(),
   date: z.string().optional().nullable(),
+  startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });
 
 export const UpdateDayDtoSchema = z.object({
   title: z.string().trim().min(1).max(150).optional(),
   date: z.string().optional().nullable(),
+  startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });
 
@@ -362,6 +379,7 @@ export interface ItineraryDayDto {
   dayNumber: number;
   title: string;
   date: string | null;
+  startTime?: string | null;
   notes: string | null;
   totalDistanceKm: number;
   totalDurationMinutes: number;
@@ -399,6 +417,7 @@ export interface ItineraryDto {
   shareUrl: string | null;
   startDate: string | null;
   endDate: string | null;
+  startTime?: string | null;
   days: ItineraryDayDto[];
   createdAt: string;
   updatedAt: string;
@@ -409,6 +428,7 @@ export interface ActiveTripDayDto {
   dayNumber: number;
   title: string;
   date: string | null;
+  startTime?: string | null;
   activityCount: number;
   activitiesCount?: number;
   totalDistanceKm?: number;
@@ -451,6 +471,8 @@ export interface ActiveTripCardDto {
   shareUrl: string | null;
   startDate: string | null;
   endDate: string | null;
+  startTime: string | null;
+  startLocation: CustomLocation | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -508,6 +508,77 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ActiveTripResponse'
+    delete:
+      tags:
+        - Itineraries
+      summary: Menghapus trip plan aktif
+      description: Menghapus (soft delete) trip plan aktif milik pengguna yang sedang login.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Berhasil menghapus trip plan aktif
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Active trip deleted successfully
+                  data:
+                    type: object
+                    properties:
+                      id:
+                        type: string
+                        example: itin_active_123
+                      deleted:
+                        type: boolean
+                        example: true
+
+  /api/v1/itineraries/active/start:
+    patch:
+      tags:
+        - Itineraries
+      summary: Mengatur waktu dan tempat start trip plan aktif
+      description: Mengatur tempat start (nama, koordinat, alamat) dan waktu/tanggal mulai lengkap untuk trip plan aktif, serta memperbarui waktu mulai hari pertama.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                startLocation:
+                  $ref: '#/components/schemas/CustomLocationInput'
+                startDate:
+                  type: string
+                  format: date-time
+                  example: '2026-09-10T08:30:00.000Z'
+                startTime:
+                  type: string
+                  example: '08:30'
+      responses:
+        '200':
+          description: Berhasil memperbarui konfigurasi awal trip aktif
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Active trip start setup updated successfully
+                  data:
+                    $ref: '#/components/schemas/ActiveTripResponse'
 
   /api/v1/itineraries/active-trip:
     get:
@@ -526,6 +597,15 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ActiveTripResponse'
+    delete:
+      tags:
+        - Itineraries
+      summary: Alias menghapus trip plan aktif
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Berhasil menghapus trip plan aktif
 
   /api/v1/itineraries/generate:
     post:

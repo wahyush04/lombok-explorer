@@ -44,6 +44,7 @@ import {
   UpdateActivityDto,
   UpdateDayDto,
   UpdateItineraryDto,
+  UpdateTripStartDto,
 } from './dto/itinerary.dto';
 import { PaginationMeta } from '../../common/types';
 import { mapboxMatrixService, MapboxMatrixService } from './services/mapbox-matrix.service';
@@ -61,10 +62,12 @@ export type ItineraryItemWithDestination = ItineraryItem & {
 
 export type ItineraryDayWithItems = ItineraryDay & {
   items: ItineraryItemWithDestination[];
+  startTime?: string | null;
 };
 
 export type ItineraryWithRelations = Itinerary & {
   days: ItineraryDayWithItems[];
+  startTime?: string | null;
 };
 
 export class ItinerariesService {
@@ -316,6 +319,7 @@ export class ItinerariesService {
             dayNumber: day.dayNumber,
             title: day.title,
             date: day.date ? (new Date(day.date).toISOString().split('T')[0] ?? null) : null,
+            startTime: day.startTime || null,
             notes: day.notes,
             totalDistanceKm: Math.round(dayDist * 100) / 100,
             totalDurationMinutes: Math.round(dayDur),
@@ -357,11 +361,12 @@ export class ItinerariesService {
       shareToken,
       shareUrl,
       startDate: itinerary.startDate
-        ? (new Date(itinerary.startDate).toISOString().split('T')[0] ?? null)
+        ? new Date(itinerary.startDate).toISOString()
         : null,
       endDate: itinerary.endDate
-        ? (new Date(itinerary.endDate).toISOString().split('T')[0] ?? null)
+        ? new Date(itinerary.endDate).toISOString()
         : null,
+      startTime: itinerary.startTime || null,
       days,
       createdAt: itinerary.createdAt.toISOString(),
       updatedAt: itinerary.updatedAt.toISOString(),
@@ -448,7 +453,11 @@ export class ItinerariesService {
         ? await this.matrixService.calculateMatrix(coordinates, transportationMode)
         : { distancesKm: [[0]], durationsMinutes: [[0]] };
 
-    let currentMinutes = this.parseTimeToMinutes(items[0]?.startTime) ?? 8 * 60 + 30; // default 08:30 AM WITA
+    const dayStartTime = (day as any)?.startTime as string | null | undefined;
+    let currentMinutes =
+      (dayStartTime ? this.parseTimeToMinutes(dayStartTime) : null) ??
+      this.parseTimeToMinutes(items[0]?.startTime) ??
+      8 * 60 + 30; // default 08:30 AM WITA
     let dayDist = 0;
     let dayDur = 0;
     let dayBudget = 0;
@@ -684,9 +693,10 @@ export class ItinerariesService {
     id: string,
     dto: UpdateItineraryDto,
   ): Promise<ItineraryDto> {
-    const existing = await this.repository.findById(id);
+    const resolvedId = await this.resolveActiveItineraryId(id, userId);
+    const existing = await this.repository.findById(resolvedId);
     if (!existing) {
-      throw new NotFoundError(`Itinerary '${id}' not found`, 'ITINERARY_NOT_FOUND');
+      throw new NotFoundError(`Itinerary '${resolvedId}' not found`, 'ITINERARY_NOT_FOUND');
     }
 
     if (existing.userId !== userId && userRole !== 'ADMIN') {
@@ -715,7 +725,7 @@ export class ItinerariesService {
     const endDate =
       dto.endDate !== undefined ? (dto.endDate ? new Date(dto.endDate) : null) : undefined;
 
-    await this.repository.updateMasterData(id, {
+    await this.repository.updateMasterData(resolvedId, {
       title: dto.title,
       description: dto.description,
       coverImageUrl: dto.coverImageUrl,
@@ -729,19 +739,27 @@ export class ItinerariesService {
       isSaved: dto.isSaved,
       startDate,
       endDate,
+      startTime: dto.startTime,
       ...(dto.totalEstimatedBudget !== undefined && {
         totalEstimatedBudget: Number(dto.totalEstimatedBudget),
       }),
     });
 
-    const updated = await this.repository.findById(id);
+    if (dto.startTime && existing.days.length > 0) {
+      const firstDay = existing.days[0]!;
+      await this.repository.updateDay(firstDay.id, { startTime: dto.startTime });
+      await this.recalculateDayRouteAndSchedule(firstDay.id, existing.transportationMode || 'CAR');
+    }
+
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
   public async deleteItinerary(userId: string, userRole: string, id: string): Promise<void> {
-    const existing = await this.repository.findById(id);
+    const resolvedId = await this.resolveActiveItineraryId(id, userId);
+    const existing = await this.repository.findById(resolvedId);
     if (!existing) {
-      throw new NotFoundError(`Itinerary '${id}' not found`, 'ITINERARY_NOT_FOUND');
+      throw new NotFoundError(`Itinerary '${resolvedId}' not found`, 'ITINERARY_NOT_FOUND');
     }
 
     if (existing.userId !== userId && userRole !== 'ADMIN') {
@@ -751,7 +769,7 @@ export class ItinerariesService {
       );
     }
 
-    await this.repository.delete(id);
+    await this.repository.delete(resolvedId);
   }
 
   public async duplicateItinerary(userId: string, id: string): Promise<ItineraryDto> {
@@ -839,9 +857,10 @@ export class ItinerariesService {
     itineraryId: string,
     dto: AddDayDto,
   ): Promise<ItineraryDto> {
-    const itinerary = await this.repository.findById(itineraryId);
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
+    const itinerary = await this.repository.findById(resolvedId);
     if (!itinerary) {
-      throw new NotFoundError(`Itinerary '${itineraryId}' not found`, 'ITINERARY_NOT_FOUND');
+      throw new NotFoundError(`Itinerary '${resolvedId}' not found`, 'ITINERARY_NOT_FOUND');
     }
 
     if (itinerary.userId !== userId && userRole !== 'ADMIN') {
@@ -852,13 +871,14 @@ export class ItinerariesService {
     }
 
     const date = dto.date ? new Date(dto.date) : null;
-    await this.repository.addDay(itineraryId, {
+    await this.repository.addDay(resolvedId, {
       title: dto.title,
       date,
       notes: dto.notes,
+      startTime: dto.startTime,
     });
 
-    const updated = await this.repository.findById(itineraryId);
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
@@ -869,8 +889,9 @@ export class ItinerariesService {
     dayId: string,
     dto: UpdateDayDto,
   ): Promise<ItineraryDto> {
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
     const day = await this.repository.findDayById(dayId);
-    if (!day || day.itineraryId !== itineraryId) {
+    if (!day || day.itineraryId !== resolvedId) {
       throw new NotFoundError(`Day '${dayId}' not found in itinerary`, 'DAY_NOT_FOUND');
     }
 
@@ -886,9 +907,14 @@ export class ItinerariesService {
       title: dto.title,
       date,
       notes: dto.notes,
+      startTime: dto.startTime,
     });
 
-    const updated = await this.repository.findById(itineraryId);
+    if (dto.startTime !== undefined) {
+      await this.recalculateDayRouteAndSchedule(dayId, day.itinerary.transportationMode || 'CAR');
+    }
+
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
@@ -897,9 +923,10 @@ export class ItinerariesService {
     userRole: string,
     itineraryId: string,
     dayId: string,
-  ): Promise<ItineraryDto> {
+  ): Promise<ItineraryDto | { deletedTrip: boolean; message: string; tripId: string }> {
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
     const day = await this.repository.findDayById(dayId);
-    if (!day || day.itineraryId !== itineraryId) {
+    if (!day || day.itineraryId !== resolvedId) {
       throw new NotFoundError(`Day '${dayId}' not found in itinerary`, 'DAY_NOT_FOUND');
     }
 
@@ -910,9 +937,17 @@ export class ItinerariesService {
       );
     }
 
-    await this.repository.deleteDayAndReindex(itineraryId, dayId);
+    const result = await this.repository.deleteDayAndReindex(resolvedId, dayId);
 
-    const updated = await this.repository.findById(itineraryId);
+    if (result.itineraryDeleted) {
+      return {
+        deletedTrip: true,
+        tripId: resolvedId,
+        message: 'Hari terakhir telah dihapus dari trip plan. Trip plan aktif telah dihapus.',
+      };
+    }
+
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
@@ -924,8 +959,9 @@ export class ItinerariesService {
     dayId: string,
     dto: AddActivityDto,
   ): Promise<ItineraryDto> {
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
     const day = await this.repository.findDayById(dayId);
-    if (!day || day.itineraryId !== itineraryId) {
+    if (!day || day.itineraryId !== resolvedId) {
       throw new NotFoundError(`Day '${dayId}' not found in itinerary`, 'DAY_NOT_FOUND');
     }
 
@@ -1006,7 +1042,7 @@ export class ItinerariesService {
 
     await this.recalculateDayRouteAndSchedule(dayId, day.itinerary.transportationMode);
 
-    const updated = await this.repository.findById(itineraryId);
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
@@ -1018,11 +1054,12 @@ export class ItinerariesService {
     activityId: string,
     dto: UpdateActivityDto,
   ): Promise<ItineraryDto> {
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
     const activity = await this.repository.findActivityById(activityId);
     if (
       !activity ||
       activity.itineraryDayId !== dayId ||
-      activity.itineraryDay.itineraryId !== itineraryId
+      activity.itineraryDay.itineraryId !== resolvedId
     ) {
       throw new NotFoundError(
         `Activity '${activityId}' not found in specified day`,
@@ -1112,7 +1149,7 @@ export class ItinerariesService {
       activity.itineraryDay.itinerary.transportationMode,
     );
 
-    const updated = await this.repository.findById(itineraryId);
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
@@ -1123,11 +1160,12 @@ export class ItinerariesService {
     dayId: string,
     activityId: string,
   ): Promise<ItineraryDto> {
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
     const activity = await this.repository.findActivityById(activityId);
     if (
       !activity ||
       activity.itineraryDayId !== dayId ||
-      activity.itineraryDay.itineraryId !== itineraryId
+      activity.itineraryDay.itineraryId !== resolvedId
     ) {
       throw new NotFoundError(
         `Activity '${activityId}' not found in specified day`,
@@ -1148,7 +1186,7 @@ export class ItinerariesService {
       activity.itineraryDay.itinerary.transportationMode,
     );
 
-    const updated = await this.repository.findById(itineraryId);
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
@@ -1159,8 +1197,9 @@ export class ItinerariesService {
     dayId: string,
     dto: ReorderActivitiesDto,
   ): Promise<ItineraryDto> {
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
     const day = await this.repository.findDayById(dayId);
-    if (!day || day.itineraryId !== itineraryId) {
+    if (!day || day.itineraryId !== resolvedId) {
       throw new NotFoundError(`Day '${dayId}' not found in itinerary`, 'DAY_NOT_FOUND');
     }
 
@@ -1181,7 +1220,7 @@ export class ItinerariesService {
     await this.repository.reorderActivities(dayId, dto.activities);
     await this.recalculateDayRouteAndSchedule(dayId, day.itinerary.transportationMode);
 
-    const updated = await this.repository.findById(itineraryId);
+    const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
   }
 
@@ -1192,9 +1231,10 @@ export class ItinerariesService {
     itineraryId: string,
     dto: OptimizeItineraryDto,
   ): Promise<ItineraryDto> {
-    const itinerary = await this.repository.findById(itineraryId);
+    const resolvedId = await this.resolveActiveItineraryId(itineraryId, userId);
+    const itinerary = await this.repository.findById(resolvedId);
     if (!itinerary) {
-      throw new NotFoundError(`Itinerary '${itineraryId}' not found`, 'ITINERARY_NOT_FOUND');
+      throw new NotFoundError(`Itinerary '${resolvedId}' not found`, 'ITINERARY_NOT_FOUND');
     }
 
     if (itinerary.userId !== userId && userRole !== 'ADMIN') {
@@ -1335,6 +1375,7 @@ export class ItinerariesService {
         dayNumber: day.dayNumber,
         title: day.title || `Hari ${day.dayNumber}`,
         date: day.date ? (new Date(day.date).toISOString().split('T')[0] || null) : null,
+        startTime: ((day as any).startTime as string | null) || null,
         activityCount: items.length,
         activitiesCount: items.length,
         totalDistanceKm: Math.round(dayDist * 10) / 10,
@@ -1377,11 +1418,77 @@ export class ItinerariesService {
         shareUrl,
         startDate: itinerary.startDate ? itinerary.startDate.toISOString() : null,
         endDate: itinerary.endDate ? itinerary.endDate.toISOString() : null,
+        startTime: ((itinerary as any).startTime as string | null) || null,
+        startLocation: this.parseLocation(itinerary.startLocation),
         createdAt: itinerary.createdAt.toISOString(),
         updatedAt: itinerary.updatedAt.toISOString(),
       },
       days: mappedDays,
     };
+  }
+
+  /**
+   * Helper to resolve 'active' or 'active-trip' keyword into the user's active itinerary ID.
+   */
+  public async resolveActiveItineraryId(idOrActive: string, userId: string): Promise<string> {
+    if (idOrActive === 'active' || idOrActive === 'active-trip') {
+      const activeTrip = await this.repository.findActiveTripByUserId(userId);
+      if (!activeTrip) {
+        throw new NotFoundError('Tidak ada trip plan aktif yang ditemukan', 'NO_ACTIVE_TRIP');
+      }
+      return activeTrip.id;
+    }
+    return idOrActive;
+  }
+
+  /**
+   * Deletes the user's current active trip plan.
+   */
+  public async deleteActiveTrip(userId: string): Promise<{ id: string; deleted: boolean }> {
+    const activeTrip = await this.repository.findActiveTripByUserId(userId);
+    if (!activeTrip) {
+      throw new NotFoundError('Tidak ada trip plan aktif yang ditemukan', 'NO_ACTIVE_TRIP');
+    }
+    await this.repository.delete(activeTrip.id);
+    return { id: activeTrip.id, deleted: true };
+  }
+
+  /**
+   * Updates start location and/or start time/date for the user's active trip plan.
+   */
+  public async updateActiveTripStart(
+    userId: string,
+    dto: UpdateTripStartDto,
+  ): Promise<ItineraryDto> {
+    const activeTrip = await this.repository.findActiveTripByUserId(userId);
+    if (!activeTrip) {
+      throw new NotFoundError('Tidak ada trip plan aktif yang ditemukan', 'NO_ACTIVE_TRIP');
+    }
+
+    const startLocationStr =
+      dto.startLocation !== undefined
+        ? dto.startLocation
+          ? JSON.stringify(dto.startLocation)
+          : null
+        : undefined;
+
+    const startDate =
+      dto.startDate !== undefined ? (dto.startDate ? new Date(dto.startDate) : null) : undefined;
+
+    await this.repository.updateMasterData(activeTrip.id, {
+      startLocation: startLocationStr,
+      startDate,
+      startTime: dto.startTime,
+    });
+
+    if (dto.startTime && activeTrip.days.length > 0) {
+      const firstDay = activeTrip.days[0]!;
+      await this.repository.updateDay(firstDay.id, { startTime: dto.startTime });
+      await this.recalculateDayRouteAndSchedule(firstDay.id, activeTrip.transportationMode || 'CAR');
+    }
+
+    const updated = await this.repository.findById(activeTrip.id);
+    return this.mapToDto(updated as ItineraryWithRelations);
   }
 
   public async getRecommendations(

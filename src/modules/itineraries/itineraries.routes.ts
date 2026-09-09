@@ -17,6 +17,7 @@ import {
   UpdateActivityDtoSchema,
   UpdateDayDtoSchema,
   UpdateItineraryDtoSchema,
+  UpdateTripStartDtoSchema,
 } from './dto/itinerary.dto';
 import { GenerateItineraryDtoSchema } from './dto/itinerary-generator.dto';
 import { CreateExpenseDtoSchema } from '../expenses/dto/expense.dto';
@@ -72,13 +73,87 @@ router.post(
   itinerariesController.generateItinerary,
 );
 
-// Active trip card summary for Android Home Screen
+// ==========================================
+// 4. ACTIVE TRIP OPERATIONS
+// ==========================================
+// Active trip card summary
 router.get('/active', optionalAuthenticate, itinerariesController.getActiveTrip);
-
 router.get('/active-trip', optionalAuthenticate, itinerariesController.getActiveTrip);
 
+// Delete active trip plan
+router.delete('/active', authenticate, itinerariesController.deleteActiveTrip);
+router.delete('/active-trip', authenticate, itinerariesController.deleteActiveTrip);
+
+// Configure start place and complete start time of active trip
+router.patch(
+  '/active/start',
+  authenticate,
+  validate({ body: UpdateTripStartDtoSchema }),
+  itinerariesController.updateActiveTripStart,
+);
+router.patch(
+  '/active-trip/start',
+  authenticate,
+  validate({ body: UpdateTripStartDtoSchema }),
+  itinerariesController.updateActiveTripStart,
+);
+
+// Direct update on active trip
+router.patch(
+  '/active',
+  authenticate,
+  validate({ body: UpdateItineraryDtoSchema }),
+  itinerariesController.updateItinerary,
+);
+
+// Direct active trip days management
+router.post(
+  '/active/days',
+  authenticate,
+  validate({ body: AddDayDtoSchema }),
+  itinerariesController.addDay,
+);
+router.patch(
+  '/active/days/:dayId',
+  authenticate,
+  validate({ body: UpdateDayDtoSchema }),
+  itinerariesController.updateDay,
+);
+router.delete('/active/days/:dayId', authenticate, itinerariesController.deleteDay);
+
+// Direct active trip activities management
+router.post(
+  '/active/days/:dayId/activities',
+  authenticate,
+  validate({ body: AddActivityDtoSchema }),
+  itinerariesController.addActivity,
+);
+router.put(
+  '/active/days/:dayId/activities',
+  authenticate,
+  validate({ body: ReorderActivitiesDtoSchema }),
+  itinerariesController.reorderActivities,
+);
+router.patch(
+  '/active/days/:dayId/activities/:activityId',
+  authenticate,
+  validate({ body: UpdateActivityDtoSchema }),
+  itinerariesController.updateActivity,
+);
+router.delete(
+  '/active/days/:dayId/activities/:activityId',
+  authenticate,
+  itinerariesController.deleteActivity,
+);
+router.post(
+  '/active/optimize',
+  authenticate,
+  validate({ body: OptimizeItineraryDtoSchema }),
+  itinerariesController.optimizeRoute,
+);
+
 // ==========================================
-// 4. TRIP MASTER CRUD
+// 5. TRIP MASTER CRUD (BY ID)
 // ==========================================
 router.post(
   '/',
