@@ -555,7 +555,7 @@ paths:
               type: object
               properties:
                 startLocation:
-                  $ref: '#/components/schemas/CustomLocationInput'
+                  $ref: '#/components/schemas/CustomLocation'
                 startDate:
                   type: string
                   format: date-time
