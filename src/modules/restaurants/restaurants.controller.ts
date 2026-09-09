@@ -9,30 +9,45 @@ export class RestaurantsController {
 
   public getRestaurants = asyncHandler(async (req: Request, res: Response) => {
     const query = req.query as unknown as RestaurantFilterQuery;
-    const { data, meta } = await this.service.getRestaurants(query, req.locale);
+    const userId = req.user?.userId;
+    const { data, meta } = await this.service.getRestaurants(query, req.locale, userId);
 
-    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
+    if (userId) {
+      res.setHeader('Cache-Control', 'private, no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
+    }
 
     return ResponseUtil.sendLocalizedPaginated(req, res, data, meta, 'RESTAURANTS_RETRIEVED');
   });
 
   public getFeatured = asyncHandler(async (req: Request, res: Response) => {
     const limit = req.query.limit ? Number(req.query.limit) : 6;
-    const data = await this.service.getFeaturedRestaurants(limit, req.locale);
+    const userId = req.user?.userId;
+    const data = await this.service.getFeaturedRestaurants(limit, req.locale, userId);
 
-    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
-    res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
+    if (userId) {
+      res.setHeader('Cache-Control', 'private, no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=120, stale-while-revalidate=60');
+    }
 
     return ResponseUtil.sendLocalizedSuccess(req, res, data, 'RESTAURANTS_RETRIEVED');
   });
 
   public getByIdOrSlug = asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id as string;
-    const data = await this.service.getRestaurantByIdOrSlug(id, req.locale);
+    const userId = req.user?.userId;
+    const data = await this.service.getRestaurantByIdOrSlug(id, req.locale, userId);
 
-    res.setHeader('Vary', 'Accept-Encoding, Accept-Language');
-    res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
+    res.setHeader('Vary', 'Authorization, Accept-Encoding, Accept-Language');
+    if (userId) {
+      res.setHeader('Cache-Control', 'private, no-cache');
+    } else {
+      res.setHeader('Cache-Control', 'public, max-age=60, stale-while-revalidate=30');
+    }
 
     return ResponseUtil.sendLocalizedSuccess(req, res, data, 'DATA_RETRIEVED');
   });

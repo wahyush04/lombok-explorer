@@ -5,10 +5,14 @@ import { RestaurantFilterQuery } from './dto/restaurant.dto';
 export type RestaurantWithTranslations = Restaurant & {
   translations?: RestaurantTranslation[];
   images?: RestaurantImage[];
+  favorites?: { id: string }[];
 };
 
 export class RestaurantsRepository {
-  public async findMany(query: RestaurantFilterQuery): Promise<{
+  public async findMany(
+    query: RestaurantFilterQuery,
+    userId?: string,
+  ): Promise<{
     items: RestaurantWithTranslations[];
     total: number;
   }> {
@@ -65,6 +69,7 @@ export class RestaurantsRepository {
           images: {
             orderBy: { orderIndex: 'asc' },
           },
+          ...(userId ? { favorites: { where: { userId }, select: { id: true } } } : {}),
         },
       }),
       prisma.restaurant.count({ where }),
@@ -73,7 +78,7 @@ export class RestaurantsRepository {
     return { items, total };
   }
 
-  public async findFeatured(limit = 6): Promise<RestaurantWithTranslations[]> {
+  public async findFeatured(limit = 6, userId?: string): Promise<RestaurantWithTranslations[]> {
     return prisma.restaurant.findMany({
       where: {
         deletedAt: null,
@@ -87,34 +92,33 @@ export class RestaurantsRepository {
         images: {
           orderBy: { orderIndex: 'asc' },
         },
+        ...(userId ? { favorites: { where: { userId }, select: { id: true } } } : {}),
       },
     });
   }
 
-  public async findByIdOrSlug(idOrSlug: string): Promise<RestaurantWithTranslations | null> {
+  public async findByIdOrSlug(idOrSlug: string, userId?: string): Promise<RestaurantWithTranslations | null> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+
+    const include = {
+      translations: true,
+      images: {
+        orderBy: { orderIndex: 'asc' as const },
+      },
+      ...(userId ? { favorites: { where: { userId }, select: { id: true } } } : {}),
+    };
 
     if (isUuid) {
       const byId = await prisma.restaurant.findFirst({
         where: { id: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-        include: {
-          translations: true,
-          images: {
-            orderBy: { orderIndex: 'asc' },
-          },
-        },
+        include,
       });
       if (byId) return byId;
     }
 
     return prisma.restaurant.findFirst({
       where: { slug: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-      include: {
-        translations: true,
-        images: {
-          orderBy: { orderIndex: 'asc' },
-        },
-      },
+      include,
     });
   }
 }

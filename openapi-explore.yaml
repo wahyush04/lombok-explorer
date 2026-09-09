@@ -506,6 +506,87 @@ paths:
                         type: boolean
                         example: false
 
+  /api/v1/favorites:
+    get:
+      tags:
+        - Destination Favorites
+      summary: Mengambil Daftar Favorit Pengguna
+      description: |
+        Mengambil daftar item yang disimpan ke favorit wishlist oleh pengguna yang sedang login.
+        Jika parameter `type` tidak diberikan, secara default mengembalikan destinasi (`Destination[]`).
+        Jika `type=ALL`, `type=ACCOMMODATION`, atau `type=RESTAURANT`, mengembalikan struktur gabungan yang dinormalisasi (`UnifiedFavoriteItem[]`).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [ALL, DESTINATION, ACCOMMODATION, RESTAURANT]
+          description: Filter tipe favorit
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Daftar favorit berhasil didapatkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedFavoriteListResponse'
+        '401':
+          description: Pengguna belum terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/favorites/all:
+    get:
+      tags:
+        - Destination Favorites
+      summary: Mengambil Seluruh Favorit Gabungan (Unified Wishlist)
+      description: Mengambil seluruh item wishlist pengguna (destinasi, akomodasi, dan kuliner restoran) dalam format normalized card.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: query
+          name: type
+          schema:
+            type: string
+            enum: [ALL, DESTINATION, ACCOMMODATION, RESTAURANT]
+            default: ALL
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Daftar favorit gabungan berhasil didapatkan
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedFavoriteListResponse'
+        '401':
+          description: Pengguna belum terautentikasi
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
   # ============================================================================
   # 4. TOURISM CATEGORIES
   # ============================================================================
@@ -693,6 +774,119 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
 
+  /api/v1/accommodations/{id}/favorite:
+    get:
+      tags:
+        - Accommodations
+      summary: Cek Status Favorit Akomodasi
+      description: Memeriksa apakah akomodasi sudah disimpan ke daftar favorit pengguna aktif.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: the-oberoi-beach-resort-lombok
+          description: UUID atau Slug akomodasi
+      responses:
+        '200':
+          description: Status favorit berhasil didapatkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Success fetching accommodation favorite status
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                        example: true
+                      accommodationId:
+                        type: string
+                        example: the-oberoi-beach-resort-lombok
+
+    post:
+      tags:
+        - Accommodations
+      summary: Toggle / Tambah Akomodasi ke Favorit
+      description: Menambahkan atau menghapus akomodasi dari daftar favorit (toggle).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: the-oberoi-beach-resort-lombok
+          description: UUID atau Slug akomodasi
+      responses:
+        '200':
+          description: Berhasil toggle status favorit akomodasi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Accommodation added to favorites successfully
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                        example: true
+                      accommodationId:
+                        type: string
+                        example: the-oberoi-beach-resort-lombok
+
+    delete:
+      tags:
+        - Accommodations
+      summary: Hapus Akomodasi dari Favorit
+      description: Menghapus akomodasi dari daftar favorit secara eksplisit.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: the-oberoi-beach-resort-lombok
+          description: UUID atau Slug akomodasi
+      responses:
+        '200':
+          description: Berhasil menghapus akomodasi dari favorit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Accommodation removed from favorites successfully
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
+
   # ============================================================================
   # 6. RESTAURANTS & CULINARY (KULINER & MAKANAN KHAS SASAK)
   # ============================================================================
@@ -826,6 +1020,119 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/restaurants/{id}/favorite:
+    get:
+      tags:
+        - Restaurants & Culinary
+      summary: Cek Status Favorit Restoran
+      description: Memeriksa apakah restoran sudah disimpan ke daftar favorit kuliner pengguna aktif.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: ayam-taliwang-h-mohrad
+          description: UUID atau Slug restoran
+      responses:
+        '200':
+          description: Status favorit berhasil didapatkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Success fetching restaurant favorite status
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                        example: true
+                      restaurantId:
+                        type: string
+                        example: ayam-taliwang-h-mohrad
+
+    post:
+      tags:
+        - Restaurants & Culinary
+      summary: Toggle / Tambah Restoran ke Favorit
+      description: Menambahkan atau menghapus restoran dari daftar favorit (toggle).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: ayam-taliwang-h-mohrad
+          description: UUID atau Slug restoran
+      responses:
+        '200':
+          description: Berhasil toggle status favorit restoran
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Restaurant added to favorites successfully
+                  data:
+                    type: object
+                    properties:
+                      isFavorite:
+                        type: boolean
+                        example: true
+                      restaurantId:
+                        type: string
+                        example: ayam-taliwang-h-mohrad
+
+    delete:
+      tags:
+        - Restaurants & Culinary
+      summary: Hapus Restoran dari Favorit
+      description: Menghapus restoran dari daftar favorit secara eksplisit.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          example: ayam-taliwang-h-mohrad
+          description: UUID atau Slug restoran
+      responses:
+        '200':
+          description: Berhasil menghapus restoran dari favorit
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Restaurant removed from favorites successfully
+                  data:
+                    type: object
+                    nullable: true
+                    example: null
 
   # ============================================================================
   # 7. SMART RECOMMENDATIONS (STYLE & GEOLOCATION BASED)
@@ -1256,6 +1563,9 @@ components:
         isFeatured:
           type: boolean
           example: true
+        isFavorite:
+          type: boolean
+          example: false
         createdAt:
           type: string
           format: date-time
@@ -1363,6 +1673,9 @@ components:
         isFeatured:
           type: boolean
           example: true
+        isFavorite:
+          type: boolean
+          example: false
         createdAt:
           type: string
           format: date-time
@@ -1748,3 +2061,115 @@ components:
             type: string
           nullable: true
           example: null
+
+    NormalizedFavoriteCard:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - type
+        - rating
+        - coverImageUrl
+        - images
+        - region
+        - isFavorite
+      properties:
+        id:
+          type: string
+          example: "dest_tanjung_aan"
+        name:
+          type: string
+          example: "Pantai Tanjung Aan"
+        slug:
+          type: string
+          example: "pantai-tanjung-aan"
+        type:
+          type: string
+          enum: [DESTINATION, ACCOMMODATION, RESTAURANT]
+          example: "DESTINATION"
+        rating:
+          type: number
+          format: float
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 1250
+        coverImageUrl:
+          type: string
+          format: uri
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"
+        images:
+          type: array
+          items:
+            type: string
+          example:
+            - "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"
+        region:
+          $ref: '#/components/schemas/LombokRegion'
+        address:
+          type: string
+          nullable: true
+          example: "Desa Sengkol, Pujut, Kabupaten Lombok Tengah"
+        price:
+          type: number
+          example: 10000
+        priceFormatted:
+          type: string
+          example: "Rp 10.000"
+        isFavorite:
+          type: boolean
+          example: true
+
+    UnifiedFavoriteItem:
+      type: object
+      required:
+        - id
+        - userId
+        - type
+        - createdAt
+        - item
+      properties:
+        id:
+          type: string
+          example: "fav_abc123"
+        userId:
+          type: string
+          example: "user_uuid_123"
+        type:
+          type: string
+          enum: [DESTINATION, ACCOMMODATION, RESTAURANT]
+          example: "DESTINATION"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-08T12:00:00.000Z"
+        item:
+          $ref: '#/components/schemas/NormalizedFavoriteCard'
+        destination:
+          $ref: '#/components/schemas/Destination'
+        accommodation:
+          $ref: '#/components/schemas/Accommodation'
+        restaurant:
+          $ref: '#/components/schemas/Restaurant'
+
+    UnifiedFavoriteListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching favorites"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnifiedFavoriteItem'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'

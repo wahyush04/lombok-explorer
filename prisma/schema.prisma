@@ -138,6 +138,12 @@ enum NotificationType {
   MENTIONED
 }
 
+enum FavoriteType {
+  DESTINATION
+  ACCOMMODATION
+  RESTAURANT
+}
+
 // ==========================================
 // USER MANAGEMENT & AUTHENTICATION
 // ==========================================
@@ -305,16 +311,27 @@ model DestinationImage {
 // ==========================================
 
 model Favorite {
-  id            String      @id @default(uuid())
-  userId        String
-  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  destinationId String
-  destination   Destination @relation(fields: [destinationId], references: [id], onDelete: Cascade)
-  createdAt     DateTime    @default(now())
+  id              String         @id @default(uuid())
+  userId          String
+  user            User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type            FavoriteType   @default(DESTINATION)
+  destinationId   String?
+  destination     Destination?   @relation(fields: [destinationId], references: [id], onDelete: Cascade)
+  accommodationId String?
+  accommodation   Accommodation? @relation(fields: [accommodationId], references: [id], onDelete: Cascade)
+  restaurantId    String?
+  restaurant      Restaurant?    @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
 
   @@unique([userId, destinationId])
+  @@unique([userId, accommodationId])
+  @@unique([userId, restaurantId])
   @@index([userId])
   @@index([destinationId])
+  @@index([accommodationId])
+  @@index([restaurantId])
+  @@index([type])
+  @@index([createdAt])
   @@map("favorites")
 }
 
@@ -603,6 +620,7 @@ model Restaurant {
 
   // Relations
   images             RestaurantImage[]
+  favorites          Favorite[]
   itineraryItems     ItineraryItem[]
   templateActivities TemplateActivity[]
   translations       RestaurantTranslation[]
@@ -660,6 +678,7 @@ model Accommodation {
 
   // Relations
   images             AccommodationImage[]
+  favorites          Favorite[]
   itineraryItems     ItineraryItem[]
   templateActivities TemplateActivity[]
   translations       AccommodationTranslation[]

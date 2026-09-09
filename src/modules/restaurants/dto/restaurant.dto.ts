@@ -83,6 +83,7 @@ export interface RestaurantDto {
   isHalalCertified: boolean;
   status: string;
   isFeatured: boolean;
+  isFavorite?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }

@@ -72,7 +72,9 @@ export class RuleBasedRecommendationService implements IRecommendationEngine {
       ]);
 
       for (const fav of favorites) {
-        favoritedDestinationIds.add(fav.destinationId);
+        if (fav.destinationId) {
+          favoritedDestinationIds.add(fav.destinationId);
+        }
         if (fav.destination?.categoryId) {
           userFavoriteCategoryIds.add(fav.destination.categoryId);
         }

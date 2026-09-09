@@ -5,10 +5,14 @@ import { AccommodationFilterQuery } from './dto/accommodation.dto';
 export type AccommodationWithTranslations = Accommodation & {
   translations?: AccommodationTranslation[];
   images?: AccommodationImage[];
+  favorites?: { id: string }[];
 };
 
 export class AccommodationsRepository {
-  public async findMany(query: AccommodationFilterQuery): Promise<{
+  public async findMany(
+    query: AccommodationFilterQuery,
+    userId?: string,
+  ): Promise<{
     items: AccommodationWithTranslations[];
     total: number;
   }> {
@@ -65,6 +69,7 @@ export class AccommodationsRepository {
           images: {
             orderBy: { orderIndex: 'asc' },
           },
+          ...(userId ? { favorites: { where: { userId }, select: { id: true } } } : {}),
         },
       }),
       prisma.accommodation.count({ where }),
@@ -73,7 +78,7 @@ export class AccommodationsRepository {
     return { items, total };
   }
 
-  public async findFeatured(limit = 6): Promise<AccommodationWithTranslations[]> {
+  public async findFeatured(limit = 6, userId?: string): Promise<AccommodationWithTranslations[]> {
     return prisma.accommodation.findMany({
       where: {
         deletedAt: null,
@@ -87,34 +92,33 @@ export class AccommodationsRepository {
         images: {
           orderBy: { orderIndex: 'asc' },
         },
+        ...(userId ? { favorites: { where: { userId }, select: { id: true } } } : {}),
       },
     });
   }
 
-  public async findByIdOrSlug(idOrSlug: string): Promise<AccommodationWithTranslations | null> {
+  public async findByIdOrSlug(idOrSlug: string, userId?: string): Promise<AccommodationWithTranslations | null> {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
+
+    const include = {
+      translations: true,
+      images: {
+        orderBy: { orderIndex: 'asc' as const },
+      },
+      ...(userId ? { favorites: { where: { userId }, select: { id: true } } } : {}),
+    };
 
     if (isUuid) {
       const byId = await prisma.accommodation.findFirst({
         where: { id: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-        include: {
-          translations: true,
-          images: {
-            orderBy: { orderIndex: 'asc' },
-          },
-        },
+        include,
       });
       if (byId) return byId;
     }
 
     return prisma.accommodation.findFirst({
       where: { slug: idOrSlug, deletedAt: null, status: 'PUBLISHED' },
-      include: {
-        translations: true,
-        images: {
-          orderBy: { orderIndex: 'asc' },
-        },
-      },
+      include,
     });
   }
 }

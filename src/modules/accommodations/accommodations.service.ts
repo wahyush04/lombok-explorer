@@ -8,7 +8,11 @@ import { DEFAULT_LOCALE } from '../../i18n/types';
 export class AccommodationsService {
   constructor(private readonly repository: AccommodationsRepository = accommodationsRepository) {}
 
-  public mapToDto = (accommodation: AccommodationWithTranslations, locale: string = DEFAULT_LOCALE): AccommodationDto => {
+  public mapToDto = (
+    accommodation: AccommodationWithTranslations,
+    isFavorite?: boolean,
+    locale: string = DEFAULT_LOCALE,
+  ): AccommodationDto => {
     const imagesList: string[] = [];
     if (accommodation.coverImageUrl) {
       imagesList.push(accommodation.coverImageUrl);
@@ -57,6 +61,13 @@ export class AccommodationsService {
       ['name', 'description'],
     );
 
+    const computedIsFavorite =
+      isFavorite !== undefined
+        ? isFavorite
+        : accommodation.favorites !== undefined
+          ? accommodation.favorites.length > 0
+          : false;
+
     return {
       id: accommodation.id,
       name: localized.name,
@@ -79,6 +90,7 @@ export class AccommodationsService {
       websiteUrl: accommodation.websiteUrl,
       status: accommodation.status,
       isFeatured: accommodation.isFeatured,
+      isFavorite: computedIsFavorite,
       createdAt: accommodation.createdAt,
       updatedAt: accommodation.updatedAt,
     };
@@ -87,6 +99,7 @@ export class AccommodationsService {
   public async getAccommodations(
     query: AccommodationFilterQuery,
     locale: string = DEFAULT_LOCALE,
+    userId?: string,
   ): Promise<{
     data: AccommodationDto[];
     meta: PaginationMeta;
@@ -94,11 +107,11 @@ export class AccommodationsService {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
 
-    const { items, total } = await this.repository.findMany(query);
+    const { items, total } = await this.repository.findMany(query, userId);
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: items.map((item) => this.mapToDto(item, locale)),
+      data: items.map((item) => this.mapToDto(item, undefined, locale)),
       meta: {
         page,
         limit,
@@ -112,17 +125,25 @@ export class AccommodationsService {
     };
   }
 
-  public async getFeaturedAccommodations(limit = 6, locale: string = DEFAULT_LOCALE): Promise<AccommodationDto[]> {
-    const items = await this.repository.findFeatured(limit);
-    return items.map((item) => this.mapToDto(item, locale));
+  public async getFeaturedAccommodations(
+    limit = 6,
+    locale: string = DEFAULT_LOCALE,
+    userId?: string,
+  ): Promise<AccommodationDto[]> {
+    const items = await this.repository.findFeatured(limit, userId);
+    return items.map((item) => this.mapToDto(item, undefined, locale));
   }
 
-  public async getAccommodationByIdOrSlug(idOrSlug: string, locale: string = DEFAULT_LOCALE): Promise<AccommodationDto> {
-    const item = await this.repository.findByIdOrSlug(idOrSlug);
+  public async getAccommodationByIdOrSlug(
+    idOrSlug: string,
+    locale: string = DEFAULT_LOCALE,
+    userId?: string,
+  ): Promise<AccommodationDto> {
+    const item = await this.repository.findByIdOrSlug(idOrSlug, userId);
     if (!item) {
       throw new NotFoundError(`Accommodation '${idOrSlug}' not found`, 'ACCOMMODATION_NOT_FOUND');
     }
-    return this.mapToDto(item, locale);
+    return this.mapToDto(item, undefined, locale);
   }
 }
 

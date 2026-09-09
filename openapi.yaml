@@ -1513,19 +1513,78 @@ paths:
   # ==========================================
   /favorites:
     get:
-      summary: Get all saved favorite destinations for the current user
+      summary: Get user favorites (Destinations or unified when type is specified)
       operationId: getFavorites
       tags:
         - Favorites
       security:
         - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: Filter favorites by type (ALL, DESTINATION, ACCOMMODATION, RESTAURANT). If omitted, defaults to DESTINATION for backward compatibility.
+          required: false
+          schema:
+            type: string
+            enum: [ALL, DESTINATION, ACCOMMODATION, RESTAURANT]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
       responses:
         '200':
-          description: List of favorite destinations
+          description: List of favorite destinations or unified favorites
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/DestinationListResponse'
+                oneOf:
+                  - $ref: '#/components/schemas/DestinationListResponse'
+                  - $ref: '#/components/schemas/UnifiedFavoriteListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /favorites/all:
+    get:
+      summary: Get unified favorites across destinations, accommodations, and restaurants
+      operationId: getUnifiedFavorites
+      tags:
+        - Favorites
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: type
+          in: query
+          description: Filter favorites by type (ALL, DESTINATION, ACCOMMODATION, RESTAURANT)
+          required: false
+          schema:
+            type: string
+            enum: [ALL, DESTINATION, ACCOMMODATION, RESTAURANT]
+            default: ALL
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 10
+      responses:
+        '200':
+          description: Unified list of favorites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UnifiedFavoriteListResponse'
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '500':
@@ -1631,6 +1690,89 @@ paths:
         '500':
           $ref: '#/components/responses/InternalServerError'
 
+  /restaurants/{id}/favorite:
+    post:
+      summary: Toggle restaurant favorite status
+      operationId: toggleRestaurantFavorite
+      tags:
+        - Culinary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Restaurant ID or slug
+      responses:
+        '200':
+          description: Restaurant favorite status toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToggleFavoriteResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Remove restaurant from favorites
+      operationId: removeRestaurantFavorite
+      tags:
+        - Culinary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Restaurant ID or slug
+      responses:
+        '200':
+          description: Restaurant removed from favorites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: Get restaurant favorite status
+      operationId: getRestaurantFavoriteStatus
+      tags:
+        - Culinary
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Restaurant ID or slug
+      responses:
+        '200':
+          description: Restaurant favorite status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteStatusResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
   # ==========================================
   # ACCOMMODATIONS
   # ==========================================
@@ -1681,6 +1823,89 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/AccommodationListResponse'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /accommodations/{id}/favorite:
+    post:
+      summary: Toggle accommodation favorite status
+      operationId: toggleAccommodationFavorite
+      tags:
+        - Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Accommodation ID or slug
+      responses:
+        '200':
+          description: Accommodation favorite status toggled
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ToggleFavoriteResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      summary: Remove accommodation from favorites
+      operationId: removeAccommodationFavorite
+      tags:
+        - Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Accommodation ID or slug
+      responses:
+        '200':
+          description: Accommodation removed from favorites
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StandardActionResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+    get:
+      summary: Get accommodation favorite status
+      operationId: getAccommodationFavoriteStatus
+      tags:
+        - Accommodations
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Accommodation ID or slug
+      responses:
+        '200':
+          description: Accommodation favorite status retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FavoriteStatusResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
         '500':
           $ref: '#/components/responses/InternalServerError'
 
@@ -4472,6 +4697,9 @@ components:
         isHalalCertified:
           type: boolean
           example: true
+        isFavorite:
+          type: boolean
+          example: false
 
     RestaurantListResponse:
       type: object
@@ -4566,6 +4794,9 @@ components:
           items:
             type: string
           example: ["Private Beach", "Infinity Pool", "Spa & Wellness", "Free WiFi", "Breakfast Included", "Fitness Center"]
+        isFavorite:
+          type: boolean
+          example: false
 
     AccommodationListResponse:
       type: object
@@ -5624,6 +5855,181 @@ components:
             unreadCount:
               type: integer
               example: 3
+
+    NormalizedFavoriteItem:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - type
+        - rating
+        - coverImageUrl
+        - images
+        - region
+        - isFavorite
+      properties:
+        id:
+          type: string
+          example: "dest_tanjung_aan"
+        name:
+          type: string
+          example: "Pantai Tanjung Aan"
+        slug:
+          type: string
+          example: "pantai-tanjung-aan"
+        type:
+          type: string
+          enum: [DESTINATION, ACCOMMODATION, RESTAURANT]
+          example: "DESTINATION"
+        rating:
+          type: number
+          format: float
+          example: 4.8
+        reviewCount:
+          type: integer
+          example: 1250
+        coverImageUrl:
+          type: string
+          format: uri
+          example: "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"
+        images:
+          type: array
+          items:
+            type: string
+          example:
+            - "https://images.unsplash.com/photo-1544644181-1484b3fdfc62?q=80&w=1000"
+        region:
+          type: string
+          example: "LOMBOK_TENGAH"
+        address:
+          type: string
+          nullable: true
+          example: "Desa Sengkol, Pujut, Kabupaten Lombok Tengah, Nusa Tenggara Barat"
+        price:
+          type: number
+          example: 10000
+        priceFormatted:
+          type: string
+          example: "Rp 10.000"
+        isFavorite:
+          type: boolean
+          example: true
+
+    UnifiedFavoriteItemDto:
+      type: object
+      required:
+        - id
+        - userId
+        - type
+        - createdAt
+        - item
+      properties:
+        id:
+          type: string
+          example: "fav_abc123"
+        userId:
+          type: string
+          example: "user_uuid_123"
+        type:
+          type: string
+          enum: [DESTINATION, ACCOMMODATION, RESTAURANT]
+          example: "DESTINATION"
+        createdAt:
+          type: string
+          format: date-time
+          example: "2026-09-08T12:00:00.000Z"
+        item:
+          $ref: '#/components/schemas/NormalizedFavoriteItem'
+        destination:
+          $ref: '#/components/schemas/DestinationDto'
+        accommodation:
+          $ref: '#/components/schemas/AccommodationDto'
+        restaurant:
+          $ref: '#/components/schemas/RestaurantDto'
+
+    UnifiedFavoriteListResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+        - meta
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching favorites"
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/UnifiedFavoriteItemDto'
+        meta:
+          $ref: '#/components/schemas/PaginationMeta'
+
+    ToggleFavoriteResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Added to favorites successfully"
+        data:
+          type: object
+          required:
+            - isFavorite
+          properties:
+            isFavorite:
+              type: boolean
+              example: true
+            destinationId:
+              type: string
+              example: "dest_tanjung_aan"
+            accommodationId:
+              type: string
+              example: "acc_pullman_mandalika"
+            restaurantId:
+              type: string
+              example: "rest_ayam_taliwang"
+
+    FavoriteStatusResponse:
+      type: object
+      required:
+        - success
+        - message
+        - data
+      properties:
+        success:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Success fetching favorite status"
+        data:
+          type: object
+          required:
+            - isFavorite
+          properties:
+            isFavorite:
+              type: boolean
+              example: true
+            destinationId:
+              type: string
+              example: "dest_tanjung_aan"
+            accommodationId:
+              type: string
+              example: "acc_pullman_mandalika"
+            restaurantId:
+              type: string
+              example: "rest_ayam_taliwang"
 
 
 

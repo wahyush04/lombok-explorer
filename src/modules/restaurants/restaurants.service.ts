@@ -8,7 +8,11 @@ import { DEFAULT_LOCALE } from '../../i18n/types';
 export class RestaurantsService {
   constructor(private readonly repository: RestaurantsRepository = restaurantsRepository) {}
 
-  public mapToDto = (restaurant: RestaurantWithTranslations, locale: string = DEFAULT_LOCALE): RestaurantDto => {
+  public mapToDto = (
+    restaurant: RestaurantWithTranslations,
+    isFavorite?: boolean,
+    locale: string = DEFAULT_LOCALE,
+  ): RestaurantDto => {
     const imagesList: string[] = [];
     if (restaurant.coverImageUrl) {
       imagesList.push(restaurant.coverImageUrl);
@@ -48,6 +52,13 @@ export class RestaurantsService {
       ['name', 'description'],
     );
 
+    const computedIsFavorite =
+      isFavorite !== undefined
+        ? isFavorite
+        : restaurant.favorites !== undefined
+          ? restaurant.favorites.length > 0
+          : false;
+
     return {
       id: restaurant.id,
       name: localized.name,
@@ -71,6 +82,7 @@ export class RestaurantsService {
       isHalalCertified: restaurant.isHalalCertified,
       status: restaurant.status,
       isFeatured: restaurant.isFeatured,
+      isFavorite: computedIsFavorite,
       createdAt: restaurant.createdAt,
       updatedAt: restaurant.updatedAt,
     };
@@ -79,6 +91,7 @@ export class RestaurantsService {
   public async getRestaurants(
     query: RestaurantFilterQuery,
     locale: string = DEFAULT_LOCALE,
+    userId?: string,
   ): Promise<{
     data: RestaurantDto[];
     meta: PaginationMeta;
@@ -86,11 +99,11 @@ export class RestaurantsService {
     const page = Number(query.page) || 1;
     const limit = Number(query.limit) || 10;
 
-    const { items, total } = await this.repository.findMany(query);
+    const { items, total } = await this.repository.findMany(query, userId);
     const totalPages = Math.ceil(total / limit);
 
     return {
-      data: items.map((item) => this.mapToDto(item, locale)),
+      data: items.map((item) => this.mapToDto(item, undefined, locale)),
       meta: {
         page,
         limit,
@@ -104,17 +117,25 @@ export class RestaurantsService {
     };
   }
 
-  public async getFeaturedRestaurants(limit = 6, locale: string = DEFAULT_LOCALE): Promise<RestaurantDto[]> {
-    const items = await this.repository.findFeatured(limit);
-    return items.map((item) => this.mapToDto(item, locale));
+  public async getFeaturedRestaurants(
+    limit = 6,
+    locale: string = DEFAULT_LOCALE,
+    userId?: string,
+  ): Promise<RestaurantDto[]> {
+    const items = await this.repository.findFeatured(limit, userId);
+    return items.map((item) => this.mapToDto(item, undefined, locale));
   }
 
-  public async getRestaurantByIdOrSlug(idOrSlug: string, locale: string = DEFAULT_LOCALE): Promise<RestaurantDto> {
-    const item = await this.repository.findByIdOrSlug(idOrSlug);
+  public async getRestaurantByIdOrSlug(
+    idOrSlug: string,
+    locale: string = DEFAULT_LOCALE,
+    userId?: string,
+  ): Promise<RestaurantDto> {
+    const item = await this.repository.findByIdOrSlug(idOrSlug, userId);
     if (!item) {
       throw new NotFoundError(`Restaurant '${idOrSlug}' not found`, 'RESTAURANT_NOT_FOUND');
     }
-    return this.mapToDto(item, locale);
+    return this.mapToDto(item, undefined, locale);
   }
 }
 

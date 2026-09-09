@@ -66,6 +66,7 @@ export interface AccommodationDto {
   websiteUrl: string | null;
   status: string;
   isFeatured: boolean;
+  isFavorite?: boolean;
   createdAt: Date;
   updatedAt: Date;
 }
