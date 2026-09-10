@@ -16,6 +16,7 @@ import {
   ReorderActivitiesDtoSchema,
   UpdateActivityDtoSchema,
   UpdateDayDtoSchema,
+  UpdateDayStartDtoSchema,
   UpdateItineraryDtoSchema,
   UpdateTripStartDtoSchema,
 } from './dto/itinerary.dto';
@@ -119,6 +120,12 @@ router.patch(
   validate({ body: UpdateDayDtoSchema }),
   itinerariesController.updateDay,
 );
+router.patch(
+  '/active/days/:dayId/start',
+  authenticate,
+  validate({ body: UpdateDayStartDtoSchema }),
+  itinerariesController.updateDayStart,
+);
 router.delete('/active/days/:dayId', authenticate, itinerariesController.deleteDay);
 
 // Direct active trip activities management
@@ -199,6 +206,13 @@ router.patch(
   authenticate,
   validate({ body: UpdateDayDtoSchema }),
   itinerariesController.updateDay,
+);
+
+router.patch(
+  '/:id/days/:dayId/start',
+  authenticate,
+  validate({ body: UpdateDayStartDtoSchema }),
+  itinerariesController.updateDayStart,
 );
 
 router.delete('/:id/days/:dayId', authenticate, itinerariesController.deleteDay);

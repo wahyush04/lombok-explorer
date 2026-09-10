@@ -4,12 +4,27 @@ import { BudgetLevel, ItineraryItemType, TransportationMode, TravelStyle } from 
 export { ItineraryItemType };
 export const ItineraryItemTypeEnum = z.nativeEnum(ItineraryItemType);
 
-export const CustomLocationInputSchema = z.object({
-  name: z.string({ required_error: 'Location name is required' }).trim().min(1).max(150),
-  latitude: z.coerce.number().min(-90).max(90),
-  longitude: z.coerce.number().min(-180).max(180),
-  address: z.string().trim().max(300).optional().nullable(),
-});
+export const CustomLocationInputSchema = z
+  .object({
+    name: z.string().trim().min(1).max(150).optional(),
+    latitude: z.coerce.number().min(-90).max(90).optional(),
+    longitude: z.coerce.number().min(-180).max(180).optional(),
+    address: z.string().trim().max(300).optional().nullable(),
+    destinationId: z.string().trim().optional().nullable(),
+    accommodationId: z.string().trim().optional().nullable(),
+    restaurantId: z.string().trim().optional().nullable(),
+  })
+  .refine(
+    (data) =>
+      (data.latitude !== undefined && data.longitude !== undefined && !!data.name) ||
+      !!data.destinationId ||
+      !!data.accommodationId ||
+      !!data.restaurantId,
+    {
+      message:
+        'Lokasi harus memiliki nama dan koordinat (name, latitude, longitude) atau merujuk ke data yang sudah ada (destinationId, accommodationId, restaurantId)',
+    },
+  );
 
 export const ItineraryItemInputSchema = z.object({
   id: z.string().optional(),
@@ -38,6 +53,7 @@ export const ItineraryDayInputSchema = z.object({
   title: z.string().trim().min(1, 'Day title is required'),
   date: z.string().optional().nullable(),
   startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
+  startLocation: CustomLocationInputSchema.optional().nullable(),
   notes: z.string().trim().optional().nullable(),
   items: z.array(ItineraryItemInputSchema).optional(),
   activities: z.array(ItineraryItemInputSchema).optional(),
@@ -102,6 +118,7 @@ export const AddDayDtoSchema = z.object({
   title: z.string().trim().min(1).max(150).optional(),
   date: z.string().optional().nullable(),
   startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
+  startLocation: CustomLocationInputSchema.optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });
 
@@ -109,8 +126,20 @@ export const UpdateDayDtoSchema = z.object({
   title: z.string().trim().min(1).max(150).optional(),
   date: z.string().optional().nullable(),
   startTime: z.string().trim().regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)').optional().nullable(),
+  startLocation: CustomLocationInputSchema.optional().nullable(),
   notes: z.string().trim().max(2000).optional().nullable(),
 });
+
+export const UpdateDayStartDtoSchema = z.object({
+  startLocation: CustomLocationInputSchema.optional().nullable(),
+  startTime: z
+    .string()
+    .trim()
+    .regex(/^([01]\d|2[0-3]):([0-5]\d)$/, 'Format waktu harus HH:mm (contoh: 08:30)')
+    .optional()
+    .nullable(),
+});
+export type UpdateDayStartDto = z.infer<typeof UpdateDayStartDtoSchema>;
 
 export const AddActivityDtoSchema = z
   .object({
@@ -255,7 +284,19 @@ export const ApplyTemplateDtoSchema = z.object({
   startDate: z.string().optional().nullable(),
 });
 
-export type CustomLocation = z.infer<typeof CustomLocationInputSchema>;
+export type CustomLocationInput = z.infer<typeof CustomLocationInputSchema>;
+
+export interface CustomLocation {
+  name: string;
+  latitude: number;
+  longitude: number;
+  address?: string | null;
+  destinationId?: string | null;
+  accommodationId?: string | null;
+  restaurantId?: string | null;
+  isChainedFromPreviousDay?: boolean;
+}
+
 export type CreateItineraryDto = z.infer<typeof CreateItineraryDtoSchema>;
 export type UpdateItineraryDto = z.infer<typeof UpdateItineraryDtoSchema>;
 export type AddDayDto = z.infer<typeof AddDayDtoSchema>;
@@ -368,6 +409,8 @@ export interface ItineraryActivityDto {
   distanceFromPrevKm: number;
   travelDurationMinutes: number;
   travelTimeFromPrevMinutes: number;
+  distanceFromStartKm?: number;
+  travelTimeFromStartMinutes?: number;
   isCompleted: boolean;
   createdAt: string;
   updatedAt: string;
@@ -380,6 +423,10 @@ export interface ItineraryDayDto {
   title: string;
   date: string | null;
   startTime?: string | null;
+  startLocation?: CustomLocation | null;
+  isCustomStartLocation?: boolean;
+  distanceFromStartKm?: number;
+  travelTimeFromStartMinutes?: number;
   notes: string | null;
   totalDistanceKm: number;
   totalDurationMinutes: number;

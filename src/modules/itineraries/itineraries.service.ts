@@ -29,6 +29,7 @@ import {
   BrowseTemplatesResponseDto,
   CreateItineraryDto,
   CustomLocation,
+  CustomLocationInput,
   DestinationSummaryDto,
   ItineraryActivityDto,
   ItineraryDayDto,
@@ -43,6 +44,7 @@ import {
   TemplateActivityDto,
   UpdateActivityDto,
   UpdateDayDto,
+  UpdateDayStartDto,
   UpdateItineraryDto,
   UpdateTripStartDto,
 } from './dto/itinerary.dto';
@@ -88,6 +90,78 @@ export class ItinerariesService {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Resolves a location input by extracting coordinates or looking up
+   * an existing Destination, Accommodation, or Restaurant by ID.
+   */
+  public async resolveLocationInput(
+    loc?: CustomLocationInput | null,
+  ): Promise<CustomLocation | null> {
+    if (!loc) return null;
+
+    if (loc.accommodationId) {
+      const accom =
+        typeof this.repository.findAccommodationById === 'function'
+          ? await this.repository.findAccommodationById(loc.accommodationId)
+          : await prisma.accommodation.findUnique({ where: { id: loc.accommodationId } });
+      if (accom) {
+        return {
+          name: loc.name || accom.name,
+          latitude: loc.latitude !== undefined ? Number(loc.latitude) : accom.latitude,
+          longitude: loc.longitude !== undefined ? Number(loc.longitude) : accom.longitude,
+          address: loc.address !== undefined ? loc.address : accom.address,
+          accommodationId: accom.id,
+        };
+      }
+    }
+
+    if (loc.destinationId) {
+      const dest =
+        typeof this.repository.findDestinationById === 'function'
+          ? await this.repository.findDestinationById(loc.destinationId)
+          : await prisma.destination.findUnique({ where: { id: loc.destinationId } });
+      if (dest) {
+        return {
+          name: loc.name || dest.name,
+          latitude: loc.latitude !== undefined ? Number(loc.latitude) : dest.latitude,
+          longitude: loc.longitude !== undefined ? Number(loc.longitude) : dest.longitude,
+          address: loc.address !== undefined ? loc.address : dest.address,
+          destinationId: dest.id,
+        };
+      }
+    }
+
+    if (loc.restaurantId) {
+      const rest =
+        typeof this.repository.findRestaurantById === 'function'
+          ? await this.repository.findRestaurantById(loc.restaurantId)
+          : await prisma.restaurant.findUnique({ where: { id: loc.restaurantId } });
+      if (rest) {
+        return {
+          name: loc.name || rest.name,
+          latitude: loc.latitude !== undefined ? Number(loc.latitude) : rest.latitude,
+          longitude: loc.longitude !== undefined ? Number(loc.longitude) : rest.longitude,
+          address: loc.address !== undefined ? loc.address : rest.address,
+          restaurantId: rest.id,
+        };
+      }
+    }
+
+    if (loc.latitude !== undefined && loc.longitude !== undefined && loc.name) {
+      return {
+        name: loc.name,
+        latitude: Number(loc.latitude),
+        longitude: Number(loc.longitude),
+        address: loc.address || null,
+        destinationId: loc.destinationId || null,
+        accommodationId: loc.accommodationId || null,
+        restaurantId: loc.restaurantId || null,
+      };
+    }
+
+    return null;
   }
 
   /**
@@ -303,6 +377,8 @@ export class ItinerariesService {
               distanceFromPrevKm: dist,
               travelDurationMinutes: dur,
               travelTimeFromPrevMinutes: dur,
+              distanceFromStartKm: idx === 0 ? dist : undefined,
+              travelTimeFromStartMinutes: idx === 0 ? dur : undefined,
               isCompleted: Boolean(item.isCompleted),
               createdAt: item.createdAt.toISOString(),
               updatedAt: item.updatedAt.toISOString(),
@@ -313,6 +389,82 @@ export class ItinerariesService {
           totalDur += dayDur;
           totalBudget += dayBudget;
 
+          // Determine effective day start location
+          let dayStartLoc: CustomLocation | null = null;
+          let isCustomStartLocation = false;
+
+          const rawDayStartLoc = (day as any).startLocation
+            ? this.parseLocation((day as any).startLocation)
+            : null;
+
+          if (rawDayStartLoc?.latitude && rawDayStartLoc?.longitude) {
+            dayStartLoc = {
+              ...rawDayStartLoc,
+              isChainedFromPreviousDay: false,
+            };
+            isCustomStartLocation = true;
+          } else if (day.dayNumber === 1) {
+            const masterStart = this.parseLocation(itinerary.startLocation);
+            dayStartLoc = masterStart
+              ? {
+                  ...masterStart,
+                  isChainedFromPreviousDay: false,
+                }
+              : null;
+          } else {
+            // Day > 1: chained from last activity of previous day
+            const prevDayRaw = itinerary.days?.find((d) => d.dayNumber === day.dayNumber - 1);
+            if (prevDayRaw && Array.isArray(prevDayRaw.items) && prevDayRaw.items.length > 0) {
+              const sortedPrevItems = [...prevDayRaw.items].sort((a, b) => b.orderIndex - a.orderIndex);
+              const lastItem = sortedPrevItems[0];
+              if (lastItem) {
+                if (lastItem.destination?.latitude && lastItem.destination?.longitude) {
+                  dayStartLoc = {
+                    name: lastItem.destination.name,
+                    latitude: lastItem.destination.latitude,
+                    longitude: lastItem.destination.longitude,
+                    address: lastItem.destination.address,
+                    destinationId: lastItem.destination.id,
+                    isChainedFromPreviousDay: true,
+                  };
+                } else if (lastItem.accommodation?.latitude && lastItem.accommodation?.longitude) {
+                  dayStartLoc = {
+                    name: lastItem.accommodation.name,
+                    latitude: lastItem.accommodation.latitude,
+                    longitude: lastItem.accommodation.longitude,
+                    address: lastItem.accommodation.address,
+                    accommodationId: lastItem.accommodation.id,
+                    isChainedFromPreviousDay: true,
+                  };
+                } else if (lastItem.restaurant?.latitude && lastItem.restaurant?.longitude) {
+                  dayStartLoc = {
+                    name: lastItem.restaurant.name,
+                    latitude: lastItem.restaurant.latitude,
+                    longitude: lastItem.restaurant.longitude,
+                    address: lastItem.restaurant.address,
+                    restaurantId: lastItem.restaurant.id,
+                    isChainedFromPreviousDay: true,
+                  };
+                } else if (lastItem.customLocation) {
+                  const parsed = this.parseLocation(lastItem.customLocation);
+                  if (parsed?.latitude && parsed?.longitude) {
+                    dayStartLoc = {
+                      ...parsed,
+                      isChainedFromPreviousDay: true,
+                    };
+                  }
+                }
+              }
+            }
+
+            if (!dayStartLoc) {
+              dayStartLoc = this.parseLocation(itinerary.startLocation);
+            }
+          }
+
+          const firstActDist = activities.length > 0 ? activities[0]!.distanceFromPrevKm : 0;
+          const firstActDur = activities.length > 0 ? activities[0]!.travelDurationMinutes : 0;
+
           return {
             id: day.id,
             itineraryId: day.itineraryId,
@@ -320,6 +472,10 @@ export class ItinerariesService {
             title: day.title,
             date: day.date ? (new Date(day.date).toISOString().split('T')[0] ?? null) : null,
             startTime: day.startTime || null,
+            startLocation: dayStartLoc,
+            isCustomStartLocation,
+            distanceFromStartKm: firstActDist,
+            travelTimeFromStartMinutes: firstActDur,
             notes: day.notes,
             totalDistanceKm: Math.round(dayDist * 100) / 100,
             totalDurationMinutes: Math.round(dayDur),
@@ -410,25 +566,106 @@ export class ItinerariesService {
       return;
     }
 
-    // 1. Collect coordinates
-    const coordinates: GeoCoordinate[] = [];
+    // 1. Determine origin / starting point for this day
+    let startCoord: GeoCoordinate | null = null;
+
+    // Check if day has an explicit custom startLocation
+    const dayExplicitStartLoc = (day as any).startLocation
+      ? this.parseLocation((day as any).startLocation)
+      : null;
+
+    if (dayExplicitStartLoc?.latitude && dayExplicitStartLoc?.longitude) {
+      startCoord = {
+        id: 'start_location_day',
+        name: dayExplicitStartLoc.name || 'Titik Keberangkatan',
+        latitude: dayExplicitStartLoc.latitude,
+        longitude: dayExplicitStartLoc.longitude,
+      };
+    } else if (day.dayNumber > 1) {
+      // Chaining: use last activity of previous day (Day N-1)
+      const prevDay =
+        typeof this.repository.findDayByNumber === 'function'
+          ? await this.repository.findDayByNumber(day.itineraryId, day.dayNumber - 1)
+          : null;
+      const lastItem = prevDay?.items?.[0]; // ordered desc by orderIndex
+      if (lastItem) {
+        if (lastItem.destination?.latitude && lastItem.destination?.longitude) {
+          startCoord = {
+            id: lastItem.id,
+            name: lastItem.destination.name,
+            latitude: lastItem.destination.latitude,
+            longitude: lastItem.destination.longitude,
+          };
+        } else if (lastItem.accommodation?.latitude && lastItem.accommodation?.longitude) {
+          startCoord = {
+            id: lastItem.id,
+            name: lastItem.accommodation.name,
+            latitude: lastItem.accommodation.latitude,
+            longitude: lastItem.accommodation.longitude,
+          };
+        } else if (lastItem.restaurant?.latitude && lastItem.restaurant?.longitude) {
+          startCoord = {
+            id: lastItem.id,
+            name: lastItem.restaurant.name,
+            latitude: lastItem.restaurant.latitude,
+            longitude: lastItem.restaurant.longitude,
+          };
+        } else if (lastItem.customLocation) {
+          const parsed = this.parseLocation(lastItem.customLocation);
+          if (parsed?.latitude && parsed?.longitude) {
+            startCoord = {
+              id: lastItem.id,
+              name: parsed.name,
+              latitude: parsed.latitude,
+              longitude: parsed.longitude,
+            };
+          }
+        }
+      }
+
+      // Fallback to itinerary startLocation if no previous item coordinate was found
+      if (!startCoord) {
+        const parsedStartLoc = this.parseLocation(day.itinerary?.startLocation);
+        if (parsedStartLoc?.latitude && parsedStartLoc?.longitude) {
+          startCoord = {
+            id: 'start_location_itin',
+            name: parsedStartLoc.name || 'Titik Keberangkatan',
+            latitude: parsedStartLoc.latitude,
+            longitude: parsedStartLoc.longitude,
+          };
+        }
+      }
+    } else if (day.dayNumber === 1) {
+      const parsedStartLoc = this.parseLocation(day.itinerary?.startLocation);
+      if (parsedStartLoc?.latitude && parsedStartLoc?.longitude) {
+        startCoord = {
+          id: 'start_location_itin',
+          name: parsedStartLoc.name || 'Titik Keberangkatan',
+          latitude: parsedStartLoc.latitude,
+          longitude: parsedStartLoc.longitude,
+        };
+      }
+    }
+
+    // 2. Collect item coordinates
+    const itemCoordinates: (GeoCoordinate | null)[] = [];
     for (const item of items) {
       if (item.destination?.latitude && item.destination?.longitude) {
-        coordinates.push({
+        itemCoordinates.push({
           id: item.id,
           name: item.destination.name,
           latitude: item.destination.latitude,
           longitude: item.destination.longitude,
         });
       } else if (item.restaurant?.latitude && item.restaurant?.longitude) {
-        coordinates.push({
+        itemCoordinates.push({
           id: item.id,
           name: item.restaurant.name,
           latitude: item.restaurant.latitude,
           longitude: item.restaurant.longitude,
         });
       } else if (item.accommodation?.latitude && item.accommodation?.longitude) {
-        coordinates.push({
+        itemCoordinates.push({
           id: item.id,
           name: item.accommodation.name,
           latitude: item.accommodation.latitude,
@@ -436,21 +673,43 @@ export class ItinerariesService {
         });
       } else if (item.customLocation) {
         const parsed = this.parseLocation(item.customLocation);
-        if (parsed) {
-          coordinates.push({
+        if (parsed?.latitude && parsed?.longitude) {
+          itemCoordinates.push({
             id: item.id,
             name: parsed.name,
             latitude: parsed.latitude,
             longitude: parsed.longitude,
           });
+        } else {
+          itemCoordinates.push(null);
         }
+      } else {
+        itemCoordinates.push(null);
       }
     }
 
-    // 2. Compute matrix if we have coordinates for activities
+    // 3. Assemble coordinates for pairwise routing matrix
+    const allCoords: GeoCoordinate[] = [];
+    let startIdxInMatrix: number | null = null;
+    if (startCoord) {
+      startIdxInMatrix = allCoords.length;
+      allCoords.push(startCoord);
+    }
+
+    const itemMatrixIndices: (number | null)[] = [];
+    for (const coord of itemCoordinates) {
+      if (coord) {
+        itemMatrixIndices.push(allCoords.length);
+        allCoords.push(coord);
+      } else {
+        itemMatrixIndices.push(null);
+      }
+    }
+
+    // 4. Compute matrix if we have coordinates
     const matrix =
-      coordinates.length > 1
-        ? await this.matrixService.calculateMatrix(coordinates, transportationMode)
+      allCoords.length > 1
+        ? await this.matrixService.calculateMatrix(allCoords, transportationMode)
         : { distancesKm: [[0]], durationsMinutes: [[0]] };
 
     const dayStartTime = (day as any)?.startTime as string | null | undefined;
@@ -470,9 +729,30 @@ export class ItinerariesService {
       let dist = 0;
       let dur = 0;
 
-      if (i > 0 && matrix.distancesKm[i - 1]?.[i] !== undefined) {
-        dist = matrix.distancesKm[i - 1]![i]!;
-        dur = matrix.durationsMinutes[i - 1]![i]!;
+      const currentIdxInMatrix = itemMatrixIndices[i];
+
+      if (i === 0) {
+        // Distance and duration from start location to first activity
+        if (startIdxInMatrix !== null && currentIdxInMatrix !== null && currentIdxInMatrix !== undefined) {
+          dist = matrix.distancesKm[startIdxInMatrix]?.[currentIdxInMatrix] ?? 0;
+          dur = matrix.durationsMinutes[startIdxInMatrix]?.[currentIdxInMatrix] ?? 0;
+        }
+      } else {
+        let prevMatrixIdx: number | null = null;
+        for (let p = i - 1; p >= 0; p--) {
+          if (itemMatrixIndices[p] !== null && itemMatrixIndices[p] !== undefined) {
+            prevMatrixIdx = itemMatrixIndices[p]!;
+            break;
+          }
+        }
+        if (prevMatrixIdx === null) {
+          prevMatrixIdx = startIdxInMatrix;
+        }
+
+        if (prevMatrixIdx !== null && currentIdxInMatrix !== null && currentIdxInMatrix !== undefined) {
+          dist = matrix.distancesKm[prevMatrixIdx]?.[currentIdxInMatrix] ?? 0;
+          dur = matrix.durationsMinutes[prevMatrixIdx]?.[currentIdxInMatrix] ?? 0;
+        }
       }
 
       dayDist += dist;
@@ -521,6 +801,14 @@ export class ItinerariesService {
         totalTravelTimeMinutes: Math.round(itinDur),
         totalEstimatedBudget: finalBudget,
       });
+    }
+
+    // Cascade to next day if it exists and has no explicit custom startLocation
+    if (typeof this.repository.findDayByNumber === 'function') {
+      const nextDay = await this.repository.findDayByNumber(day.itineraryId, day.dayNumber + 1);
+      if (nextDay && !(nextDay as any).startLocation) {
+        await this.recalculateDayRouteAndSchedule(nextDay.id, transportationMode);
+      }
     }
   }
 
@@ -745,9 +1033,11 @@ export class ItinerariesService {
       }),
     });
 
-    if (dto.startTime && existing.days.length > 0) {
+    if (existing.days.length > 0 && (dto.startTime !== undefined || dto.startLocation !== undefined)) {
       const firstDay = existing.days[0]!;
-      await this.repository.updateDay(firstDay.id, { startTime: dto.startTime });
+      if (dto.startTime) {
+        await this.repository.updateDay(firstDay.id, { startTime: dto.startTime });
+      }
       await this.recalculateDayRouteAndSchedule(firstDay.id, existing.transportationMode || 'CAR');
     }
 
@@ -871,11 +1161,18 @@ export class ItinerariesService {
     }
 
     const date = dto.date ? new Date(dto.date) : null;
+    let startLocationStr: string | null = null;
+    if (dto.startLocation) {
+      const resolved = await this.resolveLocationInput(dto.startLocation);
+      startLocationStr = resolved ? JSON.stringify(resolved) : null;
+    }
+
     await this.repository.addDay(resolvedId, {
       title: dto.title,
       date,
       notes: dto.notes,
       startTime: dto.startTime,
+      startLocation: startLocationStr,
     });
 
     const updated = await this.repository.findById(resolvedId);
@@ -903,19 +1200,43 @@ export class ItinerariesService {
     }
 
     const date = dto.date !== undefined ? (dto.date ? new Date(dto.date) : null) : undefined;
+    let startLocationStr: string | null | undefined = undefined;
+    if (dto.startLocation !== undefined) {
+      if (dto.startLocation === null) {
+        startLocationStr = null;
+      } else {
+        const resolved = await this.resolveLocationInput(dto.startLocation);
+        startLocationStr = resolved ? JSON.stringify(resolved) : null;
+      }
+    }
+
     await this.repository.updateDay(dayId, {
       title: dto.title,
       date,
       notes: dto.notes,
       startTime: dto.startTime,
+      startLocation: startLocationStr,
     });
 
-    if (dto.startTime !== undefined) {
+    if (dto.startTime !== undefined || dto.startLocation !== undefined) {
       await this.recalculateDayRouteAndSchedule(dayId, day.itinerary.transportationMode || 'CAR');
     }
 
     const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
+  }
+
+  public async updateDayStart(
+    userId: string,
+    userRole: string,
+    itineraryId: string,
+    dayId: string,
+    dto: UpdateDayStartDto,
+  ): Promise<ItineraryDto> {
+    return this.updateDay(userId, userRole, itineraryId, dayId, {
+      startTime: dto.startTime,
+      startLocation: dto.startLocation,
+    });
   }
 
   public async deleteDay(
@@ -1481,9 +1802,11 @@ export class ItinerariesService {
       startTime: dto.startTime,
     });
 
-    if (dto.startTime && activeTrip.days.length > 0) {
+    if (activeTrip.days.length > 0 && (dto.startTime !== undefined || dto.startLocation !== undefined)) {
       const firstDay = activeTrip.days[0]!;
-      await this.repository.updateDay(firstDay.id, { startTime: dto.startTime });
+      if (dto.startTime) {
+        await this.repository.updateDay(firstDay.id, { startTime: dto.startTime });
+      }
       await this.recalculateDayRouteAndSchedule(firstDay.id, activeTrip.transportationMode || 'CAR');
     }
 

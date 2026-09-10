@@ -172,6 +172,19 @@ export class ItinerariesRepository {
     });
   }
 
+  public async findDayByNumber(itineraryId: string, dayNumber: number) {
+    return prisma.itineraryDay.findFirst({
+      where: { itineraryId, dayNumber },
+      include: {
+        itinerary: true,
+        items: {
+          orderBy: { orderIndex: 'desc' },
+          include: ITINERARY_ITEM_RELATIONS_INCLUDE,
+        },
+      },
+    });
+  }
+
   public async findActivityById(activityId: string) {
     return prisma.itineraryItem.findUnique({
       where: { id: activityId },
@@ -326,7 +339,13 @@ export class ItinerariesRepository {
    */
   public async addDay(
     itineraryId: string,
-    dayData: { title?: string; date?: Date | null; notes?: string | null; startTime?: string | null },
+    dayData: {
+      title?: string;
+      date?: Date | null;
+      notes?: string | null;
+      startTime?: string | null;
+      startLocation?: string | null;
+    },
   ) {
     return prisma.$transaction(async (tx) => {
       const maxDay = await tx.itineraryDay.findFirst({
@@ -346,6 +365,7 @@ export class ItinerariesRepository {
           date: dayData.date || null,
           notes: dayData.notes || null,
           startTime: dayData.startTime || null,
+          startLocation: dayData.startLocation || null,
         } as any,
       });
 
@@ -359,11 +379,17 @@ export class ItinerariesRepository {
   }
 
   /**
-   * Updates day metadata (title, date, notes, startTime).
+   * Updates day metadata (title, date, notes, startTime, startLocation).
    */
   public async updateDay(
     dayId: string,
-    dayData: { title?: string; date?: Date | null; notes?: string | null; startTime?: string | null },
+    dayData: {
+      title?: string;
+      date?: Date | null;
+      notes?: string | null;
+      startTime?: string | null;
+      startLocation?: string | null;
+    },
   ) {
     return prisma.itineraryDay.update({
       where: { id: dayId },
@@ -372,6 +398,7 @@ export class ItinerariesRepository {
         ...(dayData.date !== undefined && { date: dayData.date }),
         ...(dayData.notes !== undefined && { notes: dayData.notes }),
         ...(dayData.startTime !== undefined && { startTime: dayData.startTime }),
+        ...(dayData.startLocation !== undefined && { startLocation: dayData.startLocation }),
       },
     });
   }
@@ -1083,6 +1110,18 @@ export class ItinerariesRepository {
 
       return newItinerary;
     });
+  }
+
+  public async findDestinationById(id: string) {
+    return prisma.destination.findUnique({ where: { id } });
+  }
+
+  public async findAccommodationById(id: string) {
+    return prisma.accommodation.findUnique({ where: { id } });
+  }
+
+  public async findRestaurantById(id: string) {
+    return prisma.restaurant.findUnique({ where: { id } });
   }
 }
 

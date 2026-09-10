@@ -580,6 +580,45 @@ paths:
                   data:
                     $ref: '#/components/schemas/ActiveTripResponse'
 
+  /api/v1/itineraries/active/days/{dayId}/start:
+    patch:
+      tags:
+        - Itineraries
+        - Itinerary Days
+      summary: Mengatur titik awal hari tertentu pada active trip
+      description: Alias untuk endpoint `/api/v1/itineraries/{id}/days/{dayId}/start` pada trip yang sedang aktif.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+          description: ID Hari (ItineraryDay)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDayStartRequest'
+      responses:
+        '200':
+          description: Titik awal hari active trip berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Day start location and time updated successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
   /api/v1/itineraries/active-trip:
     get:
       tags:
@@ -1036,6 +1075,55 @@ paths:
                   data:
                     $ref: '#/components/schemas/ItineraryResponse'
 
+  /api/v1/itineraries/{id}/days/{dayId}/start:
+    patch:
+      tags:
+        - Itinerary Days
+      summary: Mengatur titik awal keberangkatan & jam mulai hari tertentu
+      description: |
+        Mengubah titik start harian secara fleksibel:
+        - Bisa menggunakan referensi ID yang sudah ada (`destinationId`, `accommodationId`, atau `restaurantId`).
+        - Bisa menggunakan titik custom koordinat (`name`, `latitude`, `longitude`, `address`).
+        - Jika `startLocation: null`, sistem akan mereset kembali ke chaining otomatis (aktivitas terakhir dari hari sebelumnya, atau start trip pada Hari 1).
+        Perubahan titik start hari ini akan secara otomatis memperbarui rute hari ini dan mengalirkan pembaruan ke hari-hari berikutnya yang terikat secara otomatis.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+          description: ID Trip Itinerary atau 'active' untuk active trip pengguna
+        - in: path
+          name: dayId
+          required: true
+          schema:
+            type: string
+          description: ID Hari (ItineraryDay)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateDayStartRequest'
+      responses:
+        '200':
+          description: Titik awal dan rute hari berhasil diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Day start location and time updated successfully
+                  data:
+                    $ref: '#/components/schemas/ItineraryResponse'
+
   # ----------------------------------------------------
   # ACTIVITY / STOP MANAGEMENT
   # ----------------------------------------------------
@@ -1309,6 +1397,78 @@ components:
         address:
           type: string
           example: Jl. Raya Senggigi KM 8, Senggigi, Batu Layar
+        destinationId:
+          type: string
+          nullable: true
+          example: dest_123456
+          description: ID destinasi jika titik mengacu pada destinasi katalog
+        accommodationId:
+          type: string
+          nullable: true
+          example: accom_123456
+          description: ID penginapan jika titik mengacu pada akomodasi katalog
+        restaurantId:
+          type: string
+          nullable: true
+          example: rest_123456
+          description: ID restoran jika titik mengacu pada kuliner katalog
+        isChainedFromPreviousDay:
+          type: boolean
+          example: false
+          description: True jika titik start ini otomatis diambil dari aktivitas terakhir hari sebelumnya
+
+    DayStartLocationInput:
+      type: object
+      description: |
+        Input titik start harian. Klien bisa memilih salah satu:
+        1. Mengambil dari data katalog yang sudah ada: kirim `destinationId`, `accommodationId`, atau `restaurantId`.
+        2. Custom location: kirim `name`, `latitude`, `longitude`, dan opsional `address`.
+      properties:
+        destinationId:
+          type: string
+          nullable: true
+          example: dest_123456
+          description: Mengambil data titik awal dari destinasi katalog yang sudah ada
+        accommodationId:
+          type: string
+          nullable: true
+          example: accom_123456
+          description: Mengambil data titik awal dari penginapan/hotel katalog yang sudah ada
+        restaurantId:
+          type: string
+          nullable: true
+          example: rest_123456
+          description: Mengambil data titik awal dari restoran katalog yang sudah ada
+        name:
+          type: string
+          example: Villa Ombak Gili Trawangan
+          description: Nama lokasi custom (wajib jika custom)
+        latitude:
+          type: number
+          example: -8.3512
+          description: Latitude lokasi custom (wajib jika custom)
+        longitude:
+          type: number
+          example: 116.0421
+          description: Longitude lokasi custom (wajib jika custom)
+        address:
+          type: string
+          nullable: true
+          example: Gili Trawangan, Pemenang, Lombok Utara
+
+    UpdateDayStartRequest:
+      type: object
+      description: Payload untuk mengubah titik awal dan jam mulai hari tertentu. Kirim startLocation null untuk mereset kembali ke chaining otomatis dari aktivitas terakhir hari sebelumnya.
+      properties:
+        startLocation:
+          allOf:
+            - $ref: '#/components/schemas/DayStartLocationInput'
+          nullable: true
+        startTime:
+          type: string
+          nullable: true
+          example: '08:30'
+          description: Jam mulai perjalanan hari ini (HH:mm)
 
     PaginationMetadata:
       type: object
@@ -1559,13 +1719,26 @@ components:
           example: 10000
         distanceFromPrevKm:
           type: number
-          example: 0
+          example: 90.0
+          description: Jarak dari titik sebelumnya dalam km. Untuk aktivitas pertama (stop 1), berisi jarak dari titik keberangkatan (startLocation) ke aktivitas tersebut.
         travelDurationMinutes:
           type: integer
-          example: 0
+          example: 120
+          description: Estimasi durasi tempuh dari titik sebelumnya dalam menit. Untuk aktivitas pertama, berisi durasi perjalanan dari titik keberangkatan (startLocation).
         travelTimeFromPrevMinutes:
           type: integer
-          example: 0
+          example: 120
+          description: Alias dari travelDurationMinutes untuk kompatibilitas klien Android/Web.
+        distanceFromStartKm:
+          type: number
+          nullable: true
+          example: 90.0
+          description: Jarak dari titik keberangkatan (startLocation) ke aktivitas pertama (dalam km).
+        travelTimeFromStartMinutes:
+          type: integer
+          nullable: true
+          example: 120
+          description: Estimasi durasi tempuh dari titik keberangkatan ke aktivitas pertama (dalam menit).
         isCompleted:
           type: boolean
           example: false
@@ -1596,6 +1769,27 @@ components:
           format: date
           nullable: true
           example: '2026-09-01'
+        startTime:
+          type: string
+          nullable: true
+          example: '08:30'
+          description: Waktu mulai hari perjalanan (format HH:mm)
+        startLocation:
+          $ref: '#/components/schemas/CustomLocation'
+        isCustomStartLocation:
+          type: boolean
+          example: false
+          description: True jika titik start ditentukan kustom oleh user pada hari ini, false jika otomatis di-chain dari aktivitas terakhir hari sebelumnya (atau start trip master pada Hari 1).
+        distanceFromStartKm:
+          type: number
+          nullable: true
+          example: 90.0
+          description: Jarak dari titik keberangkatan (startLocation) ke aktivitas pertama hari ini (dalam km).
+        travelTimeFromStartMinutes:
+          type: integer
+          nullable: true
+          example: 120
+          description: Estimasi durasi tempuh dari titik keberangkatan ke aktivitas pertama hari ini (dalam menit).
         notes:
           type: string
           nullable: true
@@ -1813,6 +2007,14 @@ components:
           type: string
           format: date
           example: '2026-09-04'
+        startTime:
+          type: string
+          nullable: true
+          example: '08:30'
+        startLocation:
+          allOf:
+            - $ref: '#/components/schemas/DayStartLocationInput'
+          nullable: true
         notes:
           type: string
           example: Beli oleh-oleh khas Lombok
@@ -1825,6 +2027,14 @@ components:
         date:
           type: string
           format: date
+        startTime:
+          type: string
+          nullable: true
+          example: '08:30'
+        startLocation:
+          allOf:
+            - $ref: '#/components/schemas/DayStartLocationInput'
+          nullable: true
         notes:
           type: string
 

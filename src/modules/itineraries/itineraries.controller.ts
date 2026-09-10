@@ -15,6 +15,7 @@ import {
   ReorderActivitiesDto,
   UpdateActivityDto,
   UpdateDayDto,
+  UpdateDayStartDto,
   UpdateItineraryDto,
 } from './dto/itinerary.dto';
 import { GenerateItineraryDto } from './dto/itinerary-generator.dto';
@@ -150,6 +151,16 @@ export class ItinerariesController {
     const dto = req.body as UpdateDayDto;
     const data = await this.service.updateDay(userId, userRole, itineraryId, dayId, dto);
     return ResponseUtil.sendSuccess(res, data, 'Day updated successfully');
+  });
+
+  public updateDayStart = asyncHandler(async (req: Request, res: Response) => {
+    const itineraryId = String(req.params.id || 'active');
+    const dayId = String(req.params.dayId);
+    const userId = req.user!.userId;
+    const userRole = req.user!.role;
+    const dto = req.body as UpdateDayStartDto;
+    const data = await this.service.updateDayStart(userId, userRole, itineraryId, dayId, dto);
+    return ResponseUtil.sendSuccess(res, data, 'Day start location and time updated successfully');
   });
 
   public deleteDay = asyncHandler(async (req: Request, res: Response) => {

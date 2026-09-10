@@ -501,6 +501,7 @@ model ItineraryDay {
   title                  String
   date                   DateTime?
   startTime              String?   // e.g. "08:30"
+  startLocation          String?   @db.Text // JSON: { name, latitude, longitude, address }
   notes                  String?   @db.Text
   totalDistanceKm        Float     @default(0)
   totalTravelTimeMinutes Int       @default(0)
