@@ -8,6 +8,7 @@ import { restaurantRoutes } from '../../modules/restaurants/restaurants.routes';
 import { favoriteRoutes } from '../../modules/favorites/favorites.routes';
 import { reviewRoutes } from '../../modules/reviews/reviews.routes';
 import { itineraryRoutes } from '../../modules/itineraries/itineraries.routes';
+import { tripSessionRoutes } from '../../modules/itineraries/trip-sessions.routes';
 import { itinerariesController } from '../../modules/itineraries/itineraries.controller';
 import { recommendationRoutes } from '../../modules/recommendations/recommendations.routes';
 import { weatherRoutes } from '../../modules/weather/weather.routes';
@@ -50,6 +51,7 @@ router.use('/reviews', reviewRoutes);
 
 // 7. Itineraries & Smart Trip Planner Module (Phase 11)
 router.use('/itineraries', itineraryRoutes);
+router.use('/trip-sessions', tripSessionRoutes);
 router.get('/shared/itineraries/:shareToken', itinerariesController.getSharedItinerary);
 
 // 8. Smart Recommendation Engine (Phase 15)

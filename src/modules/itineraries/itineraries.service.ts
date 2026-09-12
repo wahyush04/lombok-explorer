@@ -55,6 +55,7 @@ import {
   MapboxOptimizationService,
 } from './services/mapbox-optimization.service';
 import { GeoCoordinate } from './services/mapbox.types';
+import { tripSessionsService } from './trip-sessions.service';
 
 export type ItineraryItemWithDestination = ItineraryItem & {
   destination?: (Destination & { category?: Category | null; images?: DestinationImage[] }) | null;
@@ -77,6 +78,7 @@ export class ItinerariesService {
     private readonly repository: ItinerariesRepository = itinerariesRepository,
     private readonly matrixService: MapboxMatrixService = mapboxMatrixService,
     private readonly optimizationService: MapboxOptimizationService = mapboxOptimizationService,
+    private readonly sessionService: { reconcileItineraryChange(itineraryId: string): Promise<void> } = tripSessionsService,
   ) {}
 
   /**
@@ -1261,12 +1263,15 @@ export class ItinerariesService {
     const result = await this.repository.deleteDayAndReindex(resolvedId, dayId);
 
     if (result.itineraryDeleted) {
+      await this.sessionService.reconcileItineraryChange(resolvedId);
       return {
         deletedTrip: true,
         tripId: resolvedId,
         message: 'Hari terakhir telah dihapus dari trip plan. Trip plan aktif telah dihapus.',
       };
     }
+
+    await this.sessionService.reconcileItineraryChange(resolvedId);
 
     const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
@@ -1362,6 +1367,7 @@ export class ItinerariesService {
     });
 
     await this.recalculateDayRouteAndSchedule(dayId, day.itinerary.transportationMode);
+    await this.sessionService.reconcileItineraryChange(resolvedId);
 
     const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
@@ -1469,6 +1475,7 @@ export class ItinerariesService {
       dayId,
       activity.itineraryDay.itinerary.transportationMode,
     );
+    await this.sessionService.reconcileItineraryChange(resolvedId);
 
     const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
@@ -1506,6 +1513,7 @@ export class ItinerariesService {
       dayId,
       activity.itineraryDay.itinerary.transportationMode,
     );
+    await this.sessionService.reconcileItineraryChange(resolvedId);
 
     const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
@@ -1540,6 +1548,7 @@ export class ItinerariesService {
 
     await this.repository.reorderActivities(dayId, dto.activities);
     await this.recalculateDayRouteAndSchedule(dayId, day.itinerary.transportationMode);
+    await this.sessionService.reconcileItineraryChange(resolvedId);
 
     const updated = await this.repository.findById(resolvedId);
     return this.mapToDto(updated as ItineraryWithRelations);
@@ -1616,6 +1625,8 @@ export class ItinerariesService {
         await this.recalculateDayRouteAndSchedule(day.id, itinerary.transportationMode);
       }
     }
+
+    await this.sessionService.reconcileItineraryChange(resolvedId);
 
     const fresh = await this.repository.findById(itineraryId);
     return this.mapToDto(fresh as ItineraryWithRelations);

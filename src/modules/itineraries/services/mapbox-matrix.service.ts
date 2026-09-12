@@ -199,11 +199,174 @@ export class MapboxMatrixService implements IMapboxMatrixService {
       }
 
       return { distancesKm, durationsMinutes };
-    } catch (_error) {
+    } catch {
       logger.error('Mapbox Matrix API network error; falling back to Haversine');
       return this.calculateFallbackMatrix(coordinates, mode);
     }
   }
+
+  /**
+   * Calculates route legs and full polyline geometry for a sequence of coordinates.
+   */
+  public async calculateRouteLegsAndPolyline(
+    coordinates: GeoCoordinate[],
+    mode: TransportationMode = 'CAR',
+  ): Promise<{
+    totalDistanceKm: number;
+    totalDurationMinutes: number;
+    polyline: string | null;
+    legs: {
+      fromActivityId: string | null;
+      toActivityId: string | null;
+      distanceKm: number;
+      durationMinutes: number;
+      polyline: string | null;
+    }[];
+  }> {
+    const n = coordinates.length;
+    if (n < 2) {
+      return {
+        totalDistanceKm: 0,
+        totalDurationMinutes: 0,
+        polyline: n === 1 ? encodePolyline([coordinates[0]!], 6) : null,
+        legs: [],
+      };
+    }
+
+    const legs: {
+      fromActivityId: string | null;
+      toActivityId: string | null;
+      distanceKm: number;
+      durationMinutes: number;
+      polyline: string | null;
+    }[] = [];
+
+    // Try Mapbox Directions API if token exists and waypoints <= 25 (Mapbox limit)
+    if (this.token && n <= 25) {
+      try {
+        const profile = this.getMapboxProfile(mode);
+        const coordString = coordinates.map((c) => `${c.longitude},${c.latitude}`).join(';');
+        const url = `https://api.mapbox.com/directions/v5/${profile}/${coordString}?geometries=polyline6&overview=full&steps=false&access_token=${this.token}`;
+
+        const response = await fetch(url, { method: 'GET', headers: { Accept: 'application/json' } });
+        if (response.ok) {
+          const data = (await response.json()) as {
+            code?: string;
+            routes?: {
+              geometry?: string;
+              distance?: number;
+              duration?: number;
+              legs?: { distance?: number; duration?: number }[];
+            }[];
+          };
+
+          if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+            const primaryRoute = data.routes[0]!;
+            const totalDistKm = Math.round(((primaryRoute.distance || 0) / 1000) * 10) / 10;
+            const totalDurMins = Math.round((primaryRoute.duration || 0) / 60);
+            const routePolyline = primaryRoute.geometry || null;
+
+            const mapboxLegs = primaryRoute.legs || [];
+            for (let i = 0; i < n - 1; i++) {
+              const fromCoord = coordinates[i]!;
+              const toCoord = coordinates[i + 1]!;
+              const mbLeg = mapboxLegs[i];
+              const legDistKm = mbLeg?.distance !== undefined
+                ? Math.round((mbLeg.distance / 1000) * 10) / 10
+                : this.calculateHaversineKm(fromCoord.latitude, fromCoord.longitude, toCoord.latitude, toCoord.longitude);
+              const legDurMins = mbLeg?.duration !== undefined
+                ? Math.round(mbLeg.duration / 60)
+                : this.estimateDurationMinutes(legDistKm, mode);
+
+              legs.push({
+                fromActivityId: fromCoord.id || null,
+                toActivityId: toCoord.id || null,
+                distanceKm: legDistKm,
+                durationMinutes: legDurMins,
+                polyline: encodePolyline([fromCoord, toCoord], 6),
+              });
+            }
+
+            return {
+              totalDistanceKm: totalDistKm,
+              totalDurationMinutes: totalDurMins,
+              polyline: routePolyline,
+              legs,
+            };
+          }
+        }
+      } catch {
+        logger.warn('Mapbox Directions API failed; using fallback route calculation');
+      }
+    }
+
+    // Fallback calculation using Haversine and polyline encoding
+    let totalDistKm = 0;
+    let totalDurMins = 0;
+
+    for (let i = 0; i < n - 1; i++) {
+      const fromCoord = coordinates[i]!;
+      const toCoord = coordinates[i + 1]!;
+      const dist = this.calculateHaversineKm(fromCoord.latitude, fromCoord.longitude, toCoord.latitude, toCoord.longitude);
+      const dur = this.estimateDurationMinutes(dist, mode);
+
+      totalDistKm += dist;
+      totalDurMins += dur;
+
+      legs.push({
+        fromActivityId: fromCoord.id || null,
+        toActivityId: toCoord.id || null,
+        distanceKm: Math.round(dist * 10) / 10,
+        durationMinutes: Math.round(dur),
+        polyline: encodePolyline([fromCoord, toCoord], 6),
+      });
+    }
+
+    return {
+      totalDistanceKm: Math.round(totalDistKm * 10) / 10,
+      totalDurationMinutes: Math.round(totalDurMins),
+      polyline: encodePolyline(coordinates, 6),
+      legs,
+    };
+  }
+}
+
+/**
+ * Standard polyline encoder (precision 5 or 6).
+ */
+export function encodePolyline(
+  coordinates: { latitude: number; longitude: number }[],
+  precision = 6,
+): string {
+  const factor = Math.pow(10, precision);
+  let output = '';
+  let prevLat = 0;
+  let prevLon = 0;
+
+  for (const coord of coordinates) {
+    const lat = Math.round(coord.latitude * factor);
+    const lon = Math.round(coord.longitude * factor);
+
+    output += encodeSignedNumber(lat - prevLat);
+    output += encodeSignedNumber(lon - prevLon);
+
+    prevLat = lat;
+    prevLon = lon;
+  }
+
+  return output;
+}
+
+function encodeSignedNumber(num: number): string {
+  let sgnNum = num < 0 ? ~(num << 1) : num << 1;
+  let encodeString = '';
+  while (sgnNum >= 0x20) {
+    encodeString += String.fromCharCode((0x20 | (sgnNum & 0x1f)) + 63);
+    sgnNum >>= 5;
+  }
+  encodeString += String.fromCharCode(sgnNum + 63);
+  return encodeString;
 }
 
 export const mapboxMatrixService = new MapboxMatrixService();
+

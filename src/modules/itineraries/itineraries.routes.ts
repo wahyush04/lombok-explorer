@@ -22,6 +22,8 @@ import {
 } from './dto/itinerary.dto';
 import { GenerateItineraryDtoSchema } from './dto/itinerary-generator.dto';
 import { CreateExpenseDtoSchema } from '../expenses/dto/expense.dto';
+import { tripSessionsController } from './trip-sessions.controller';
+import { StartTripDtoSchema } from './dto/trip-session.dto';
 
 const router = Router();
 
@@ -158,10 +160,23 @@ router.post(
   validate({ body: OptimizeItineraryDtoSchema }),
   itinerariesController.optimizeRoute,
 );
+router.post(
+  '/active/start-trip',
+  authenticate,
+  validate({ body: StartTripDtoSchema }),
+  tripSessionsController.startTrip,
+);
 
 // ==========================================
 // 5. TRIP MASTER CRUD (BY ID)
 // ==========================================
+router.post(
+  '/:id/start-trip',
+  authenticate,
+  validate({ body: StartTripDtoSchema }),
+  tripSessionsController.startTrip,
+);
+
 router.post(
   '/',
   authenticate,

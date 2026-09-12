@@ -36,6 +36,8 @@ tags:
     description: Pembuatan share link dan akses publik trip yang dibagikan
   - name: Admin Itinerary Templates
     description: Manajemen template itinerary kurasi (Khusus Admin)
+  - name: Live Trip Tracking & Execution
+    description: Fitur Start Trip, pelacakan live GPS mobile, deteksi ketibaan (arrival detection), pemulihan sesi aktif, dan penyelesaian trip
 
 paths:
   # ==========================================
@@ -1337,6 +1339,294 @@ paths:
                   data:
                     $ref: '#/components/schemas/ItineraryResponse'
 
+  # ==========================================
+  # 8. LIVE TRIP TRACKING & EXECUTION
+  # ==========================================
+  /api/v1/itineraries/{id}/start-trip:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Start a live trip session for an itinerary
+      description: |
+        Memulai sesi perjalanan aktif (`TripSession`) untuk itinerary tertentu.
+        **PENTING**: Memulai trip **TIDAK MENGUNCI** itinerary. Pengguna tetap bebas menambah, menghapus, atau mengedit stop saat trip sedang aktif.
+        API ini menginisialisasi status progres setiap aktivitas, menentukan aktivitas awal yang harus dituju, menghitung polyline & segmen rute, dan mengembalikan data lengkap untuk rendering map Android secara instan.
+        Permintaan start trip yang duplikat pada trip yang sama bersifat idempoten (mengembalikan sesi aktif yang sedang berjalan).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: ID itinerary yang akan dijalankan
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartTripRequest'
+      responses:
+        '201':
+          description: Trip session berhasil dimulai
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Trip session started successfully
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Sesi trip lain sedang aktif untuk pengguna ini
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  error:
+                    type: object
+                    properties:
+                      code:
+                        type: string
+                        example: ACTIVE_TRIP_SESSION_EXISTS
+                      message:
+                        type: string
+                        example: Another trip session is currently active. Please complete or cancel it before starting a new trip.
+
+  /api/v1/trip-sessions/start:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Start trip session (Alternative route)
+      description: Memulai sesi trip via body payload `itineraryId`.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartTripRequest'
+      responses:
+        '201':
+          description: Trip session berhasil dimulai
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Trip session started successfully
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
+  /api/v1/trip-sessions/active:
+    get:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Restore active trip session (Mobile Recovery)
+      description: Mengambil data sesi trip aktif pengguna untuk memulihkan tampilan peta pelacakan Android setelah aplikasi dibuka kembali atau restart.
+      security:
+        - BearerAuth: []
+      responses:
+        '200':
+          description: Sesi aktif berhasil dipulihkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Active trip session retrieved successfully
+                  data:
+                    $ref: '#/components/schemas/ActiveTripRecoveryResponse'
+
+  /api/v1/trip-sessions/{id}:
+    get:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Get trip session detail by ID
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Detail sesi trip
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
+  /api/v1/trip-sessions/{id}/location:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Sync user location & auto-detect arrival
+      description: |
+        Menyinkronkan koordinat GPS terkini pengguna.
+        Jika `arrivalDetected: true`, backend memvalidasi jarak pengguna ke target destinasi (`Haversine distance <= arrivalRadiusMeters + buffer`).
+        Jika terverifikasi valid, status aktivitas diperbarui menjadi `COMPLETED` dan `currentActivityId` otomatis berpindah ke aktivitas berikutnya.
+        Jika aktivitas terakhir diselesaikan, sesi trip otomatis beralih ke status `COMPLETED`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SyncLocationRequest'
+      responses:
+        '200':
+          description: Lokasi berhasil disinkronkan dan progres diperbarui
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: Trip location synced successfully
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
+  /api/v1/trip-sessions/{id}/activities/{activityId}/complete:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Manually mark an activity as completed
+      description: Menandai aktivitas spesifik sebagai selesai (idempoten dan aman terhadap percobaan ulang offline).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: activityId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CompleteActivityRequest'
+      responses:
+        '200':
+          description: Aktivitas berhasil diselesaikan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
+  /api/v1/trip-sessions/{id}/finish:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Finish an active trip session
+      description: Menyelesaikan sesi trip secara manual dan menyetel waktu `endedAt`.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sesi trip selesai
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
+  /api/v1/trip-sessions/{id}/cancel:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Cancel an active trip session
+      description: Membatalkan sesi trip aktif (`CANCELLED`).
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Sesi trip dibatalkan
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
 components:
   securitySchemes:
     BearerAuth:
@@ -2571,6 +2861,302 @@ components:
           type: boolean
         sortOrder:
           type: integer
+
+    # ==========================================
+    # LIVE TRIP TRACKING & EXECUTION SCHEMAS
+    # ==========================================
+    TripSessionStatus:
+      type: string
+      enum: [ACTIVE, PAUSED, COMPLETED, CANCELLED]
+      example: ACTIVE
+
+    TripActivityStatus:
+      type: string
+      enum: [NOT_STARTED, IN_PROGRESS, COMPLETED, SKIPPED]
+      example: IN_PROGRESS
+
+    StartTripRequest:
+      type: object
+      properties:
+        itineraryId:
+          type: string
+          format: uuid
+        initialLatitude:
+          type: number
+          format: float
+          example: -8.8923
+        initialLongitude:
+          type: number
+          format: float
+          example: 116.2912
+
+    SyncLocationRequest:
+      type: object
+      required:
+        - latitude
+        - longitude
+      properties:
+        latitude:
+          type: number
+          format: float
+          example: -8.8923
+        longitude:
+          type: number
+          format: float
+          example: 116.2912
+        accuracy:
+          type: number
+          format: float
+          example: 8.5
+          description: Akurasi GPS dalam meter
+        timestamp:
+          oneOf:
+            - type: string
+              format: date-time
+            - type: integer
+          example: '2026-09-12T10:15:30.000Z'
+        activityId:
+          type: string
+          format: uuid
+          description: ID aktivitas yang sedang dituju (opsional)
+        arrivalDetected:
+          type: boolean
+          example: true
+          description: Menandakan aplikasi mobile mendeteksi pengguna telah sampai di radius destinasi
+
+    CompleteActivityRequest:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: float
+          example: -8.8923
+        longitude:
+          type: number
+          format: float
+          example: 116.2912
+        accuracy:
+          type: number
+          format: float
+          example: 5.0
+
+    TripSession:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        userId:
+          type: string
+          format: uuid
+        itineraryId:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/TripSessionStatus'
+        startedAt:
+          type: string
+          format: date-time
+        endedAt:
+          type: string
+          format: date-time
+          nullable: true
+        pausedAt:
+          type: string
+          format: date-time
+          nullable: true
+        currentActivityId:
+          type: string
+          format: uuid
+          nullable: true
+        lastLatitude:
+          type: number
+          format: float
+          nullable: true
+        lastLongitude:
+          type: number
+          format: float
+          nullable: true
+        lastAccuracy:
+          type: number
+          format: float
+          nullable: true
+        lastLocationAt:
+          type: string
+          format: date-time
+          nullable: true
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    TripActivity:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: ID aktivitas itinerary (ItineraryItem.id)
+        progressId:
+          type: string
+          format: uuid
+        title:
+          type: string
+          example: Pantai Tanjung Aan
+        itemType:
+          $ref: '#/components/schemas/ItineraryItemType'
+        destinationId:
+          type: string
+          format: uuid
+          nullable: true
+        restaurantId:
+          type: string
+          format: uuid
+          nullable: true
+        accommodationId:
+          type: string
+          format: uuid
+          nullable: true
+        dayNumber:
+          type: integer
+          example: 1
+        orderIndex:
+          type: integer
+          example: 0
+        status:
+          $ref: '#/components/schemas/TripActivityStatus'
+        latitude:
+          type: number
+          format: float
+          example: -8.9082
+        longitude:
+          type: number
+          format: float
+          example: 116.3195
+        arrivalRadiusMeters:
+          type: integer
+          example: 100
+        startedAt:
+          type: string
+          format: date-time
+          nullable: true
+        completedAt:
+          type: string
+          format: date-time
+          nullable: true
+        arrivalDetectedAt:
+          type: string
+          format: date-time
+          nullable: true
+        activityNotes:
+          type: string
+          nullable: true
+        estimatedDurationMinutes:
+          type: integer
+          example: 60
+
+    TripRouteLeg:
+      type: object
+      properties:
+        fromActivityId:
+          type: string
+          nullable: true
+        toActivityId:
+          type: string
+          nullable: true
+        distanceKm:
+          type: number
+          example: 5.2
+        durationMinutes:
+          type: integer
+          example: 15
+        polyline:
+          type: string
+          nullable: true
+          description: Encoded Polyline6 geometry untuk segmen ini
+
+    TripRouteData:
+      type: object
+      properties:
+        totalDistanceKm:
+          type: number
+          example: 28.5
+        totalDurationMinutes:
+          type: integer
+          example: 75
+        polyline:
+          type: string
+          nullable: true
+          description: Encoded Polyline6 geometry keseluruhan rute
+        legs:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripRouteLeg'
+
+    StartTripResponse:
+      type: object
+      properties:
+        session:
+          $ref: '#/components/schemas/TripSession'
+        itinerary:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            title:
+              type: string
+            transportationMode:
+              $ref: '#/components/schemas/TransportationMode'
+            totalDays:
+              type: integer
+            totalDistanceKm:
+              type: number
+            totalTravelTimeMinutes:
+              type: integer
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripActivity'
+        currentActivity:
+          $ref: '#/components/schemas/TripActivity'
+        nextActivities:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripActivity'
+        route:
+          $ref: '#/components/schemas/TripRouteData'
+        progressPercentage:
+          type: integer
+          example: 25
+
+    ActiveTripRecoveryResponse:
+      type: object
+      properties:
+        hasActiveTrip:
+          type: boolean
+          example: true
+        session:
+          $ref: '#/components/schemas/TripSession'
+        itinerary:
+          type: object
+        activities:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripActivity'
+        currentActivity:
+          $ref: '#/components/schemas/TripActivity'
+        nextActivities:
+          type: array
+          items:
+            $ref: '#/components/schemas/TripActivity'
+        route:
+          $ref: '#/components/schemas/TripRouteData'
+        progressPercentage:
+          type: integer
+          example: 25
 
   responses:
     ValidationError:

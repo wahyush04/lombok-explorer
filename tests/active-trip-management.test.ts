@@ -53,7 +53,11 @@ describe('Active Trip Management Feature Test Suite', () => {
       solveOptimization: vi.fn(),
     };
 
-    service = new ItinerariesService(mockRepo, mockMatrixService, mockOptService);
+    const mockTripSessionService = {
+      reconcileItineraryChange: vi.fn().mockResolvedValue(undefined),
+    };
+
+    service = new ItinerariesService(mockRepo, mockMatrixService, mockOptService, mockTripSessionService);
   });
 
   describe('1. DTO Validation - Start Location and Complete Start Time Setup', () => {

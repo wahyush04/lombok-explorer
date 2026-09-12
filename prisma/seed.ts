@@ -18,8 +18,11 @@ import {
   UserRole,
   ExpenseCategory,
   ChecklistCategory,
+  TripSessionStatus,
+  TripActivityStatus,
 } from '@prisma/client';
 import bcrypt from 'bcrypt';
+import { mapboxMatrixService } from '../src/modules/itineraries/services/mapbox-matrix.service';
 
 const dbUrl = process.env.DATABASE_URL?.replace('host.docker.internal', 'localhost') || process.env.DATABASE_URL;
 const prisma = new PrismaClient({
@@ -140,6 +143,8 @@ async function main(): Promise<void> {
   await prisma.itineraryTemplate.deleteMany({});
   await prisma.recommendationDestination.deleteMany({});
   await prisma.recommendation.deleteMany({});
+  await prisma.tripActivityProgress.deleteMany({});
+  await prisma.tripSession.deleteMany({});
   await prisma.itineraryItem.deleteMany({});
   await prisma.itineraryDay.deleteMany({});
   await prisma.itinerary.deleteMany({});
@@ -1921,8 +1926,35 @@ async function main(): Promise<void> {
   });
 
   // =========================================================================
-  // 9. SEED ITINERARIES
+  // 9. SEED ITINERARIES WITH ROUTE DATA & ACTIVE TRIP SESSION
   // =========================================================================
+  const itemSadeId = toSeedUuid('item_dest_desa_sade');
+  const itemTanjungAanId = toSeedUuid('item_dest_tanjung_aan');
+  const itemBukitMereseId = toSeedUuid('item_dest_bukit_merese');
+  const itemTiuKelepId = toSeedUuid('item_dest_tiu_kelep');
+  const itemGiliTrawanganId = toSeedUuid('item_dest_gili_trawangan');
+
+  const startLocDay1 = JSON.stringify({
+    name: 'Bandara Internasional Lombok (LOP)',
+    latitude: -8.7584,
+    longitude: 116.2764,
+    address: 'Tanah Awu, Pujut, Kabupaten Lombok Tengah, NTB',
+  });
+
+  const startLocDay2 = JSON.stringify({
+    name: 'Novotel Lombok Resort Mandalika',
+    latitude: -8.9056,
+    longitude: 116.3012,
+    address: 'Pantai Seger Mandalika, Pujut, Kabupaten Lombok Tengah, NTB',
+  });
+
+  const startLocDay3 = JSON.stringify({
+    name: 'Pelabuhan Teluk Nare',
+    latitude: -8.4162,
+    longitude: 116.0734,
+    address: 'Pemenang, Kabupaten Lombok Utara, NTB',
+  });
+
   const sampleItinerary = await prisma.itinerary.create({
     data: {
       id: toSeedUuid('itin_3days_lombok_classic'),
@@ -1937,6 +1969,11 @@ async function main(): Promise<void> {
       travelStyle: TravelStyle.BEACH_RELAXATION,
       budgetLevel: BudgetLevel.MID_RANGE,
       pace: 'BALANCED',
+      transportationMode: TransportationMode.CAR,
+      startLocation: startLocDay1,
+      endLocation: startLocDay3,
+      totalDistanceKm: 142.2,
+      totalTravelTimeMinutes: 257,
       isSaved: true,
       isPublic: true,
       days: {
@@ -1945,34 +1982,57 @@ async function main(): Promise<void> {
             dayNumber: 1,
             title: 'Hari 1: Eksotika Mandalika & Pesisir Selatan',
             notes: 'Fokus perjalanan di pesisir selatan Lombok Tengah.',
+            startTime: '08:30',
+            startLocation: startLocDay1,
+            totalDistanceKm: 24.7,
+            totalTravelTimeMinutes: 47,
+            estimatedBudget: 450000,
             items: {
               create: [
                 {
-                  orderIndex: 1,
+                  id: itemSadeId,
+                  orderIndex: 0,
+                  startTime: '08:30',
+                  endTime: '10:30',
                   timeSlot: '08:30 - 10:30',
                   destinationId: toSeedUuid('dest_desa_sade'),
                   customTitle: 'Eksplorasi Budaya Tradisional Sade',
                   activityNotes: 'Mempelajari adat Sasak dan melihat proses tenun kain songket.',
                   estimatedDurationMinutes: 120,
                   estimatedCost: 35000,
+                  distanceFromPrevKm: 11.5,
+                  travelTimeFromPrevMinutes: 20,
+                  isCompleted: true, // Telah selesai dikunjungi pada sesi live tracking
                 },
                 {
-                  orderIndex: 2,
+                  id: itemTanjungAanId,
+                  orderIndex: 1,
+                  startTime: '11:00',
+                  endTime: '14:00',
                   timeSlot: '11:00 - 14:00',
                   destinationId: toSeedUuid('dest_tanjung_aan'),
                   customTitle: 'Santai & Berenang di Tanjung Aan',
                   activityNotes: 'Berenang di air tenang dan makan siang kelapa muda.',
                   estimatedDurationMinutes: 180,
                   estimatedCost: 75000,
+                  distanceFromPrevKm: 11.8,
+                  travelTimeFromPrevMinutes: 22,
+                  isCompleted: false,
                 },
                 {
-                  orderIndex: 3,
+                  id: itemBukitMereseId,
+                  orderIndex: 2,
+                  startTime: '16:00',
+                  endTime: '18:30',
                   timeSlot: '16:00 - 18:30',
                   destinationId: toSeedUuid('dest_bukit_merese'),
                   customTitle: 'Sunset Magis di Puncak Bukit Merese',
                   activityNotes: 'Menikmati golden hour matahari terbenam berlatar Samudra Hindia.',
                   estimatedDurationMinutes: 150,
                   estimatedCost: 20000,
+                  distanceFromPrevKm: 1.4,
+                  travelTimeFromPrevMinutes: 5,
+                  isCompleted: false,
                 },
               ],
             },
@@ -1981,16 +2041,27 @@ async function main(): Promise<void> {
             dayNumber: 2,
             title: 'Hari 2: Petualangan Tropis Air Terjun Senaru',
             notes: 'Trekking di kaki Gunung Rinjani Lombok Utara.',
+            startTime: '09:00',
+            startLocation: startLocDay2,
+            totalDistanceKm: 105.0,
+            totalTravelTimeMinutes: 180,
+            estimatedBudget: 650000,
             items: {
               create: [
                 {
-                  orderIndex: 1,
+                  id: itemTiuKelepId,
+                  orderIndex: 0,
+                  startTime: '09:00',
+                  endTime: '14:00',
                   timeSlot: '09:00 - 14:00',
                   destinationId: toSeedUuid('dest_tiu_kelep'),
                   customTitle: 'Trekking Hutan & Air Terjun Tiu Kelep',
                   activityNotes: 'Berenang di kolam air terjun alami.',
                   estimatedDurationMinutes: 300,
                   estimatedCost: 150000,
+                  distanceFromPrevKm: 105.0,
+                  travelTimeFromPrevMinutes: 180,
+                  isCompleted: false,
                 },
               ],
             },
@@ -1999,19 +2070,203 @@ async function main(): Promise<void> {
             dayNumber: 3,
             title: 'Hari 3: Snorkeling Trio Gili & Pulau Bebas Polusi',
             notes: 'Menyeberang ke Gili Trawangan dari Pelabuhan Teluk Nare.',
+            startTime: '08:30',
+            startLocation: startLocDay3,
+            totalDistanceKm: 12.5,
+            totalTravelTimeMinutes: 30,
+            estimatedBudget: 750000,
             items: {
               create: [
                 {
-                  orderIndex: 1,
+                  id: itemGiliTrawanganId,
+                  orderIndex: 0,
+                  startTime: '08:30',
+                  endTime: '16:30',
                   timeSlot: '08:30 - 16:30',
                   destinationId: toSeedUuid('dest_gili_trawangan'),
                   customTitle: 'Snorkeling Penyu & Keliling Sepeda Gili Trawangan',
                   activityNotes: 'Sewa sepeda santai keliling pulau dan snorkeling.',
                   estimatedDurationMinutes: 480,
                   estimatedCost: 350000,
+                  distanceFromPrevKm: 12.5,
+                  travelTimeFromPrevMinutes: 30,
+                  isCompleted: false,
                 },
               ],
             },
+          },
+        ],
+      },
+    },
+  });
+
+  // 1-Day Coastal Itinerary (Khusus uji coba mobile trip tracking)
+  const itemKutaId = toSeedUuid('item_coastal_kuta');
+  const itemAanId = toSeedUuid('item_coastal_aan');
+  const itemMereseId = toSeedUuid('item_coastal_merese');
+
+  await prisma.itinerary.create({
+    data: {
+      id: toSeedUuid('itin_1day_mandalika_coastal'),
+      userId: demoUser.id,
+      title: '1 Hari Eksplorasi Pantai & Sunset Mandalika',
+      description:
+        'Itinerary singkat 1 hari menyusuri keindahan pesisir selatan Lombok: dari Pantai Kuta, Tanjung Aan pasir merica, hingga sunset di Bukit Merese.',
+      coverImageUrl: CLOUDINARY_MEDIA.bukit_merese.url,
+      coverImagePublicId: CLOUDINARY_MEDIA.bukit_merese.publicId,
+      totalDays: 1,
+      totalEstimatedBudget: 350000,
+      travelStyle: TravelStyle.BEACH_RELAXATION,
+      budgetLevel: BudgetLevel.BUDGET,
+      pace: 'BALANCED',
+      transportationMode: TransportationMode.CAR,
+      startLocation: startLocDay1,
+      endLocation: JSON.stringify({
+        name: 'Pantai Kuta Mandalika',
+        latitude: -8.8933,
+        longitude: 116.2806,
+        address: 'Kuta, Pujut, Kabupaten Lombok Tengah, NTB',
+      }),
+      totalDistanceKm: 21.6,
+      totalTravelTimeMinutes: 42,
+      isSaved: true,
+      isPublic: true,
+      days: {
+        create: [
+          {
+            dayNumber: 1,
+            title: 'Hari 1: Trio Eksotis Mandalika',
+            notes: 'Siapkan pakaian renang, topi, dan kamera untuk berburu foto pemandangan terbaik.',
+            startTime: '09:00',
+            startLocation: startLocDay1,
+            totalDistanceKm: 21.6,
+            totalTravelTimeMinutes: 42,
+            estimatedBudget: 350000,
+            items: {
+              create: [
+                {
+                  id: itemKutaId,
+                  orderIndex: 0,
+                  startTime: '09:00',
+                  endTime: '11:30',
+                  timeSlot: '09:00 - 11:30',
+                  destinationId: toSeedUuid('dest_pantai_kuta_lombok'),
+                  customTitle: 'Menyusuri Promenade Pantai Kuta Mandalika',
+                  activityNotes: 'Jalan santai dan foto-foto di ikon Kuta Mandalika.',
+                  estimatedDurationMinutes: 150,
+                  estimatedCost: 15000,
+                  distanceFromPrevKm: 16.2,
+                  travelTimeFromPrevMinutes: 25,
+                  isCompleted: false,
+                },
+                {
+                  id: itemAanId,
+                  orderIndex: 1,
+                  startTime: '12:00',
+                  endTime: '15:00',
+                  timeSlot: '12:00 - 15:00',
+                  destinationId: toSeedUuid('dest_tanjung_aan'),
+                  customTitle: 'Makan Siang & Berenang di Tanjung Aan',
+                  activityNotes: 'Berenang di teluk toska dan santai di gazebo kelapa muda.',
+                  estimatedDurationMinutes: 180,
+                  estimatedCost: 50000,
+                  distanceFromPrevKm: 4.2,
+                  travelTimeFromPrevMinutes: 12,
+                  isCompleted: false,
+                },
+                {
+                  id: itemMereseId,
+                  orderIndex: 2,
+                  startTime: '15:30',
+                  endTime: '18:30',
+                  timeSlot: '15:30 - 18:30',
+                  destinationId: toSeedUuid('dest_bukit_merese'),
+                  customTitle: 'Trekking Sunset di Puncak Bukit Merese',
+                  activityNotes: 'Menikmati pemandangan matahari terbenam spektakuler 360 derajat.',
+                  estimatedDurationMinutes: 180,
+                  estimatedCost: 10000,
+                  distanceFromPrevKm: 1.2,
+                  travelTimeFromPrevMinutes: 5,
+                  isCompleted: false,
+                },
+              ],
+            },
+          },
+        ],
+      },
+    },
+  });
+
+  // =========================================================================
+  // 9B. SEED ACTIVE TRIP SESSION WITH REAL ROUTE SNAPSHOT & PROGRESS
+  // =========================================================================
+  const sampleTrackingCoords = [
+    { id: itemSadeId, name: 'Desa Adat Sade', latitude: -8.8394, longitude: 116.2917 },
+    { id: itemTanjungAanId, name: 'Pantai Tanjung Aan', latitude: -8.9083, longitude: 116.3218 },
+    { id: itemBukitMereseId, name: 'Bukit Merese', latitude: -8.9138, longitude: 116.3275 },
+    { id: itemTiuKelepId, name: 'Air Terjun Tiu Kelep', latitude: -8.3005, longitude: 116.4110 },
+    { id: itemGiliTrawanganId, name: 'Gili Trawangan', latitude: -8.3534, longitude: 116.0401 },
+  ];
+
+  const calculatedRouteSnapshot = await mapboxMatrixService.calculateRouteLegsAndPolyline(
+    sampleTrackingCoords,
+    TransportationMode.CAR,
+  );
+
+  await prisma.tripSession.create({
+    data: {
+      id: toSeedUuid('trip_session_active_demo'),
+      userId: demoUser.id,
+      itineraryId: sampleItinerary.id,
+      status: TripSessionStatus.ACTIVE,
+      currentActivityId: itemTanjungAanId,
+      routeSnapshot: JSON.stringify(calculatedRouteSnapshot),
+      lastLatitude: -8.845,
+      lastLongitude: 116.295,
+      lastAccuracy: 10.5,
+      lastLocationAt: new Date(),
+      startedAt: new Date(Date.now() - 3600000), // 1 jam lalu
+      activityProgress: {
+        create: [
+          {
+            id: toSeedUuid('prog_dest_desa_sade'),
+            itineraryActivityId: itemSadeId,
+            status: TripActivityStatus.COMPLETED,
+            orderIndex: 0,
+            startedAt: new Date(Date.now() - 7200000),
+            completedAt: new Date(Date.now() - 3600000),
+            arrivalDetectedAt: new Date(Date.now() - 3650000),
+            lastLatitude: -8.8394,
+            lastLongitude: 116.2917,
+            lastAccuracy: 8.0,
+          },
+          {
+            id: toSeedUuid('prog_dest_tanjung_aan'),
+            itineraryActivityId: itemTanjungAanId,
+            status: TripActivityStatus.IN_PROGRESS,
+            orderIndex: 1,
+            startedAt: new Date(Date.now() - 3500000),
+            lastLatitude: -8.845,
+            lastLongitude: 116.295,
+            lastAccuracy: 10.5,
+          },
+          {
+            id: toSeedUuid('prog_dest_bukit_merese'),
+            itineraryActivityId: itemBukitMereseId,
+            status: TripActivityStatus.NOT_STARTED,
+            orderIndex: 2,
+          },
+          {
+            id: toSeedUuid('prog_dest_tiu_kelep'),
+            itineraryActivityId: itemTiuKelepId,
+            status: TripActivityStatus.NOT_STARTED,
+            orderIndex: 3,
+          },
+          {
+            id: toSeedUuid('prog_dest_gili_trawangan'),
+            itineraryActivityId: itemGiliTrawanganId,
+            status: TripActivityStatus.NOT_STARTED,
+            orderIndex: 4,
           },
         ],
       },

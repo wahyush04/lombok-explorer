@@ -76,6 +76,20 @@ enum ItineraryItemType {
   CUSTOM
 }
 
+enum TripSessionStatus {
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum TripActivityStatus {
+  NOT_STARTED
+  IN_PROGRESS
+  COMPLETED
+  SKIPPED
+}
+
 enum ExpenseCategory {
   TRANSPORT
   ACCOMMODATION
@@ -183,6 +197,7 @@ model User {
   postBookmarks         PostBookmark[]
   postReports           PostReport[]
   deviceTokens          DeviceToken[]
+  tripSessions          TripSession[]
   receivedNotifications Notification[]  @relation("NotificationRecipient")
   actedNotifications    Notification[]  @relation("NotificationActor")
 
@@ -482,8 +497,9 @@ model Itinerary {
   deletedAt              DateTime?
 
   // Relations
-  days     ItineraryDay[]
-  expenses Expense[]
+  days         ItineraryDay[]
+  expenses     Expense[]
+  tripSessions TripSession[]
 
   @@index([userId])
   @@index([templateId])
@@ -549,6 +565,63 @@ model ItineraryItem {
   @@index([accommodationId])
   @@index([orderIndex])
   @@map("itinerary_items")
+
+  tripProgress TripActivityProgress[]
+}
+
+// ==========================================
+// TRIP EXECUTION & LIVE TRACKING SESSIONS
+// ==========================================
+
+model TripSession {
+  id                String            @id @default(uuid())
+  userId            String
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  itineraryId       String
+  itinerary         Itinerary         @relation(fields: [itineraryId], references: [id], onDelete: Cascade)
+  status            TripSessionStatus @default(ACTIVE)
+  startedAt         DateTime          @default(now())
+  endedAt           DateTime?
+  pausedAt          DateTime?
+  currentActivityId String?
+  routeSnapshot     String?           @db.Text
+  lastLatitude      Float?
+  lastLongitude     Float?
+  lastAccuracy      Float?
+  lastLocationAt    DateTime?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  activityProgress  TripActivityProgress[]
+
+  @@index([userId, status])
+  @@index([itineraryId, status])
+  @@map("trip_sessions")
+}
+
+model TripActivityProgress {
+  id                  String             @id @default(uuid())
+  tripSessionId       String
+  tripSession         TripSession        @relation(fields: [tripSessionId], references: [id], onDelete: Cascade)
+  itineraryActivityId String
+  itineraryActivity   ItineraryItem      @relation(fields: [itineraryActivityId], references: [id], onDelete: Cascade)
+  status              TripActivityStatus @default(NOT_STARTED)
+  orderIndex          Int                @default(0)
+  startedAt           DateTime?
+  completedAt         DateTime?
+  skippedAt           DateTime?
+  arrivalDetectedAt   DateTime?
+  lastLatitude        Float?
+  lastLongitude       Float?
+  lastAccuracy        Float?
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  @@unique([tripSessionId, itineraryActivityId])
+  @@index([tripSessionId, status])
+  @@index([itineraryActivityId])
+  @@map("trip_activity_progress")
 }
 
 // ==========================================
