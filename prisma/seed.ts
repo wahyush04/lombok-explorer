@@ -22,7 +22,87 @@ import {
   TripActivityStatus,
 } from '@prisma/client';
 import bcrypt from 'bcrypt';
-import { mapboxMatrixService } from '../src/modules/itineraries/services/mapbox-matrix.service';
+
+function calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371;
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return Math.round(R * c * 10) / 10;
+}
+
+function encodeSignedNumber(num: number): string {
+  let sgnNum = num < 0 ? ~(num << 1) : num << 1;
+  let encodeString = '';
+  while (sgnNum >= 0x20) {
+    encodeString += String.fromCharCode((0x20 | (sgnNum & 0x1f)) + 63);
+    sgnNum >>= 5;
+  }
+  encodeString += String.fromCharCode(sgnNum + 63);
+  return encodeString;
+}
+
+function encodePolyline(
+  coordinates: { latitude: number; longitude: number }[],
+  precision = 6,
+): string {
+  const factor = Math.pow(10, precision);
+  let output = '';
+  let prevLat = 0;
+  let prevLon = 0;
+
+  for (const coord of coordinates) {
+    const lat = Math.round(coord.latitude * factor);
+    const lon = Math.round(coord.longitude * factor);
+
+    output += encodeSignedNumber(lat - prevLat);
+    output += encodeSignedNumber(lon - prevLon);
+
+    prevLat = lat;
+    prevLon = lon;
+  }
+
+  return output;
+}
+
+function generateSeedRouteSnapshot(
+  coordinates: { id: string; name: string; latitude: number; longitude: number }[],
+) {
+  const legs = [];
+  let totalDistanceKm = 0;
+  let totalDurationMinutes = 0;
+
+  for (let i = 0; i < coordinates.length - 1; i++) {
+    const from = coordinates[i]!;
+    const to = coordinates[i + 1]!;
+    const dist = calculateHaversineKm(from.latitude, from.longitude, to.latitude, to.longitude);
+    const dur = Math.max(1, Math.round((dist / 35) * 60)); // ~35 km/h driving speed
+
+    totalDistanceKm += dist;
+    totalDurationMinutes += dur;
+
+    legs.push({
+      fromActivityId: from.id,
+      toActivityId: to.id,
+      distanceKm: dist,
+      durationMinutes: dur,
+      polyline: encodePolyline([from, to], 6),
+    });
+  }
+
+  return {
+    totalDistanceKm: Math.round(totalDistanceKm * 10) / 10,
+    totalDurationMinutes,
+    polyline: encodePolyline(coordinates, 6),
+    legs,
+  };
+}
 
 const dbUrl = process.env.DATABASE_URL?.replace('host.docker.internal', 'localhost') || process.env.DATABASE_URL;
 const prisma = new PrismaClient({
@@ -2208,10 +2288,7 @@ async function main(): Promise<void> {
     { id: itemGiliTrawanganId, name: 'Gili Trawangan', latitude: -8.3534, longitude: 116.0401 },
   ];
 
-  const calculatedRouteSnapshot = await mapboxMatrixService.calculateRouteLegsAndPolyline(
-    sampleTrackingCoords,
-    TransportationMode.CAR,
-  );
+  const calculatedRouteSnapshot = generateSeedRouteSnapshot(sampleTrackingCoords);
 
   await prisma.tripSession.create({
     data: {
