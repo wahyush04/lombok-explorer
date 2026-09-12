@@ -594,10 +594,29 @@ model TripSession {
 
   // Relations
   activityProgress  TripActivityProgress[]
+  routes            TripRoute[]
 
   @@index([userId, status])
   @@index([itineraryId, status])
   @@map("trip_sessions")
+}
+
+model TripRoute {
+  id              String      @id @default(uuid())
+  tripSessionId   String
+  tripSession     TripSession @relation(fields: [tripSessionId], references: [id], onDelete: Cascade)
+  fromActivityId  String?
+  toActivityId    String
+  legOrder        Int         @default(0)
+  distanceMeters  Float       @default(0)
+  durationSeconds Int         @default(0)
+  geometry        String      @db.Text
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([tripSessionId, fromActivityId, toActivityId])
+  @@index([tripSessionId, legOrder])
+  @@map("trip_routes")
 }
 
 model TripActivityProgress {

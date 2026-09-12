@@ -1,4 +1,4 @@
-import { Prisma, TripSession, TripActivityProgress, TripSessionStatus } from '@prisma/client';
+import { Prisma, TripSession, TripActivityProgress, TripRoute, TripSessionStatus } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 
 export interface CreateSessionInput {
@@ -21,14 +21,24 @@ export interface CreateProgressItemInput {
   completedAt?: Date | null;
 }
 
+export interface CreateTripRouteLegInput {
+  fromActivityId: string | null;
+  toActivityId: string;
+  legOrder: number;
+  distanceMeters: number;
+  durationSeconds: number;
+  geometry: string;
+}
+
 export class TripSessionsRepository {
   /**
-   * Creates a new TripSession and its initial TripActivityProgress records atomically.
+   * Creates a new TripSession, its initial progress records, and route legs atomically.
    */
   public async createSession(
     sessionData: CreateSessionInput,
     progressItems: CreateProgressItemInput[],
-  ): Promise<TripSession & { activityProgress: TripActivityProgress[] }> {
+    routeLegs: CreateTripRouteLegInput[] = [],
+  ): Promise<TripSession & { activityProgress: TripActivityProgress[]; routes: TripRoute[] }> {
     return prisma.$transaction(async (tx) => {
       const session = await tx.tripSession.create({
         data: {
@@ -57,20 +67,40 @@ export class TripSessionsRepository {
         });
       }
 
+      if (routeLegs.length > 0) {
+        await tx.tripRoute.createMany({
+          data: routeLegs.map((leg) => ({
+            tripSessionId: session.id,
+            fromActivityId: leg.fromActivityId,
+            toActivityId: leg.toActivityId,
+            legOrder: leg.legOrder,
+            distanceMeters: leg.distanceMeters,
+            durationSeconds: leg.durationSeconds,
+            geometry: leg.geometry,
+          })),
+        });
+      }
+
       const createdProgress = await tx.tripActivityProgress.findMany({
         where: { tripSessionId: session.id },
         orderBy: { orderIndex: 'asc' },
       });
 
+      const createdRoutes = await tx.tripRoute.findMany({
+        where: { tripSessionId: session.id },
+        orderBy: { legOrder: 'asc' },
+      });
+
       return {
         ...session,
         activityProgress: createdProgress,
+        routes: createdRoutes,
       };
     });
   }
 
   /**
-   * Finds the currently active TripSession for a user.
+   * Finds the currently active TripSession for a user with progress, routes, and itinerary items.
    */
   public async findActiveSessionByUserId(userId: string) {
     return prisma.tripSession.findFirst({
@@ -81,6 +111,9 @@ export class TripSessionsRepository {
       include: {
         activityProgress: {
           orderBy: { orderIndex: 'asc' },
+        },
+        routes: {
+          orderBy: { legOrder: 'asc' },
         },
         itinerary: {
           include: {
@@ -142,6 +175,9 @@ export class TripSessionsRepository {
         activityProgress: {
           orderBy: { orderIndex: 'asc' },
         },
+        routes: {
+          orderBy: { legOrder: 'asc' },
+        },
       },
       orderBy: { startedAt: 'desc' },
     });
@@ -156,6 +192,9 @@ export class TripSessionsRepository {
       include: {
         activityProgress: {
           orderBy: { orderIndex: 'asc' },
+        },
+        routes: {
+          orderBy: { legOrder: 'asc' },
         },
         itinerary: {
           include: {
@@ -210,6 +249,49 @@ export class TripSessionsRepository {
     return prisma.tripSession.update({
       where: { id },
       data,
+    });
+  }
+
+  /**
+   * Replaces all routes for a session atomically.
+   */
+  public async replaceRoutes(
+    tripSessionId: string,
+    routeLegs: CreateTripRouteLegInput[],
+  ): Promise<TripRoute[]> {
+    return prisma.$transaction(async (tx) => {
+      await tx.tripRoute.deleteMany({
+        where: { tripSessionId },
+      });
+
+      if (routeLegs.length > 0) {
+        await tx.tripRoute.createMany({
+          data: routeLegs.map((leg) => ({
+            tripSessionId,
+            fromActivityId: leg.fromActivityId,
+            toActivityId: leg.toActivityId,
+            legOrder: leg.legOrder,
+            distanceMeters: leg.distanceMeters,
+            durationSeconds: leg.durationSeconds,
+            geometry: leg.geometry,
+          })),
+        });
+      }
+
+      return tx.tripRoute.findMany({
+        where: { tripSessionId },
+        orderBy: { legOrder: 'asc' },
+      });
+    });
+  }
+
+  /**
+   * Finds all route legs for a trip session.
+   */
+  public async findRoutesBySessionId(tripSessionId: string): Promise<TripRoute[]> {
+    return prisma.tripRoute.findMany({
+      where: { tripSessionId },
+      orderBy: { legOrder: 'asc' },
     });
   }
 

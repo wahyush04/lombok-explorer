@@ -4,6 +4,8 @@ import { authenticate } from '../../common/middleware/auth.middleware';
 import { validate } from '../../common/middleware/validate.middleware';
 import {
   CompleteActivityDtoSchema,
+  SkipActivityDtoSchema,
+  StartActivityDtoSchema,
   StartTripDtoSchema,
   SyncLocationDtoSchema,
 } from './dto/trip-session.dto';
@@ -32,12 +34,28 @@ router.post(
   tripSessionsController.syncLocation,
 );
 
+// Explicit activity start
+router.post(
+  '/:id/activities/:activityId/start',
+  authenticate,
+  validate({ body: StartActivityDtoSchema }),
+  tripSessionsController.startActivity,
+);
+
 // Dedicated activity completion
 router.post(
   '/:id/activities/:activityId/complete',
   authenticate,
   validate({ body: CompleteActivityDtoSchema }),
   tripSessionsController.completeActivity,
+);
+
+// Skip activity
+router.post(
+  '/:id/activities/:activityId/skip',
+  authenticate,
+  validate({ body: SkipActivityDtoSchema }),
+  tripSessionsController.skipActivity,
 );
 
 // Finish trip session manually

@@ -1571,6 +1571,86 @@ paths:
                   data:
                     $ref: '#/components/schemas/StartTripResponse'
 
+  /api/v1/trip-sessions/{id}/activities/{activityId}/start:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Mark an activity as in progress
+      description: Menandai aktivitas spesifik sebagai sedang berlangsung (IN_PROGRESS) dan memperbarui currentActivityId sesi trip.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: activityId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartActivityRequest'
+      responses:
+        '200':
+          description: Aktivitas berhasil dimulai
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
+  /api/v1/trip-sessions/{id}/activities/{activityId}/skip:
+    post:
+      tags:
+        - Live Trip Tracking & Execution
+      summary: Skip an activity
+      description: Melewati aktivitas spesifik (SKIPPED) dan memajukan currentActivityId ke aktivitas berikutnya.
+      security:
+        - BearerAuth: []
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - in: path
+          name: activityId
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SkipActivityRequest'
+      responses:
+        '200':
+          description: Aktivitas berhasil dilewati
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  data:
+                    $ref: '#/components/schemas/StartTripResponse'
+
   /api/v1/trip-sessions/{id}/finish:
     post:
       tags:
@@ -2641,7 +2721,7 @@ components:
         transportPaceNote:
           type: string
           nullable: true
-          example: Mobil Sewa • Santai & Menyenangkan
+          example: Mobil Sewa â€¢ Santai & Menyenangkan
         totalEstimatedBudget:
           type: number
           example: 1850000
@@ -2656,7 +2736,7 @@ components:
           example: 6
         routeSummary:
           type: string
-          example: Tanjung Aan • Bukit Merese • Sirkuit Mandalika
+          example: Tanjung Aan â€¢ Bukit Merese â€¢ Sirkuit Mandalika
         isPublished:
           type: boolean
           example: true
@@ -2940,6 +3020,25 @@ components:
           format: float
           example: 5.0
 
+    StartActivityRequest:
+      type: object
+      properties:
+        latitude:
+          type: number
+          format: float
+          example: -8.8923
+        longitude:
+          type: number
+          format: float
+          example: 116.2912
+
+    SkipActivityRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          example: Menghindari hujan lebat
+
     TripSession:
       type: object
       properties:
@@ -3077,6 +3176,41 @@ components:
           nullable: true
           description: Encoded Polyline6 geometry untuk segmen ini
 
+    TripRouteLegRecord:
+      type: object
+      description: Persisted leg record in database with Mapbox Directions road geometry
+      properties:
+        id:
+          type: string
+          format: uuid
+        tripSessionId:
+          type: string
+          format: uuid
+        fromActivityId:
+          type: string
+          format: uuid
+        toActivityId:
+          type: string
+          format: uuid
+        legOrder:
+          type: integer
+          example: 0
+        distanceMeters:
+          type: number
+          example: 5200
+        durationSeconds:
+          type: number
+          example: 900
+        geometry:
+          type: string
+          description: Encoded Polyline6 geometry jalan raya dari Mapbox Directions API
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
     TripRouteData:
       type: object
       properties:
@@ -3128,6 +3262,11 @@ components:
             $ref: '#/components/schemas/TripActivity'
         route:
           $ref: '#/components/schemas/TripRouteData'
+        routes:
+          type: array
+          description: Persisted road route legs from database
+          items:
+            $ref: '#/components/schemas/TripRouteLegRecord'
         progressPercentage:
           type: integer
           example: 25
@@ -3154,6 +3293,11 @@ components:
             $ref: '#/components/schemas/TripActivity'
         route:
           $ref: '#/components/schemas/TripRouteData'
+        routes:
+          type: array
+          description: Persisted road route legs from database
+          items:
+            $ref: '#/components/schemas/TripRouteLegRecord'
         progressPercentage:
           type: integer
           example: 25

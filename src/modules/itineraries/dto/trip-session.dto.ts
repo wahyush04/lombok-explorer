@@ -1,5 +1,10 @@
 import { z } from 'zod';
-import { TripSessionStatus, TripActivityStatus, TransportationMode, ItineraryItemType } from '@prisma/client';
+import {
+  TripSessionStatus,
+  TripActivityStatus,
+  TransportationMode,
+  ItineraryItemType,
+} from '@prisma/client';
 
 export const SyncLocationDtoSchema = z.object({
   latitude: z.number().min(-90).max(90),
@@ -19,6 +24,19 @@ export const CompleteActivityDtoSchema = z.object({
 });
 
 export type CompleteActivityDto = z.infer<typeof CompleteActivityDtoSchema>;
+
+export const SkipActivityDtoSchema = z.object({
+  reason: z.string().max(255).optional(),
+});
+
+export type SkipActivityDto = z.infer<typeof SkipActivityDtoSchema>;
+
+export const StartActivityDtoSchema = z.object({
+  latitude: z.number().min(-90).max(90).optional(),
+  longitude: z.number().min(-180).max(180).optional(),
+});
+
+export type StartActivityDto = z.infer<typeof StartActivityDtoSchema>;
 
 export const StartTripDtoSchema = z.object({
   itineraryId: z.string().uuid().optional(),
@@ -45,22 +63,32 @@ export interface TripSessionDto {
   updatedAt: string;
 }
 
+export interface ActivityDestinationSummaryDto {
+  id: string;
+  name: string;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 export interface TripActivityDto {
   id: string; // references ItineraryItem.id
   progressId: string;
   title: string;
   itemType: ItineraryItemType;
+  sequence: number; // 1-indexed for display
+  orderIndex: number;
+  dayNumber: number;
+  status: TripActivityStatus;
   destinationId: string | null;
   restaurantId: string | null;
   accommodationId: string | null;
-  dayNumber: number;
-  orderIndex: number;
-  status: TripActivityStatus;
+  destination: ActivityDestinationSummaryDto | null;
   latitude: number | null;
   longitude: number | null;
   arrivalRadiusMeters: number;
   startedAt: string | null;
   completedAt: string | null;
+  skippedAt: string | null;
   arrivalDetectedAt: string | null;
   activityNotes: string | null;
   estimatedDurationMinutes: number;
@@ -74,6 +102,16 @@ export interface TripRouteLegDto {
   polyline: string | null;
 }
 
+export interface TripRouteLegRecordDto {
+  id: string;
+  fromActivityId: string | null;
+  toActivityId: string;
+  legOrder: number;
+  distanceMeters: number;
+  durationSeconds: number;
+  geometry: string; // Encoded Polyline6
+}
+
 export interface TripRouteDto {
   totalDistanceKm: number;
   totalDurationMinutes: number;
@@ -82,7 +120,8 @@ export interface TripRouteDto {
 }
 
 export interface StartTripResponseDto {
-  session: TripSessionDto;
+  tripSession: TripSessionDto;
+  session: TripSessionDto; // Alias for backward compatibility
   itinerary: {
     id: string;
     title: string;
@@ -94,8 +133,22 @@ export interface StartTripResponseDto {
   activities: TripActivityDto[];
   currentActivity: TripActivityDto | null;
   nextActivities: TripActivityDto[];
-  route: TripRouteDto;
+  routes: TripRouteLegRecordDto[]; // Per-leg Directions API geometry records
+  route: TripRouteDto; // Aggregated summary
   progressPercentage: number;
 }
 
 export type ActiveTripSessionResponseDto = StartTripResponseDto;
+
+export const TRIP_ERROR_CODES = {
+  TRIP_NOT_FOUND: 'TRIP_NOT_FOUND',
+  TRIP_ALREADY_ACTIVE: 'TRIP_ALREADY_ACTIVE',
+  TRIP_NOT_ACTIVE: 'TRIP_NOT_ACTIVE',
+  INVALID_ACTIVITY: 'INVALID_ACTIVITY',
+  ACTIVITY_NOT_IN_TRIP: 'ACTIVITY_NOT_IN_TRIP',
+  INVALID_ACTIVITY_TRANSITION: 'INVALID_ACTIVITY_TRANSITION',
+  ROUTE_CALCULATION_FAILED: 'ROUTE_CALCULATION_FAILED',
+  MAPBOX_DIRECTIONS_ERROR: 'MAPBOX_DIRECTIONS_ERROR',
+  ITINERARY_EDIT_CONFLICT: 'ITINERARY_EDIT_CONFLICT',
+  UNAUTHORIZED_TRIP_ACCESS: 'UNAUTHORIZED_TRIP_ACCESS',
+} as const;

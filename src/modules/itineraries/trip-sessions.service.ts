@@ -1,22 +1,27 @@
-import { TripActivityStatus, TripSessionStatus } from '@prisma/client';
+import { TripActivityStatus, TripRoute, TripSessionStatus } from '@prisma/client';
 import { prisma } from '../../database/prisma';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '../../common/errors/app-error';
 import { logger } from '../../common/utils/logger';
-import { mapboxMatrixService, MapboxMatrixService } from './services/mapbox-matrix.service';
-import { GeoCoordinate } from './services/mapbox.types';
+import { mapboxDirectionsService } from './services/mapbox-directions.service';
+import { DirectionsRouteResult, GeoCoordinate, IMapboxDirectionsService } from './services/mapbox.types';
 import {
   TripSessionsRepository,
   tripSessionsRepository,
   CreateProgressItemInput,
+  CreateTripRouteLegInput,
 } from './trip-sessions.repository';
 import {
   ActiveTripSessionResponseDto,
   CompleteActivityDto,
+  SkipActivityDto,
+  StartActivityDto,
   StartTripDto,
   StartTripResponseDto,
   SyncLocationDto,
+  TRIP_ERROR_CODES,
   TripActivityDto,
   TripRouteDto,
+  TripRouteLegRecordDto,
   TripSessionDto,
 } from './dto/trip-session.dto';
 
@@ -28,7 +33,17 @@ interface ProgressItemRecord {
   orderIndex?: number;
   startedAt?: Date | null;
   completedAt?: Date | null;
+  skippedAt?: Date | null;
   arrivalDetectedAt?: Date | null;
+}
+
+interface ActivityLocationItem {
+  id: string;
+  destination?: { id: string; name: string; latitude: number; longitude: number } | null;
+  restaurant?: { id: string; name: string; latitude: number; longitude: number } | null;
+  accommodation?: { id: string; name: string; latitude: number; longitude: number } | null;
+  customLocation?: string | null;
+  customTitle?: string | null;
 }
 
 export class TripSessionsService {
@@ -36,7 +51,7 @@ export class TripSessionsService {
 
   constructor(
     private readonly repository: TripSessionsRepository = tripSessionsRepository,
-    private readonly matrixService: MapboxMatrixService = mapboxMatrixService,
+    private readonly directionsService: IMapboxDirectionsService = mapboxDirectionsService,
     arrivalRadiusMeters?: number,
   ) {
     this.defaultArrivalRadiusMeters =
@@ -46,14 +61,7 @@ export class TripSessionsService {
   /**
    * Helper to extract geo-coordinate from an itinerary activity item.
    */
-  private extractItemCoordinate(item: {
-    id: string;
-    destination?: { name: string; latitude: number; longitude: number } | null;
-    restaurant?: { name: string; latitude: number; longitude: number } | null;
-    accommodation?: { name: string; latitude: number; longitude: number } | null;
-    customLocation?: string | null;
-    customTitle?: string | null;
-  }): GeoCoordinate | null {
+  private extractItemCoordinate(item: ActivityLocationItem): GeoCoordinate | null {
     if (item.destination?.latitude !== undefined && item.destination?.longitude !== undefined) {
       return {
         id: item.id,
@@ -105,7 +113,24 @@ export class TripSessionsService {
   }
 
   /**
-   * Builds client-facing DTO from session, itinerary, and progress items.
+   * Helper to calculate Haversine distance in kilometers.
+   */
+  public calculateHaversineKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const R = 6371; // Earth's radius in km
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLon = ((lon2 - lon1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  /**
+   * Builds client-facing DTO from session, itinerary, progress items, and routes.
    */
   private buildResponseDto(
     session: {
@@ -144,9 +169,9 @@ export class TripSessionsService {
           customTitle: string | null;
           activityNotes: string | null;
           estimatedDurationMinutes: number;
-          destination?: { name: string; latitude: number; longitude: number } | null;
-          restaurant?: { name: string; latitude: number; longitude: number } | null;
-          accommodation?: { name: string; latitude: number; longitude: number } | null;
+          destination?: { id: string; name: string; latitude: number; longitude: number } | null;
+          restaurant?: { id: string; name: string; latitude: number; longitude: number } | null;
+          accommodation?: { id: string; name: string; latitude: number; longitude: number } | null;
           customLocation?: string | null;
         }[];
       }[];
@@ -158,8 +183,10 @@ export class TripSessionsService {
       orderIndex: number;
       startedAt: Date | null;
       completedAt: Date | null;
+      skippedAt?: Date | null;
       arrivalDetectedAt: Date | null;
     }[],
+    routesList?: TripRoute[] | null,
     calculatedRoute?: TripRouteDto | null,
   ): StartTripResponseDto {
     const progressMap = new Map(progressList.map((p) => [p.itineraryActivityId, p]));
@@ -189,17 +216,27 @@ export class TripSessionsService {
           progressId: prog?.id || '',
           title,
           itemType: item.itemType,
+          sequence: 0, // Will assign 1-indexed sequence after sort
+          orderIndex: prog?.orderIndex ?? 0,
+          dayNumber: day.dayNumber,
+          status,
           destinationId: item.destinationId,
           restaurantId: item.restaurantId,
           accommodationId: item.accommodationId,
-          dayNumber: day.dayNumber,
-          orderIndex: prog?.orderIndex ?? 0,
-          status,
+          destination: item.destination
+            ? {
+                id: item.destination.id,
+                name: item.destination.name,
+                latitude: item.destination.latitude,
+                longitude: item.destination.longitude,
+              }
+            : null,
           latitude: coord ? coord.latitude : null,
           longitude: coord ? coord.longitude : null,
           arrivalRadiusMeters: this.defaultArrivalRadiusMeters,
           startedAt: prog?.startedAt ? prog.startedAt.toISOString() : null,
           completedAt: prog?.completedAt ? prog.completedAt.toISOString() : null,
+          skippedAt: prog?.skippedAt ? prog.skippedAt.toISOString() : null,
           arrivalDetectedAt: prog?.arrivalDetectedAt ? prog.arrivalDetectedAt.toISOString() : null,
           activityNotes: item.activityNotes,
           estimatedDurationMinutes: item.estimatedDurationMinutes,
@@ -207,8 +244,11 @@ export class TripSessionsService {
       }
     }
 
-    // Sort flattened by orderIndex
+    // Sort flattened by orderIndex and assign 1-based sequence
     flattenedActivities.sort((a, b) => a.orderIndex - b.orderIndex);
+    flattenedActivities.forEach((act, idx) => {
+      act.sequence = idx + 1;
+    });
 
     // Identify current and next activities
     const currentActivity =
@@ -220,7 +260,19 @@ export class TripSessionsService {
       (a) => a.status === 'NOT_STARTED' && a.id !== session.currentActivityId,
     );
 
-    let route: TripRouteDto = {
+    // Build routes array from persisted TripRoute records
+    const routesRecords: TripRouteLegRecordDto[] = (routesList || []).map((r) => ({
+      id: r.id,
+      fromActivityId: r.fromActivityId,
+      toActivityId: r.toActivityId,
+      legOrder: r.legOrder,
+      distanceMeters: r.distanceMeters,
+      durationSeconds: r.durationSeconds,
+      geometry: r.geometry,
+    }));
+
+    // Build route summary
+    let routeSummary: TripRouteDto = {
       totalDistanceKm: 0,
       totalDurationMinutes: 0,
       polyline: null,
@@ -228,69 +280,86 @@ export class TripSessionsService {
     };
 
     if (calculatedRoute) {
-      route = calculatedRoute;
+      routeSummary = calculatedRoute;
     } else if (session.routeSnapshot) {
       try {
-        route = JSON.parse(session.routeSnapshot) as TripRouteDto;
+        routeSummary = JSON.parse(session.routeSnapshot) as TripRouteDto;
       } catch {
-        // Fall back to default empty route
+        // Fall back to empty summary
       }
+    } else if (routesRecords.length > 0) {
+      const totalDistMeters = routesRecords.reduce((acc, r) => acc + r.distanceMeters, 0);
+      const totalDurSeconds = routesRecords.reduce((acc, r) => acc + r.durationSeconds, 0);
+      routeSummary = {
+        totalDistanceKm: Math.round((totalDistMeters / 1000) * 10) / 10,
+        totalDurationMinutes: Math.round(totalDurSeconds / 60),
+        polyline: routesRecords[0]?.geometry || null,
+        legs: routesRecords.map((r) => ({
+          fromActivityId: r.fromActivityId,
+          toActivityId: r.toActivityId,
+          distanceKm: Math.round((r.distanceMeters / 1000) * 10) / 10,
+          durationMinutes: Math.round(r.durationSeconds / 60),
+          polyline: r.geometry,
+        })),
+      };
     }
 
     const totalActivities = flattenedActivities.length;
     const progressPercentage =
       totalActivities > 0 ? Math.round((completedCount / totalActivities) * 100) : 0;
 
+    const rawDistance =
+      typeof itinerary.totalDistanceKm === 'object' && itinerary.totalDistanceKm !== null
+        ? itinerary.totalDistanceKm.toNumber()
+        : Number(itinerary.totalDistanceKm) || 0;
+
     const sessionDto: TripSessionDto = {
       id: session.id,
       userId: session.userId,
       itineraryId: session.itineraryId,
       status: session.status,
-      startedAt: session.startedAt.toISOString(),
-      endedAt: session.endedAt ? session.endedAt.toISOString() : null,
-      pausedAt: session.pausedAt ? session.pausedAt.toISOString() : null,
-      currentActivityId: session.currentActivityId,
-      lastLatitude: session.lastLatitude,
-      lastLongitude: session.lastLongitude,
-      lastAccuracy: session.lastAccuracy,
-      lastLocationAt: session.lastLocationAt ? session.lastLocationAt.toISOString() : null,
-      createdAt: session.createdAt.toISOString(),
-      updatedAt: session.updatedAt.toISOString(),
+      startedAt: session.startedAt instanceof Date ? session.startedAt.toISOString() : new Date(session.startedAt || Date.now()).toISOString(),
+      endedAt: session.endedAt ? (session.endedAt instanceof Date ? session.endedAt.toISOString() : new Date(session.endedAt).toISOString()) : null,
+      pausedAt: session.pausedAt ? (session.pausedAt instanceof Date ? session.pausedAt.toISOString() : new Date(session.pausedAt).toISOString()) : null,
+      currentActivityId: session.currentActivityId ?? null,
+      lastLatitude: session.lastLatitude ?? null,
+      lastLongitude: session.lastLongitude ?? null,
+      lastAccuracy: session.lastAccuracy ?? null,
+      lastLocationAt: session.lastLocationAt ? (session.lastLocationAt instanceof Date ? session.lastLocationAt.toISOString() : new Date(session.lastLocationAt).toISOString()) : null,
+      createdAt: session.createdAt instanceof Date ? session.createdAt.toISOString() : new Date(session.createdAt || Date.now()).toISOString(),
+      updatedAt: session.updatedAt instanceof Date ? session.updatedAt.toISOString() : new Date(session.updatedAt || Date.now()).toISOString(),
     };
 
-    const totalDistNumber =
-      typeof itinerary.totalDistanceKm === 'object' && itinerary.totalDistanceKm !== null
-        ? itinerary.totalDistanceKm.toNumber()
-        : Number(itinerary.totalDistanceKm) || 0;
-
     return {
+      tripSession: sessionDto,
       session: sessionDto,
       itinerary: {
         id: itinerary.id,
         title: itinerary.title,
         transportationMode: itinerary.transportationMode,
         totalDays: itinerary.totalDays,
-        totalDistanceKm: Math.round(totalDistNumber * 10) / 10,
+        totalDistanceKm: rawDistance,
         totalTravelTimeMinutes: itinerary.totalTravelTimeMinutes || 0,
       },
       activities: flattenedActivities,
       currentActivity,
       nextActivities,
-      route,
+      routes: routesRecords,
+      route: routeSummary,
       progressPercentage,
     };
   }
 
   /**
-   * Starts a new TripSession for the given itinerary.
-   * Concurrency-safe: duplicate start on the same itinerary is idempotent.
+   * Starts a new trip session or recovers an existing active session.
+   * Calculates real road directions via Mapbox Directions API and persists TripRoute per-leg records.
    */
   public async startTrip(
     userId: string,
     itineraryId: string,
     dto?: StartTripDto,
   ): Promise<StartTripResponseDto> {
-    // 1. Fetch itinerary with days and activities
+    // 1. Validate itinerary ownership & presence
     const itinerary = await prisma.itinerary.findUnique({
       where: { id: itineraryId },
       include: {
@@ -335,8 +404,8 @@ export class TripSessionsService {
       },
     });
 
-    if (!itinerary || itinerary.deletedAt) {
-      throw new NotFoundError(`Itinerary '${itineraryId}' not found`, 'ITINERARY_NOT_FOUND');
+    if (!itinerary) {
+      throw new NotFoundError(`Itinerary with id '${itineraryId}' not found`, 'ITINERARY_NOT_FOUND');
     }
 
     if (itinerary.userId !== userId) {
@@ -346,38 +415,51 @@ export class TripSessionsService {
       );
     }
 
-    // 2. Check for existing active session for this user
-    const existingActiveSession = await this.repository.findActiveSessionByUserId(userId);
-    if (existingActiveSession) {
-      if (existingActiveSession.itineraryId === itineraryId) {
-        // Idempotent return: user already started this itinerary
+    // 2. Check if user already has an active session for this itinerary
+    const existingSessionForItinerary =
+      (await this.repository.findActiveSessionByItineraryId(itineraryId)) ||
+      (await this.repository.findActiveSessionByUserId(userId));
+
+    if (
+      existingSessionForItinerary &&
+      existingSessionForItinerary.userId === userId &&
+      existingSessionForItinerary.itineraryId === itineraryId
+    ) {
+      const fullExisting =
+        (await this.repository.findById(existingSessionForItinerary.id)) || existingSessionForItinerary;
+      if (fullExisting) {
+        const existingItinerary =
+          'itinerary' in fullExisting && fullExisting.itinerary
+            ? (fullExisting.itinerary as typeof itinerary)
+            : itinerary;
         return this.buildResponseDto(
-          existingActiveSession,
-          existingActiveSession.itinerary,
-          existingActiveSession.activityProgress,
-        );
-      } else {
-        // Active session exists for a DIFFERENT itinerary
-        throw new ConflictError(
-          'Another trip session is currently active. Please complete or cancel it before starting a new trip.',
-          'ACTIVE_TRIP_SESSION_EXISTS',
+          fullExisting,
+          existingItinerary,
+          fullExisting.activityProgress || [],
+          fullExisting.routes || [],
         );
       }
     }
 
-    // 3. Verify itinerary has activities
-    const allItems: import('@prisma/client').ItineraryItem[] = [];
-    for (const day of itinerary.days) {
-      for (const item of day.items) {
-        allItems.push(item);
-      }
+    // 3. Check if user has an active session on another itinerary
+    const existingUserActive = await this.repository.findActiveSessionByUserId(userId);
+    if (existingUserActive && existingUserActive.itineraryId !== itineraryId) {
+      throw new ConflictError(
+        'You already have an active trip session on another itinerary. Please complete or cancel it before starting a new one.',
+        TRIP_ERROR_CODES.TRIP_ALREADY_ACTIVE,
+      );
     }
 
-    if (allItems.length === 0) {
-      throw new ValidationError('Cannot start a trip for an itinerary with no activities');
+    const totalItems = itinerary.days.reduce((sum, d) => sum + d.items.length, 0);
+    if (totalItems === 0) {
+      throw new ValidationError(
+        'Cannot start a trip for an itinerary with no activities',
+        null,
+        'EMPTY_ITINERARY',
+      );
     }
 
-    // 4. Build initial progress items
+    // 4. Build initial progress items and identify first incomplete activity
     const progressItems: CreateProgressItemInput[] = [];
     let firstIncompleteActivityId: string | null = null;
     let globalIndex = 0;
@@ -410,7 +492,7 @@ export class TripSessionsService {
     const sessionStatus: TripSessionStatus =
       firstIncompleteActivityId === null ? 'COMPLETED' : 'ACTIVE';
 
-    // 5. Calculate route legs & polyline snapshot
+    // 5. Gather activity coordinates for route calculation
     const coordinates: GeoCoordinate[] = [];
     if (dto?.initialLatitude !== undefined && dto?.initialLongitude !== undefined) {
       coordinates.push({
@@ -428,13 +510,46 @@ export class TripSessionsService {
       }
     }
 
-    const routeCalc = await this.matrixService.calculateRouteLegsAndPolyline(
-      coordinates,
-      itinerary.transportationMode,
-    );
-    const routeSnapshot = JSON.stringify(routeCalc);
+    // 6. Calculate Directions route outside database transaction
+    let directionsResult: DirectionsRouteResult = {
+      totalDistanceMeters: 0,
+      totalDurationSeconds: 0,
+      geometry: '',
+      legs: [],
+    };
 
-    // 6. Create session in database
+    try {
+      directionsResult = await this.directionsService.getRoutesForActivities(
+        coordinates,
+        itinerary.transportationMode,
+      );
+    } catch (err) {
+      logger.warn({ err }, 'Directions service failed during startTrip. Falling back.');
+    }
+
+    const routeLegsInputs: CreateTripRouteLegInput[] = directionsResult.legs.map((leg, index) => ({
+      fromActivityId: leg.fromActivityId,
+      toActivityId: leg.toActivityId,
+      legOrder: leg.legOrder ?? index,
+      distanceMeters: leg.distanceMeters,
+      durationSeconds: leg.durationSeconds,
+      geometry: leg.geometry,
+    }));
+
+    const routeSnapshot = JSON.stringify({
+      totalDistanceKm: Math.round((directionsResult.totalDistanceMeters / 1000) * 10) / 10,
+      totalDurationMinutes: Math.round(directionsResult.totalDurationSeconds / 60),
+      polyline: directionsResult.geometry,
+      legs: directionsResult.legs.map((l) => ({
+        fromActivityId: l.fromActivityId,
+        toActivityId: l.toActivityId,
+        distanceKm: Math.round((l.distanceMeters / 1000) * 10) / 10,
+        durationMinutes: Math.round(l.durationSeconds / 60),
+        polyline: l.geometry,
+      })),
+    });
+
+    // 7. Persist session, progress, and route legs atomically
     const createdSession = await this.repository.createSession(
       {
         userId,
@@ -448,160 +563,68 @@ export class TripSessionsService {
         lastLocationAt: dto?.initialLatitude ? new Date() : null,
       },
       progressItems,
+      routeLegsInputs,
     );
 
     return this.buildResponseDto(
       createdSession,
       itinerary,
       createdSession.activityProgress,
-      routeCalc,
+      createdSession.routes,
     );
   }
 
   /**
-   * Syncs active trip GPS location and evaluates arrival completion.
+   * Recovers the active trip session for the authenticated user.
    */
-  public async syncLocation(
-    userId: string,
-    sessionId: string,
-    dto: SyncLocationDto,
-  ): Promise<StartTripResponseDto> {
+  public async getActiveSession(userId: string): Promise<ActiveTripSessionResponseDto | null> {
+    const session = await this.repository.findActiveSessionByUserId(userId);
+    if (!session) return null;
+
+    return this.buildResponseDto(
+      session,
+      session.itinerary,
+      session.activityProgress,
+      session.routes,
+    );
+  }
+
+  /**
+   * Retrieves a trip session by its ID.
+   */
+  public async getSessionById(userId: string, sessionId: string): Promise<StartTripResponseDto> {
     const session = await this.repository.findById(sessionId);
     if (!session) {
-      throw new NotFoundError(`TripSession '${sessionId}' not found`, 'SESSION_NOT_FOUND');
+      throw new NotFoundError(`TripSession '${sessionId}' not found`, TRIP_ERROR_CODES.TRIP_NOT_FOUND);
     }
 
     if (session.userId !== userId) {
       throw new ForbiddenError(
-        'You do not have permission to sync location for this trip session',
+        'You do not have permission to view this trip session',
         'FORBIDDEN_RESOURCE',
       );
     }
 
-    if (session.status !== 'ACTIVE') {
-      throw new ValidationError(
-        `Trip session is ${session.status.toLowerCase()} and cannot accept location updates`,
-        ['SESSION_NOT_ACTIVE'],
-      );
-    }
-
-    const now = new Date();
-    const updateData: import('@prisma/client').Prisma.TripSessionUpdateInput = {
-      lastLatitude: dto.latitude,
-      lastLongitude: dto.longitude,
-      lastAccuracy: dto.accuracy ?? null,
-      lastLocationAt: now,
-    };
-
-    // Evaluate arrival detection
-    if (dto.arrivalDetected) {
-      const targetActivityId = dto.activityId || session.currentActivityId;
-      if (!targetActivityId) {
-        throw new ValidationError('No active activity to mark arrival for');
-      }
-
-      const progress = await this.repository.findProgressBySessionAndActivity(
-        sessionId,
-        targetActivityId,
-      );
-      if (!progress) {
-        throw new NotFoundError(
-          `Activity '${targetActivityId}' not found in this trip session`,
-          'ACTIVITY_NOT_FOUND',
-        );
-      }
-
-      // If already completed: safe idempotent return (offline retry)
-      if (progress.status === 'COMPLETED') {
-        await this.repository.updateSession(sessionId, updateData);
-        const refreshed = (await this.repository.findById(sessionId))!;
-        return this.buildResponseDto(refreshed, refreshed.itinerary, refreshed.activityProgress);
-      }
-
-      // Find activity coordinates to validate arrival
-      let targetCoord: GeoCoordinate | null = null;
-      for (const day of session.itinerary.days) {
-        for (const item of day.items) {
-          if (item.id === targetActivityId) {
-            targetCoord = this.extractItemCoordinate(item);
-            break;
-          }
-        }
-      }
-
-      if (targetCoord) {
-        const distKm = this.matrixService.calculateHaversineKm(
-          dto.latitude,
-          dto.longitude,
-          targetCoord.latitude,
-          targetCoord.longitude,
-        );
-        const distMeters = distKm * 1000;
-        const accuracyBuffer = Math.min(dto.accuracy ?? 0, 50);
-        const threshold = this.defaultArrivalRadiusMeters + accuracyBuffer;
-
-        if (distMeters > threshold) {
-          throw new ValidationError(
-            `User is ${Math.round(distMeters)}m away, which exceeds the arrival radius (${threshold}m)`,
-            ['ARRIVAL_PROXIMITY_UNVERIFIED'],
-          );
-        }
-      }
-
-      // Proximity verified: Complete activity
-      await this.repository.updateProgress(progress.id, {
-        status: 'COMPLETED',
-        completedAt: now,
-        arrivalDetectedAt: now,
-        lastLatitude: dto.latitude,
-        lastLongitude: dto.longitude,
-        lastAccuracy: dto.accuracy ?? null,
-      });
-
-      // Synchronize ItineraryItem.isCompleted
-      await prisma.itineraryItem.update({
-        where: { id: targetActivityId },
-        data: { isCompleted: true },
-      });
-
-      // Advance currentActivityId to the next NOT_STARTED activity
-      const allProgress = await this.repository.findProgressListBySession(sessionId);
-      const nextProgress = allProgress.find(
-        (p: ProgressItemRecord) =>
-          p.status === 'NOT_STARTED' && p.itineraryActivityId !== targetActivityId,
-      );
-
-      if (nextProgress) {
-        await this.repository.updateProgress(nextProgress.id, {
-          status: 'IN_PROGRESS',
-          startedAt: now,
-        });
-        updateData.currentActivityId = nextProgress.itineraryActivityId;
-      } else {
-        // All activities finished
-        updateData.currentActivityId = null;
-        updateData.status = 'COMPLETED';
-        updateData.endedAt = now;
-      }
-    }
-
-    await this.repository.updateSession(sessionId, updateData);
-    const refreshed = (await this.repository.findById(sessionId))!;
-    return this.buildResponseDto(refreshed, refreshed.itinerary, refreshed.activityProgress);
+    return this.buildResponseDto(
+      session,
+      session.itinerary,
+      session.activityProgress,
+      session.routes,
+    );
   }
 
   /**
-   * Explicitly marks an activity as completed.
+   * Explicitly starts an activity (transitions NOT_STARTED -> IN_PROGRESS).
    */
-  public async completeActivity(
+  public async startActivity(
     userId: string,
     sessionId: string,
     activityId: string,
-    dto?: CompleteActivityDto,
+    dto?: StartActivityDto,
   ): Promise<StartTripResponseDto> {
     const session = await this.repository.findById(sessionId);
     if (!session) {
-      throw new NotFoundError(`TripSession '${sessionId}' not found`, 'SESSION_NOT_FOUND');
+      throw new NotFoundError(`TripSession '${sessionId}' not found`, TRIP_ERROR_CODES.TRIP_NOT_FOUND);
     }
 
     if (session.userId !== userId) {
@@ -612,133 +635,398 @@ export class TripSessionsService {
     }
 
     if (session.status !== 'ACTIVE') {
-      throw new ValidationError('Trip session is not active');
+      throw new ValidationError('Trip session is not active', null, TRIP_ERROR_CODES.TRIP_NOT_ACTIVE);
     }
 
     const progress = await this.repository.findProgressBySessionAndActivity(sessionId, activityId);
     if (!progress) {
       throw new NotFoundError(
         `Activity '${activityId}' not found in this trip session`,
-        'ACTIVITY_NOT_FOUND',
+        TRIP_ERROR_CODES.ACTIVITY_NOT_IN_TRIP,
+      );
+    }
+
+    // Idempotent: if already IN_PROGRESS, return current state
+    if (progress.status === 'IN_PROGRESS') {
+      return this.buildResponseDto(
+        session,
+        session.itinerary,
+        session.activityProgress,
+        session.routes,
+      );
+    }
+
+    if (progress.status === 'COMPLETED' || progress.status === 'SKIPPED') {
+      throw new ValidationError(
+        `Cannot start activity with status '${progress.status}'`,
+        null,
+        TRIP_ERROR_CODES.INVALID_ACTIVITY_TRANSITION,
+      );
+    }
+
+    const now = new Date();
+    await this.repository.updateProgress(progress.id, {
+      status: 'IN_PROGRESS',
+      startedAt: now,
+      ...(dto?.latitude !== undefined && { lastLatitude: dto.latitude }),
+      ...(dto?.longitude !== undefined && { lastLongitude: dto.longitude }),
+    });
+
+    await this.repository.updateSession(sessionId, {
+      currentActivityId: activityId,
+      ...(dto?.latitude !== undefined && { lastLatitude: dto.latitude }),
+      ...(dto?.longitude !== undefined && { lastLongitude: dto.longitude }),
+      lastLocationAt: now,
+    });
+
+    const refreshed = (await this.repository.findById(sessionId))!;
+    return this.buildResponseDto(
+      refreshed,
+      refreshed.itinerary,
+      refreshed.activityProgress,
+      refreshed.routes,
+    );
+  }
+
+  /**
+   * Explicitly marks an activity as completed.
+   * Synchronizes ItineraryItem.isCompleted and advances currentActivityId.
+   */
+  public async completeActivity(
+    userId: string,
+    sessionId: string,
+    activityId: string,
+    dto?: CompleteActivityDto,
+  ): Promise<StartTripResponseDto> {
+    const session = await this.repository.findById(sessionId);
+    if (!session) {
+      throw new NotFoundError(`TripSession '${sessionId}' not found`, TRIP_ERROR_CODES.TRIP_NOT_FOUND);
+    }
+
+    if (session.userId !== userId) {
+      throw new ForbiddenError(
+        'You do not have permission to update this trip session',
+        'FORBIDDEN_RESOURCE',
+      );
+    }
+
+    if (session.status !== 'ACTIVE') {
+      throw new ValidationError('Trip session is not active', null, TRIP_ERROR_CODES.TRIP_NOT_ACTIVE);
+    }
+
+    const progress = await this.repository.findProgressBySessionAndActivity(sessionId, activityId);
+    if (!progress) {
+      throw new NotFoundError(
+        `Activity '${activityId}' not found in this trip session`,
+        TRIP_ERROR_CODES.ACTIVITY_NOT_IN_TRIP,
       );
     }
 
     // Idempotent: if already completed, return current state
     if (progress.status === 'COMPLETED') {
-      return this.buildResponseDto(session, session.itinerary, session.activityProgress);
-    }
-
-    // If coordinates are provided in DTO, validate distance
-    if (dto?.latitude !== undefined && dto?.longitude !== undefined) {
-      let targetCoord: GeoCoordinate | null = null;
-      for (const day of session.itinerary.days) {
-        for (const item of day.items) {
-          if (item.id === activityId) {
-            targetCoord = this.extractItemCoordinate(item);
-            break;
-          }
-        }
-      }
-
-      if (targetCoord) {
-        const distKm = this.matrixService.calculateHaversineKm(
-          dto.latitude,
-          dto.longitude,
-          targetCoord.latitude,
-          targetCoord.longitude,
-        );
-        const distMeters = distKm * 1000;
-        const accuracyBuffer = Math.min(dto.accuracy ?? 0, 50);
-        const threshold = this.defaultArrivalRadiusMeters + accuracyBuffer;
-
-        if (distMeters > threshold) {
-          throw new ValidationError(
-            `User is ${Math.round(distMeters)}m away, exceeding arrival threshold (${threshold}m)`,
-            ['ARRIVAL_PROXIMITY_UNVERIFIED'],
-          );
-        }
-      }
+      return this.buildResponseDto(
+        session,
+        session.itinerary,
+        session.activityProgress,
+        session.routes,
+      );
     }
 
     const now = new Date();
+
+    // 1. Mark progress item as COMPLETED
     await this.repository.updateProgress(progress.id, {
       status: 'COMPLETED',
       completedAt: now,
-      lastLatitude: dto?.latitude ?? null,
-      lastLongitude: dto?.longitude ?? null,
-      lastAccuracy: dto?.accuracy ?? null,
+      ...(dto?.latitude !== undefined && { lastLatitude: dto.latitude }),
+      ...(dto?.longitude !== undefined && { lastLongitude: dto.longitude }),
+      ...(dto?.accuracy !== undefined && { lastAccuracy: dto.accuracy }),
     });
 
+    // 2. Synchronize ItineraryItem.isCompleted
     await prisma.itineraryItem.update({
       where: { id: activityId },
       data: { isCompleted: true },
     });
 
-    // Advance to next activity
+    // 3. Advance currentActivityId to the next NOT_STARTED activity
     const allProgress = await this.repository.findProgressListBySession(sessionId);
     const nextProgress = allProgress.find(
-      (p: ProgressItemRecord) => p.status === 'NOT_STARTED' && p.itineraryActivityId !== activityId,
+      (p: ProgressItemRecord) =>
+        p.status === 'NOT_STARTED' && p.itineraryActivityId !== activityId,
     );
 
-    const updateData: import('@prisma/client').Prisma.TripSessionUpdateInput = {};
+    const sessionUpdate: {
+      currentActivityId?: string | null;
+      status?: TripSessionStatus;
+      endedAt?: Date;
+      lastLatitude?: number;
+      lastLongitude?: number;
+      lastAccuracy?: number;
+      lastLocationAt?: Date;
+    } = {
+      ...(dto?.latitude !== undefined && { lastLatitude: dto.latitude }),
+      ...(dto?.longitude !== undefined && { lastLongitude: dto.longitude }),
+      ...(dto?.accuracy !== undefined && { lastAccuracy: dto.accuracy }),
+      lastLocationAt: now,
+    };
+
     if (nextProgress) {
       await this.repository.updateProgress(nextProgress.id, {
         status: 'IN_PROGRESS',
         startedAt: now,
       });
-      updateData.currentActivityId = nextProgress.itineraryActivityId;
+      sessionUpdate.currentActivityId = nextProgress.itineraryActivityId;
     } else {
-      updateData.currentActivityId = null;
-      updateData.status = 'COMPLETED';
-      updateData.endedAt = now;
+      // Check if all activities are completed or skipped
+      const remainingUnfinished = allProgress.filter(
+        (p: ProgressItemRecord) =>
+          p.itineraryActivityId !== activityId &&
+          p.status !== 'COMPLETED' &&
+          p.status !== 'SKIPPED',
+      );
+
+      if (remainingUnfinished.length === 0) {
+        sessionUpdate.currentActivityId = null;
+        sessionUpdate.status = 'COMPLETED';
+        sessionUpdate.endedAt = now;
+      }
     }
 
-    await this.repository.updateSession(sessionId, updateData);
+    await this.repository.updateSession(sessionId, sessionUpdate);
     const refreshed = (await this.repository.findById(sessionId))!;
-    return this.buildResponseDto(refreshed, refreshed.itinerary, refreshed.activityProgress);
+
+    return this.buildResponseDto(
+      refreshed,
+      refreshed.itinerary,
+      refreshed.activityProgress,
+      refreshed.routes,
+    );
   }
 
   /**
-   * Recovers the active trip session for the authenticated user.
+   * Skips an activity in the active trip session.
    */
-  public async getActiveSession(userId: string): Promise<ActiveTripSessionResponseDto | null> {
-    const session = await this.repository.findActiveSessionByUserId(userId);
-    if (!session) {
-      return null;
-    }
-
-    return this.buildResponseDto(session, session.itinerary, session.activityProgress);
-  }
-
-  /**
-   * Retrieves a specific TripSession by ID.
-   */
-  public async getSessionById(
+  public async skipActivity(
     userId: string,
     sessionId: string,
+    activityId: string,
+    _dto?: SkipActivityDto,
   ): Promise<StartTripResponseDto> {
     const session = await this.repository.findById(sessionId);
     if (!session) {
-      throw new NotFoundError(`TripSession '${sessionId}' not found`, 'SESSION_NOT_FOUND');
+      throw new NotFoundError(`TripSession '${sessionId}' not found`, TRIP_ERROR_CODES.TRIP_NOT_FOUND);
     }
 
     if (session.userId !== userId) {
       throw new ForbiddenError(
-        'You do not have permission to view this trip session',
+        'You do not have permission to update this trip session',
         'FORBIDDEN_RESOURCE',
       );
     }
 
-    return this.buildResponseDto(session, session.itinerary, session.activityProgress);
+    if (session.status !== 'ACTIVE') {
+      throw new ValidationError('Trip session is not active', null, TRIP_ERROR_CODES.TRIP_NOT_ACTIVE);
+    }
+
+    const progress = await this.repository.findProgressBySessionAndActivity(sessionId, activityId);
+    if (!progress) {
+      throw new NotFoundError(
+        `Activity '${activityId}' not found in this trip session`,
+        TRIP_ERROR_CODES.ACTIVITY_NOT_IN_TRIP,
+      );
+    }
+
+    // Idempotent: if already skipped, return current state
+    if (progress.status === 'SKIPPED') {
+      return this.buildResponseDto(
+        session,
+        session.itinerary,
+        session.activityProgress,
+        session.routes,
+      );
+    }
+
+    const now = new Date();
+    await this.repository.updateProgress(progress.id, {
+      status: 'SKIPPED',
+      skippedAt: now,
+    });
+
+    // Advance currentActivityId to the next NOT_STARTED activity
+    const allProgress = await this.repository.findProgressListBySession(sessionId);
+    const nextProgress = allProgress.find(
+      (p: ProgressItemRecord) =>
+        p.status === 'NOT_STARTED' && p.itineraryActivityId !== activityId,
+    );
+
+    const sessionUpdate: {
+      currentActivityId?: string | null;
+      status?: TripSessionStatus;
+      endedAt?: Date;
+    } = {};
+
+    if (nextProgress) {
+      await this.repository.updateProgress(nextProgress.id, {
+        status: 'IN_PROGRESS',
+        startedAt: now,
+      });
+      sessionUpdate.currentActivityId = nextProgress.itineraryActivityId;
+    } else {
+      const remainingUnfinished = allProgress.filter(
+        (p: ProgressItemRecord) =>
+          p.itineraryActivityId !== activityId &&
+          p.status !== 'COMPLETED' &&
+          p.status !== 'SKIPPED',
+      );
+
+      if (remainingUnfinished.length === 0) {
+        sessionUpdate.currentActivityId = null;
+        sessionUpdate.status = 'COMPLETED';
+        sessionUpdate.endedAt = now;
+      }
+    }
+
+    await this.repository.updateSession(sessionId, sessionUpdate);
+    const refreshed = (await this.repository.findById(sessionId))!;
+
+    return this.buildResponseDto(
+      refreshed,
+      refreshed.itinerary,
+      refreshed.activityProgress,
+      refreshed.routes,
+    );
   }
 
   /**
-   * Manually finishes an active trip session.
+   * Synchronizes location from mobile client.
+   * DOES NOT call Directions API on every GPS update (strictly enforces Phase 11).
+   * Automatically handles arrival auto-completion if arrivalDetected flag is sent.
+   */
+  public async syncLocation(
+    userId: string,
+    sessionId: string,
+    dto: SyncLocationDto,
+  ): Promise<StartTripResponseDto> {
+    const session = await this.repository.findById(sessionId);
+    if (!session) {
+      throw new NotFoundError(`TripSession '${sessionId}' not found`, TRIP_ERROR_CODES.TRIP_NOT_FOUND);
+    }
+
+    if (session.userId !== userId) {
+      throw new ForbiddenError(
+        'You do not have permission to update this trip session',
+        'FORBIDDEN_RESOURCE',
+      );
+    }
+
+    if (session.status !== 'ACTIVE') {
+      throw new ValidationError('Trip session is not active', null, TRIP_ERROR_CODES.TRIP_NOT_ACTIVE);
+    }
+
+    const now = new Date();
+    const updateData: {
+      lastLatitude: number;
+      lastLongitude: number;
+      lastAccuracy?: number | null;
+      lastLocationAt: Date;
+      currentActivityId?: string | null;
+      status?: TripSessionStatus;
+      endedAt?: Date;
+    } = {
+      lastLatitude: dto.latitude,
+      lastLongitude: dto.longitude,
+      lastAccuracy: dto.accuracy ?? null,
+      lastLocationAt: now,
+    };
+
+    // Auto-arrival detection trigger
+    const targetActivityId = dto.activityId || session.currentActivityId;
+    if (dto.arrivalDetected && targetActivityId) {
+      // Validate proximity to prevent spoofing or premature arrival
+      let targetItem: ActivityLocationItem | null = null;
+      const itineraryObj = session.itinerary as { days?: { items?: ActivityLocationItem[] }[] } | null;
+      for (const d of itineraryObj?.days || []) {
+        const found = d.items?.find((i: ActivityLocationItem) => i.id === targetActivityId);
+        if (found) {
+          targetItem = found;
+          break;
+        }
+      }
+
+      if (targetItem) {
+        const coord = this.extractItemCoordinate(targetItem);
+        if (coord) {
+          const distKm = this.calculateHaversineKm(dto.latitude, dto.longitude, coord.latitude, coord.longitude);
+          const arrivalRadiusKm = this.defaultArrivalRadiusMeters / 1000;
+          if (distKm > arrivalRadiusKm * 1.5) {
+            throw new ValidationError(
+              `User location is too far from activity destination (${(distKm * 1000).toFixed(0)}m > ${this.defaultArrivalRadiusMeters}m)`,
+              null,
+              TRIP_ERROR_CODES.INVALID_ACTIVITY_TRANSITION,
+            );
+          }
+        }
+      }
+
+      const progress = await this.repository.findProgressBySessionAndActivity(
+        sessionId,
+        targetActivityId,
+      );
+
+      if (progress && progress.status !== 'COMPLETED') {
+        await this.repository.updateProgress(progress.id, {
+          status: 'COMPLETED',
+          completedAt: now,
+          arrivalDetectedAt: now,
+          lastLatitude: dto.latitude,
+          lastLongitude: dto.longitude,
+          lastAccuracy: dto.accuracy ?? null,
+        });
+
+        await prisma.itineraryItem.update({
+          where: { id: targetActivityId },
+          data: { isCompleted: true },
+        });
+
+        const allProgress = (await this.repository.findProgressListBySession(sessionId)) || [];
+        const nextProgress = allProgress.find(
+          (p: ProgressItemRecord) =>
+            p.status === 'NOT_STARTED' && p.itineraryActivityId !== targetActivityId,
+        );
+
+        if (nextProgress) {
+          await this.repository.updateProgress(nextProgress.id, {
+            status: 'IN_PROGRESS',
+            startedAt: now,
+          });
+          updateData.currentActivityId = nextProgress.itineraryActivityId;
+        } else {
+          updateData.currentActivityId = null;
+          updateData.status = 'COMPLETED';
+          updateData.endedAt = now;
+        }
+      }
+    }
+
+    await this.repository.updateSession(sessionId, updateData);
+    const refreshed = (await this.repository.findById(sessionId))!;
+
+    return this.buildResponseDto(
+      refreshed,
+      refreshed.itinerary,
+      refreshed.activityProgress,
+      refreshed.routes,
+    );
+  }
+
+  /**
+   * Manually marks the trip session as finished.
    */
   public async finishTrip(userId: string, sessionId: string): Promise<StartTripResponseDto> {
     const session = await this.repository.findById(sessionId);
     if (!session) {
-      throw new NotFoundError(`TripSession '${sessionId}' not found`, 'SESSION_NOT_FOUND');
+      throw new NotFoundError(`TripSession '${sessionId}' not found`, TRIP_ERROR_CODES.TRIP_NOT_FOUND);
     }
 
     if (session.userId !== userId) {
@@ -748,16 +1036,16 @@ export class TripSessionsService {
       );
     }
 
-    const now = new Date();
-    // Complete all in-progress activities
-    const inProgress = session.activityProgress.filter((p: ProgressItemRecord) => p.status === 'IN_PROGRESS');
-    for (const p of inProgress) {
-      await this.repository.updateProgress(p.id, {
-        status: 'COMPLETED',
-        completedAt: now,
-      });
+    if (session.status === 'COMPLETED') {
+      return this.buildResponseDto(
+        session,
+        session.itinerary,
+        session.activityProgress,
+        session.routes,
+      );
     }
 
+    const now = new Date();
     await this.repository.updateSession(sessionId, {
       status: 'COMPLETED',
       endedAt: now,
@@ -765,16 +1053,21 @@ export class TripSessionsService {
     });
 
     const refreshed = (await this.repository.findById(sessionId))!;
-    return this.buildResponseDto(refreshed, refreshed.itinerary, refreshed.activityProgress);
+    return this.buildResponseDto(
+      refreshed,
+      refreshed.itinerary,
+      refreshed.activityProgress,
+      refreshed.routes,
+    );
   }
 
   /**
-   * Cancels an active trip session.
+   * Cancels the active trip session.
    */
   public async cancelTrip(userId: string, sessionId: string): Promise<StartTripResponseDto> {
     const session = await this.repository.findById(sessionId);
     if (!session) {
-      throw new NotFoundError(`TripSession '${sessionId}' not found`, 'SESSION_NOT_FOUND');
+      throw new NotFoundError(`TripSession '${sessionId}' not found`, TRIP_ERROR_CODES.TRIP_NOT_FOUND);
     }
 
     if (session.userId !== userId) {
@@ -792,13 +1085,18 @@ export class TripSessionsService {
     });
 
     const refreshed = (await this.repository.findById(sessionId))!;
-    return this.buildResponseDto(refreshed, refreshed.itinerary, refreshed.activityProgress);
+    return this.buildResponseDto(
+      refreshed,
+      refreshed.itinerary,
+      refreshed.activityProgress,
+      refreshed.routes,
+    );
   }
 
   /**
    * Reconciles an active TripSession whenever an itinerary is modified.
    * NEVER blocks itinerary edits. Preserves completed progress, updates order,
-   * ensures currentActivityId never references a deleted activity, and refreshes route.
+   * ensures currentActivityId never references a deleted activity, and refreshes route legs.
    */
   public async reconcileItineraryChange(itineraryId: string): Promise<void> {
     try {
@@ -807,7 +1105,7 @@ export class TripSessionsService {
         return; // No active session to reconcile
       }
 
-      const itinerary = await prisma.itinerary.findUnique({
+      const freshItinerary = await prisma.itinerary.findUnique({
         where: { id: itineraryId },
         include: {
           days: {
@@ -832,108 +1130,150 @@ export class TripSessionsService {
         },
       });
 
-      if (!itinerary || itinerary.deletedAt) {
-        // Itinerary deleted: finish or cancel active session
+      if (!freshItinerary) {
+        // Itinerary was completely deleted
         await this.repository.updateSession(activeSession.id, {
-          status: 'CANCELLED',
+          status: 'COMPLETED',
           endedAt: new Date(),
           currentActivityId: null,
         });
         return;
       }
 
-      // Collect updated items in order
-      const updatedItems: { id: string; orderIndex: number }[] = [];
-      let globalIdx = 0;
-      for (const day of itinerary.days) {
-        for (const item of day.items) {
-          updatedItems.push({ id: item.id, orderIndex: globalIdx++ });
-        }
-      }
+      // Collect current valid activity IDs in order
+      const freshItemIds: string[] = [];
+      const freshItemsMap = new Map<string, (typeof freshItinerary.days)[0]['items'][0]>();
+      const coordinates: GeoCoordinate[] = [];
 
-      const updatedItemMap = new Map(updatedItems.map((u) => [u.id, u.orderIndex]));
-      const existingProgress = activeSession.activityProgress;
-      const existingMap = new Map(existingProgress.map((p: ProgressItemRecord) => [p.itineraryActivityId, p]));
-
-      // 1. Remove progress for activities that were deleted from the itinerary
-      for (const prog of existingProgress) {
-        if (!updatedItemMap.has(prog.itineraryActivityId)) {
-          await this.repository.deleteProgress(activeSession.id, prog.itineraryActivityId);
-        }
-      }
-
-      // 2. Add progress for newly added activities (default NOT_STARTED)
-      for (const item of updatedItems) {
-        if (!existingMap.has(item.id)) {
-          await this.repository.upsertProgress(activeSession.id, item.id, {
-            status: 'NOT_STARTED',
-            orderIndex: item.orderIndex,
-          });
-        }
-      }
-
-      // 3. Update orderIndex for remaining progress items
-      const orderUpdates: { itineraryActivityId: string; orderIndex: number }[] = [];
-      for (const item of updatedItems) {
-        orderUpdates.push({
-          itineraryActivityId: item.id,
-          orderIndex: item.orderIndex,
+      // Preserve last user location if available
+      if (activeSession.lastLatitude !== null && activeSession.lastLongitude !== null) {
+        coordinates.push({
+          id: 'last_known_pos',
+          name: 'Current User Location',
+          latitude: activeSession.lastLatitude,
+          longitude: activeSession.lastLongitude,
         });
       }
-      if (orderUpdates.length > 0) {
-        await this.repository.updateProgressOrders(activeSession.id, orderUpdates);
-      }
 
-      // 4. Safe currentActivityId transition
-      const refreshedProgress = await this.repository.findProgressListBySession(activeSession.id);
-      const isCurrentValid =
-        activeSession.currentActivityId !== null &&
-        updatedItemMap.has(activeSession.currentActivityId) &&
-        refreshedProgress.some(
-          (p: ProgressItemRecord) =>
-            p.itineraryActivityId === activeSession.currentActivityId && p.status !== 'COMPLETED',
-        );
-
-      let newCurrentActivityId = activeSession.currentActivityId;
-      let sessionStatus = activeSession.status;
-      let endedAt: Date | null = activeSession.endedAt;
-
-      if (!isCurrentValid) {
-        // Find first incomplete activity in the updated sequence
-        const firstIncomplete = refreshedProgress.find((p: ProgressItemRecord) => p.status !== 'COMPLETED');
-        if (firstIncomplete) {
-          newCurrentActivityId = firstIncomplete.itineraryActivityId;
-          await this.repository.updateProgress(firstIncomplete.id, {
-            status: 'IN_PROGRESS',
-            startedAt: new Date(),
-          });
-        } else {
-          // No incomplete activities left
-          newCurrentActivityId = null;
-          sessionStatus = 'COMPLETED';
-          endedAt = new Date();
-        }
-      }
-
-      // 5. Recalculate route snapshot
-      const coordinates: GeoCoordinate[] = [];
-      for (const day of itinerary.days) {
+      for (const day of freshItinerary.days) {
         for (const item of day.items) {
+          freshItemIds.push(item.id);
+          freshItemsMap.set(item.id, item);
           const c = this.extractItemCoordinate(item);
           if (c) coordinates.push(c);
         }
       }
 
-      const routeCalc = await this.matrixService.calculateRouteLegsAndPolyline(
-        coordinates,
-        itinerary.transportationMode,
-      );
+      const existingProgress = await this.repository.findProgressListBySession(activeSession.id);
+      const existingMap = new Map(existingProgress.map((p: ProgressItemRecord) => [p.itineraryActivityId, p]));
+
+      // 1. Remove progress for activities deleted from the itinerary
+      for (const prog of existingProgress) {
+        if (!freshItemsMap.has(prog.itineraryActivityId)) {
+          await this.repository.deleteProgress(activeSession.id, prog.itineraryActivityId);
+        }
+      }
+
+      // 2. Add or re-index remaining activities
+      const orderUpdates: { itineraryActivityId: string; orderIndex: number }[] = [];
+      let globalIndex = 0;
+
+      for (const itemId of freshItemIds) {
+        const item = freshItemsMap.get(itemId)!;
+        const existing = existingMap.get(itemId);
+
+        if (!existing) {
+          // New activity added to itinerary while trip was active
+          await this.repository.upsertProgress(activeSession.id, itemId, {
+            status: item.isCompleted ? 'COMPLETED' : 'NOT_STARTED',
+            orderIndex: globalIndex,
+          });
+        } else {
+          orderUpdates.push({ itineraryActivityId: itemId, orderIndex: globalIndex });
+        }
+        globalIndex++;
+      }
+
+      if (orderUpdates.length > 0) {
+        await this.repository.updateProgressOrders(activeSession.id, orderUpdates);
+      }
+
+      // 3. Determine valid currentActivityId
+      const refreshedProgress = await this.repository.findProgressListBySession(activeSession.id);
+      const currentExists =
+        activeSession.currentActivityId !== null &&
+        freshItemsMap.has(activeSession.currentActivityId);
+
+      let newCurrentActivityId = activeSession.currentActivityId;
+
+      if (!currentExists) {
+        const remainingProgress = (refreshedProgress || existingProgress).filter(
+          (p: ProgressItemRecord) => freshItemsMap.has(p.itineraryActivityId),
+        );
+        const nextIncomplete = remainingProgress.find(
+          (p: ProgressItemRecord) => p.status === 'NOT_STARTED' || p.status === 'IN_PROGRESS',
+        );
+        newCurrentActivityId = nextIncomplete ? nextIncomplete.itineraryActivityId : null;
+        if (nextIncomplete && nextIncomplete.status === 'NOT_STARTED') {
+          await this.repository.updateProgress(nextIncomplete.id, {
+            status: 'IN_PROGRESS',
+            startedAt: new Date(),
+          });
+        }
+      }
+
+      // 4. Invalidate & recalculate route legs via Directions API outside DB transaction
+      let newRouteSnapshot = activeSession.routeSnapshot;
+      let newRouteLegs: CreateTripRouteLegInput[] = [];
+
+      if (coordinates.length >= 2) {
+        try {
+          const directionsResult = await this.directionsService.getRoutesForActivities(
+            coordinates,
+            freshItinerary.transportationMode,
+          );
+
+          newRouteLegs = directionsResult.legs.map((leg, index) => ({
+            fromActivityId: leg.fromActivityId,
+            toActivityId: leg.toActivityId,
+            legOrder: leg.legOrder ?? index,
+            distanceMeters: leg.distanceMeters,
+            durationSeconds: leg.durationSeconds,
+            geometry: leg.geometry,
+          }));
+
+          newRouteSnapshot = JSON.stringify({
+            totalDistanceKm: Math.round((directionsResult.totalDistanceMeters / 1000) * 10) / 10,
+            totalDurationMinutes: Math.round(directionsResult.totalDurationSeconds / 60),
+            polyline: directionsResult.geometry,
+            legs: directionsResult.legs.map((l) => ({
+              fromActivityId: l.fromActivityId,
+              toActivityId: l.toActivityId,
+              distanceKm: Math.round((l.distanceMeters / 1000) * 10) / 10,
+              durationMinutes: Math.round(l.durationSeconds / 60),
+              polyline: l.geometry,
+            })),
+          });
+        } catch (err) {
+          logger.warn({ err }, 'Directions service recalculation failed during reconciliation.');
+        }
+      }
+
+      // Persist replaced route legs atomically
+      if (newRouteLegs.length > 0) {
+        await this.repository.replaceRoutes(activeSession.id, newRouteLegs);
+      }
+
+      // 5. Update session state
+      const allDone =
+        refreshedProgress.length > 0 &&
+        refreshedProgress.every((p: ProgressItemRecord) => p.status === 'COMPLETED' || p.status === 'SKIPPED');
 
       await this.repository.updateSession(activeSession.id, {
         currentActivityId: newCurrentActivityId,
-        status: sessionStatus,
-        endedAt,
-        routeSnapshot: JSON.stringify(routeCalc),
+        routeSnapshot: newRouteSnapshot,
+        status: allDone ? 'COMPLETED' : 'ACTIVE',
+        endedAt: allDone ? new Date() : null,
       });
 
       logger.info(`Reconciled active trip session ${activeSession.id} for itinerary ${itineraryId}`);

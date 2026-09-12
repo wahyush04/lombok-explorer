@@ -17,7 +17,7 @@ vi.mock('../src/database/prisma', () => ({
 describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
   let service: TripSessionsService;
   let mockRepo: any;
-  let mockMatrixService: any;
+  let mockDirectionsService: any;
 
   const mockUserId = 'user_traveler_1';
   const mockOtherUserId = 'user_traveler_2';
@@ -113,40 +113,54 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
       findProgressBySessionAndActivity: vi.fn(),
       updateProgress: vi.fn(),
       upsertProgress: vi.fn(),
+      createProgress: vi.fn(),
       deleteProgress: vi.fn(),
       findProgressListBySession: vi.fn(),
       updateProgressOrders: vi.fn(),
+      replaceRoutes: vi.fn(),
+      findRoutesBySessionId: vi.fn().mockResolvedValue([]),
     };
 
-    mockMatrixService = {
-      calculateRouteLegsAndPolyline: vi.fn().mockResolvedValue({
-        totalDistanceKm: 45.5,
-        totalDurationMinutes: 120,
-        polyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+    mockDirectionsService = {
+      getRoutesForActivities: vi.fn().mockResolvedValue({
+        totalDistanceMeters: 45500,
+        totalDurationSeconds: 7200,
+        geometry: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
         legs: [
           {
             fromActivityId: 'act_1',
             toActivityId: 'act_2',
-            distanceKm: 2.5,
-            durationMinutes: 10,
-            polyline: '_p~iF~ps|U',
+            legOrder: 0,
+            distanceMeters: 2500,
+            durationSeconds: 600,
+            geometry: '_p~iF~ps|U',
           },
           {
             fromActivityId: 'act_2',
             toActivityId: 'act_3',
-            distanceKm: 43.0,
-            durationMinutes: 110,
-            polyline: '_ulLnnqC_mqNvxq`@',
+            legOrder: 1,
+            distanceMeters: 43000,
+            durationSeconds: 6600,
+            geometry: '_ulLnnqC_mqNvxq`@',
           },
         ],
       }),
-      calculateHaversineKm: vi.fn((lat1: number, lon1: number, lat2: number, lon2: number) => {
-        if (lat1 === lat2 && lon1 === lon2) return 0;
-        return 0.05; // Default ~50 meters for close points
+      getRoute: vi.fn().mockResolvedValue({
+        distanceMeters: 2500,
+        durationSeconds: 600,
+        geometry: '_p~iF~ps|U',
+      }),
+      getRouteForLeg: vi.fn().mockResolvedValue({
+        fromActivityId: 'act_1',
+        toActivityId: 'act_2',
+        legOrder: 0,
+        distanceMeters: 2500,
+        durationSeconds: 600,
+        geometry: '_p~iF~ps|U',
       }),
     };
 
-    service = new TripSessionsService(mockRepo, mockMatrixService, 100);
+    service = new TripSessionsService(mockRepo, mockDirectionsService, 100);
   });
 
   describe('1. Start Trip & Session Initialization', () => {
@@ -176,6 +190,20 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
         lastLocationAt: null,
         createdAt: new Date(),
         updatedAt: new Date(),
+        routes: [
+          {
+            id: 'route_1',
+            tripSessionId: 'session_1',
+            fromActivityId: 'act_1',
+            toActivityId: 'act_2',
+            legOrder: 0,
+            distanceMeters: 2500,
+            durationSeconds: 600,
+            geometry: '_p~iF~ps|U',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
         activityProgress: [
           {
             id: 'prog_1',
@@ -223,6 +251,7 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
           expect.objectContaining({ itineraryActivityId: 'act_2', status: 'NOT_STARTED' }),
           expect.objectContaining({ itineraryActivityId: 'act_3', status: 'NOT_STARTED' }),
         ]),
+        expect.any(Array),
       );
 
       expect(result.session.id).toBe('session_1');
@@ -255,6 +284,7 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
         createdAt: new Date(),
         updatedAt: new Date(),
         itinerary: mockItinerary,
+        routes: [],
         activityProgress: [
           {
             id: 'prog_1',
@@ -433,9 +463,6 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
       mockRepo.findProgressBySessionAndActivity.mockResolvedValue(activeSession.activityProgress[0]);
       mockRepo.findProgressListBySession.mockResolvedValue(activeSession.activityProgress);
 
-      // Distance within 50m (arrival radius is 100m)
-      mockMatrixService.calculateHaversineKm.mockReturnValue(0.04); // 40 meters
-
       await service.syncLocation(mockUserId, 'session_track_1', {
         latitude: -8.9083,
         longitude: 116.3196,
@@ -500,13 +527,12 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
             orderIndex: 0,
           },
         ],
+        routes: [],
       };
 
       mockRepo.findById.mockResolvedValue(activeSession);
       mockRepo.findProgressBySessionAndActivity.mockResolvedValue(activeSession.activityProgress[0]);
-
-      // User is 5.0 km away!
-      mockMatrixService.calculateHaversineKm.mockReturnValue(5.0);
+      mockRepo.findProgressListBySession.mockResolvedValue(activeSession.activityProgress);
 
       await expect(
         service.syncLocation(mockUserId, 'session_track_2', {
@@ -605,7 +631,6 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
       mockRepo.findById.mockResolvedValue(singleItemSession);
       mockRepo.findProgressBySessionAndActivity.mockResolvedValue(singleItemSession.activityProgress[2]);
       mockRepo.findProgressListBySession.mockResolvedValue(singleItemSession.activityProgress);
-      mockMatrixService.calculateHaversineKm.mockReturnValue(0.02); // 20m
 
       await service.syncLocation(mockUserId, 'session_final', {
         activityId: 'act_3',
@@ -668,10 +693,7 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
       };
 
       (prisma.itinerary.findUnique as any).mockResolvedValue(updatedItinerary);
-      mockRepo.findProgressListBySession.mockResolvedValue([
-        ...activeSession.activityProgress,
-        { id: 'prog_new', itineraryActivityId: 'act_new', status: 'NOT_STARTED', orderIndex: 2 },
-      ]);
+      mockRepo.findProgressListBySession.mockResolvedValue(activeSession.activityProgress);
 
       await service.reconcileItineraryChange(mockItineraryId);
 
@@ -685,13 +707,11 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
         }),
       );
 
-      // Route snapshot recalculated
-      expect(mockMatrixService.calculateRouteLegsAndPolyline).toHaveBeenCalled();
-      expect(mockRepo.updateSession).toHaveBeenCalledWith(
+      // Route snapshot recalculated and directions called
+      expect(mockDirectionsService.getRoutesForActivities).toHaveBeenCalled();
+      expect(mockRepo.replaceRoutes).toHaveBeenCalledWith(
         'session_reconcile_add',
-        expect.objectContaining({
-          routeSnapshot: expect.any(String),
-        }),
+        expect.any(Array),
       );
     });
 
@@ -742,10 +762,7 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
       };
 
       (prisma.itinerary.findUnique as any).mockResolvedValue(updatedItinerary);
-      mockRepo.findProgressListBySession.mockResolvedValue([
-        { id: 'prog_1', itineraryActivityId: 'act_1', status: 'COMPLETED', orderIndex: 0 },
-        { id: 'prog_3', itineraryActivityId: 'act_3', status: 'NOT_STARTED', orderIndex: 1 },
-      ]);
+      mockRepo.findProgressListBySession.mockResolvedValue(activeSession.activityProgress);
 
       await service.reconcileItineraryChange(mockItineraryId);
 
@@ -831,7 +848,7 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
         ]),
       );
       // Recalculates route snapshot
-      expect(mockMatrixService.calculateRouteLegsAndPolyline).toHaveBeenCalled();
+      expect(mockDirectionsService.getRoutesForActivities).toHaveBeenCalled();
     });
   });
 
@@ -942,6 +959,180 @@ describe('Live Trip Tracking & Start Trip Feature Test Suite', () => {
       mockRepo.findById.mockResolvedValue(otherUserSession);
 
       await expect(service.finishTrip(mockUserId, 'session_sec_2')).rejects.toThrow(ForbiddenError);
+    });
+  });
+
+  describe('7. Start & Skip Activity Operations (State Machine & Idempotency)', () => {
+    it('should start activity transitioning NOT_STARTED -> IN_PROGRESS and update currentActivityId', async () => {
+      const mockItinerary = createMockItinerary();
+      const activeSession = {
+        id: 'session_start_act',
+        userId: mockUserId,
+        itineraryId: mockItineraryId,
+        status: 'ACTIVE' as const,
+        currentActivityId: 'act_1',
+        itinerary: mockItinerary,
+        routes: [],
+        activityProgress: [
+          { id: 'prog_1', itineraryActivityId: 'act_1', status: 'COMPLETED' as const, orderIndex: 0 },
+          { id: 'prog_2', itineraryActivityId: 'act_2', status: 'NOT_STARTED' as const, orderIndex: 1 },
+        ],
+      };
+
+      mockRepo.findById.mockResolvedValue(activeSession);
+      mockRepo.findProgressBySessionAndActivity.mockResolvedValue(activeSession.activityProgress[1]);
+
+      const result = await service.startActivity(mockUserId, 'session_start_act', 'act_2', {
+        latitude: -8.9135,
+        longitude: 116.3268,
+      });
+
+      expect(mockRepo.updateProgress).toHaveBeenCalledWith(
+        'prog_2',
+        expect.objectContaining({
+          status: 'IN_PROGRESS',
+          startedAt: expect.any(Date),
+        }),
+      );
+      expect(mockRepo.updateSession).toHaveBeenCalledWith(
+        'session_start_act',
+        expect.objectContaining({
+          currentActivityId: 'act_2',
+        }),
+      );
+      expect(result.session.id).toBe('session_start_act');
+    });
+
+    it('should be idempotent when startActivity is called on an activity already IN_PROGRESS', async () => {
+      const mockItinerary = createMockItinerary();
+      const activeSession = {
+        id: 'session_start_idem',
+        userId: mockUserId,
+        itineraryId: mockItineraryId,
+        status: 'ACTIVE' as const,
+        currentActivityId: 'act_2',
+        itinerary: mockItinerary,
+        routes: [],
+        activityProgress: [
+          { id: 'prog_2', itineraryActivityId: 'act_2', status: 'IN_PROGRESS' as const, orderIndex: 0 },
+        ],
+      };
+
+      mockRepo.findById.mockResolvedValue(activeSession);
+      mockRepo.findProgressBySessionAndActivity.mockResolvedValue(activeSession.activityProgress[0]);
+
+      await service.startActivity(mockUserId, 'session_start_idem', 'act_2');
+
+      // Does not update progress again
+      expect(mockRepo.updateProgress).not.toHaveBeenCalled();
+    });
+
+    it('should reject startActivity if activity is already COMPLETED or SKIPPED', async () => {
+      const mockItinerary = createMockItinerary();
+      const activeSession = {
+        id: 'session_start_rej',
+        userId: mockUserId,
+        itineraryId: mockItineraryId,
+        status: 'ACTIVE' as const,
+        currentActivityId: 'act_2',
+        itinerary: mockItinerary,
+        routes: [],
+        activityProgress: [
+          { id: 'prog_1', itineraryActivityId: 'act_1', status: 'COMPLETED' as const, orderIndex: 0 },
+        ],
+      };
+
+      mockRepo.findById.mockResolvedValue(activeSession);
+      mockRepo.findProgressBySessionAndActivity.mockResolvedValue(activeSession.activityProgress[0]);
+
+      await expect(
+        service.startActivity(mockUserId, 'session_start_rej', 'act_1'),
+      ).rejects.toThrow(ValidationError);
+    });
+
+    it('should skip activity and advance currentActivityId to the next NOT_STARTED activity', async () => {
+      const mockItinerary = createMockItinerary();
+      const activeSession = {
+        id: 'session_skip_act',
+        userId: mockUserId,
+        itineraryId: mockItineraryId,
+        status: 'ACTIVE' as const,
+        currentActivityId: 'act_2',
+        itinerary: mockItinerary,
+        routes: [],
+        activityProgress: [
+          { id: 'prog_1', itineraryActivityId: 'act_1', status: 'COMPLETED' as const, orderIndex: 0 },
+          { id: 'prog_2', itineraryActivityId: 'act_2', status: 'IN_PROGRESS' as const, orderIndex: 1 },
+          { id: 'prog_3', itineraryActivityId: 'act_3', status: 'NOT_STARTED' as const, orderIndex: 2 },
+        ],
+      };
+
+      mockRepo.findById.mockResolvedValue(activeSession);
+      mockRepo.findProgressBySessionAndActivity.mockResolvedValue(activeSession.activityProgress[1]);
+      mockRepo.findProgressListBySession.mockResolvedValue(activeSession.activityProgress);
+
+      await service.skipActivity(mockUserId, 'session_skip_act', 'act_2', {
+        reason: 'Cuaca buruk',
+      });
+
+      // 1. prog_2 marked SKIPPED
+      expect(mockRepo.updateProgress).toHaveBeenCalledWith(
+        'prog_2',
+        expect.objectContaining({
+          status: 'SKIPPED',
+          skippedAt: expect.any(Date),
+        }),
+      );
+
+      // 2. prog_3 advanced to IN_PROGRESS
+      expect(mockRepo.updateProgress).toHaveBeenCalledWith(
+        'prog_3',
+        expect.objectContaining({
+          status: 'IN_PROGRESS',
+          startedAt: expect.any(Date),
+        }),
+      );
+
+      // 3. session updated with act_3 as currentActivityId
+      expect(mockRepo.updateSession).toHaveBeenCalledWith(
+        'session_skip_act',
+        expect.objectContaining({
+          currentActivityId: 'act_3',
+        }),
+      );
+    });
+
+    it('should finish trip session when the last remaining activity is skipped', async () => {
+      const mockItinerary = createMockItinerary();
+      const activeSession = {
+        id: 'session_skip_last',
+        userId: mockUserId,
+        itineraryId: mockItineraryId,
+        status: 'ACTIVE' as const,
+        currentActivityId: 'act_3',
+        itinerary: mockItinerary,
+        routes: [],
+        activityProgress: [
+          { id: 'prog_1', itineraryActivityId: 'act_1', status: 'COMPLETED' as const, orderIndex: 0 },
+          { id: 'prog_2', itineraryActivityId: 'act_2', status: 'COMPLETED' as const, orderIndex: 1 },
+          { id: 'prog_3', itineraryActivityId: 'act_3', status: 'IN_PROGRESS' as const, orderIndex: 2 },
+        ],
+      };
+
+      mockRepo.findById.mockResolvedValue(activeSession);
+      mockRepo.findProgressBySessionAndActivity.mockResolvedValue(activeSession.activityProgress[2]);
+      mockRepo.findProgressListBySession.mockResolvedValue(activeSession.activityProgress);
+
+      await service.skipActivity(mockUserId, 'session_skip_last', 'act_3');
+
+      expect(mockRepo.updateSession).toHaveBeenCalledWith(
+        'session_skip_last',
+        expect.objectContaining({
+          status: 'COMPLETED',
+          currentActivityId: null,
+          endedAt: expect.any(Date),
+        }),
+      );
     });
   });
 });

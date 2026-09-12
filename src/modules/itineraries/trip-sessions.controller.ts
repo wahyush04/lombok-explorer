@@ -2,7 +2,13 @@ import { Request, Response } from 'express';
 import { asyncHandler } from '../../common/utils/async-handler.util';
 import { ResponseUtil } from '../../common/utils/api-response.util';
 import { tripSessionsService, TripSessionsService } from './trip-sessions.service';
-import { CompleteActivityDto, StartTripDto, SyncLocationDto } from './dto/trip-session.dto';
+import {
+  CompleteActivityDto,
+  SkipActivityDto,
+  StartActivityDto,
+  StartTripDto,
+  SyncLocationDto,
+} from './dto/trip-session.dto';
 
 export class TripSessionsController {
   constructor(private readonly service: TripSessionsService = tripSessionsService) {}
@@ -47,6 +53,15 @@ export class TripSessionsController {
     return ResponseUtil.sendSuccess(res, result, 'Trip location synced successfully');
   });
 
+  public startActivity = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const sessionId = String(req.params.id);
+    const activityId = String(req.params.activityId);
+    const dto = req.body as StartActivityDto;
+    const result = await this.service.startActivity(userId, sessionId, activityId, dto);
+    return ResponseUtil.sendSuccess(res, result, 'Activity started successfully');
+  });
+
   public completeActivity = asyncHandler(async (req: Request, res: Response) => {
     const userId = req.user!.userId;
     const sessionId = String(req.params.id);
@@ -54,6 +69,15 @@ export class TripSessionsController {
     const dto = req.body as CompleteActivityDto;
     const result = await this.service.completeActivity(userId, sessionId, activityId, dto);
     return ResponseUtil.sendSuccess(res, result, 'Activity marked as completed successfully');
+  });
+
+  public skipActivity = asyncHandler(async (req: Request, res: Response) => {
+    const userId = req.user!.userId;
+    const sessionId = String(req.params.id);
+    const activityId = String(req.params.activityId);
+    const dto = req.body as SkipActivityDto;
+    const result = await this.service.skipActivity(userId, sessionId, activityId, dto);
+    return ResponseUtil.sendSuccess(res, result, 'Activity skipped successfully');
   });
 
   public finishTrip = asyncHandler(async (req: Request, res: Response) => {
