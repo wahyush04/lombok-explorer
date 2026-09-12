@@ -514,7 +514,10 @@ paths:
       tags:
         - Itineraries
       summary: Menghapus trip plan aktif
-      description: Menghapus (soft delete) trip plan aktif milik pengguna yang sedang login.
+      description: |
+        Menghapus (soft delete) trip plan aktif milik pengguna yang sedang login.
+        
+        - **Cascade Cancellation**: Sebelum menghapus itinerary, backend secara otomatis membatalkan seluruh sesi live trip (`TripSession`) terkait yang berstatus `ACTIVE` atau `PAUSED` menjadi `CANCELLED` (`endedAt = now`, `currentActivityId = null`).
       security:
         - BearerAuth: []
       responses:
@@ -837,6 +840,10 @@ paths:
       tags:
         - Itineraries
       summary: Menghapus trip
+      description: |
+        Menghapus (soft delete) trip milik pengguna.
+        
+        - **Cascade Cancellation**: Sebelum menghapus itinerary, backend secara otomatis membatalkan seluruh sesi live trip (`TripSession`) terkait yang berstatus `ACTIVE` atau `PAUSED` menjadi `CANCELLED` (`endedAt = now`, `currentActivityId = null`).
       security:
         - BearerAuth: []
       parameters:
@@ -1384,10 +1391,8 @@ paths:
                     example: Trip session started successfully
                   data:
                     $ref: '#/components/schemas/StartTripResponse'
-        '404':
-          $ref: '#/components/responses/NotFoundError'
-        '409':
-          description: Sesi trip lain sedang aktif untuk pengguna ini
+        '400':
+          description: Itinerary tidak memiliki aktivitas atau destinasi
           content:
             application/json:
               schema:
@@ -1396,15 +1401,50 @@ paths:
                   success:
                     type: boolean
                     example: false
-                  error:
+                  code:
+                    type: string
+                    example: EMPTY_ITINERARY
+                  errorCode:
+                    type: string
+                    example: EMPTY_ITINERARY
+                  message:
+                    type: string
+                    example: Itinerary tidak memiliki aktivitas atau destinasi untuk dimulai.
+                  data:
+                    nullable: true
+                    example: null
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Pengguna sudah memiliki perjalanan yang sedang aktif di itinerary lain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  code:
+                    type: string
+                    example: ACTIVE_SESSION_EXISTS
+                  errorCode:
+                    type: string
+                    example: ACTIVE_SESSION_EXISTS
+                  message:
+                    type: string
+                    example: Pengguna sudah memiliki perjalanan yang sedang aktif.
+                  data:
                     type: object
                     properties:
-                      code:
+                      activeSessionId:
                         type: string
-                        example: ACTIVE_TRIP_SESSION_EXISTS
-                      message:
+                        format: uuid
+                        example: 2eb6d10f-cf87-43cf-bc07-0b1a0e167f40
+                      itineraryId:
                         type: string
-                        example: Another trip session is currently active. Please complete or cancel it before starting a new trip.
+                        format: uuid
+                        example: 3cb1edc3-18b7-4596-8358-bf3669cff2f6
 
   /api/v1/trip-sessions/start:
     post:
@@ -1436,13 +1476,73 @@ paths:
                     example: Trip session started successfully
                   data:
                     $ref: '#/components/schemas/StartTripResponse'
+        '400':
+          description: Itinerary tidak memiliki aktivitas atau destinasi
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  code:
+                    type: string
+                    example: EMPTY_ITINERARY
+                  errorCode:
+                    type: string
+                    example: EMPTY_ITINERARY
+                  message:
+                    type: string
+                    example: Itinerary tidak memiliki aktivitas atau destinasi untuk dimulai.
+                  data:
+                    nullable: true
+                    example: null
+        '404':
+          $ref: '#/components/responses/NotFoundError'
+        '409':
+          description: Pengguna sudah memiliki perjalanan yang sedang aktif di itinerary lain
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: false
+                  code:
+                    type: string
+                    example: ACTIVE_SESSION_EXISTS
+                  errorCode:
+                    type: string
+                    example: ACTIVE_SESSION_EXISTS
+                  message:
+                    type: string
+                    example: Pengguna sudah memiliki perjalanan yang sedang aktif.
+                  data:
+                    type: object
+                    properties:
+                      activeSessionId:
+                        type: string
+                        format: uuid
+                        example: 2eb6d10f-cf87-43cf-bc07-0b1a0e167f40
+                      itineraryId:
+                        type: string
+                        format: uuid
+                        example: 3cb1edc3-18b7-4596-8358-bf3669cff2f6
 
   /api/v1/trip-sessions/active:
     get:
       tags:
         - Live Trip Tracking & Execution
       summary: Restore active trip session (Mobile Recovery)
-      description: Mengambil data sesi trip aktif pengguna untuk memulihkan tampilan peta pelacakan Android setelah aplikasi dibuka kembali atau restart.
+      description: |
+        Mengambil data sesi trip aktif pengguna untuk memulihkan tampilan peta pelacakan Android setelah aplikasi dibuka kembali atau restart.
+        
+        - **Auto-Heal Orphaned Session**: Jika sesi aktif ditemukan tetapi itinerary fisiknya sudah dihapus (`deletedAt !== null` atau tidak ditemukan), backend secara otomatis membatalkan sesi tersebut (`status: CANCELLED`) dan mengembalikan `hasActiveTrip: false` serta `session: null`.
+        - **Format Respons**:
+          - Jika sesi aktif valid: mengembalikan `hasActiveTrip: true` beserta detail lengkap `session`, `itinerary`, `activities`, `currentActivity`, dan data `route`.
+          - Jika tidak ada sesi aktif (atau setelah auto-heal): mengembalikan `hasActiveTrip: false` dan `session: null`.
       security:
         - BearerAuth: []
       responses:
@@ -3273,33 +3373,45 @@ components:
 
     ActiveTripRecoveryResponse:
       type: object
+      description: |
+        Payload status pemulihan sesi live trip.
+        - Jika memiliki trip aktif yang valid: `hasActiveTrip: true` beserta objek detail `session`, `itinerary`, `activities`, dsb.
+        - Jika tidak ada trip aktif (atau sesi orphaned telah dibatalkan via auto-heal): `hasActiveTrip: false` dan `session: null`.
       properties:
         hasActiveTrip:
           type: boolean
           example: true
         session:
+          nullable: true
           $ref: '#/components/schemas/TripSession'
         itinerary:
           type: object
+          nullable: true
         activities:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/TripActivity'
         currentActivity:
+          nullable: true
           $ref: '#/components/schemas/TripActivity'
         nextActivities:
           type: array
+          nullable: true
           items:
             $ref: '#/components/schemas/TripActivity'
         route:
+          nullable: true
           $ref: '#/components/schemas/TripRouteData'
         routes:
           type: array
+          nullable: true
           description: Persisted road route legs from database
           items:
             $ref: '#/components/schemas/TripRouteLegRecord'
         progressPercentage:
           type: integer
+          nullable: true
           example: 25
 
   responses:
