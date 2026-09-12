@@ -180,13 +180,36 @@ Jika user memilih tombol "Saya Sudah Sampai" secara manual pada kartu aktivitas.
 
 ---
 
-### E. Menyelesaikan Seluruh Trip: `POST /api/v1/trip-sessions/{id}/finish`
+### E. Mulai Aktivitas Tertentu: `POST /api/v1/trip-sessions/{id}/activities/{activityId}/start`
+Jika user ingin menandai aktivitas sebagai sedang berjalan (`IN_PROGRESS`).
+- **Request Body** (opsional):
+  ```json
+  {
+    "latitude": -8.3512,
+    "longitude": 116.0823
+  }
+  ```
+
+---
+
+### F. Melewati Aktivitas (Skip): `POST /api/v1/trip-sessions/{id}/activities/{activityId}/skip`
+Jika user ingin melewati destinasi karena alasan tertentu (misal: cuaca buruk atau keterbatasan waktu). `currentActivityId` otomatis berpindah ke aktivitas belum selesai berikutnya.
+- **Request Body** (opsional):
+  ```json
+  {
+    "reason": "Hujan lebat di lokasi"
+  }
+  ```
+
+---
+
+### G. Menyelesaikan Seluruh Trip: `POST /api/v1/trip-sessions/{id}/finish`
 Mengakhiri sesi perjalanan secara manual meskipun belum semua aktivitas tercapai.
 - **Response**: Mengembalikan status session `COMPLETED`.
 
 ---
 
-### F. Membatalkan Trip: `POST /api/v1/trip-sessions/{id}/cancel`
+### H. Membatalkan Trip: `POST /api/v1/trip-sessions/{id}/cancel`
 Membatalkan sesi navigasi perjalanan (`status: CANCELLED`).
 
 ---
@@ -217,6 +240,7 @@ data class ActiveTripCheckResponse(
     @SerializedName("currentActivity") val currentActivity: TripActivityDto?,
     @SerializedName("nextActivities") val nextActivities: List<TripActivityDto>?,
     @SerializedName("route") val route: TripRouteDto?,
+    @SerializedName("routes") val routes: List<TripRouteLegRecordDto>?,
     @SerializedName("progressPercentage") val progressPercentage: Int?
 )
 
@@ -228,7 +252,19 @@ data class StartTripResponse(
     @SerializedName("currentActivity") val currentActivity: TripActivityDto?,
     @SerializedName("nextActivities") val nextActivities: List<TripActivityDto>,
     @SerializedName("route") val route: TripRouteDto,
+    @SerializedName("routes") val routes: List<TripRouteLegRecordDto>,
     @SerializedName("progressPercentage") val progressPercentage: Int
+)
+
+data class TripRouteLegRecordDto(
+    @SerializedName("id") val id: String,
+    @SerializedName("tripSessionId") val tripSessionId: String,
+    @SerializedName("fromActivityId") val fromActivityId: String,
+    @SerializedName("toActivityId") val toActivityId: String,
+    @SerializedName("legOrder") val legOrder: Int,
+    @SerializedName("distanceMeters") val distanceMeters: Double,
+    @SerializedName("durationSeconds") val durationSeconds: Double,
+    @SerializedName("geometry") val geometry: String // Encoded Polyline6 geometry per leg
 )
 
 data class TripSessionDto(
