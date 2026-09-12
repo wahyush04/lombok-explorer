@@ -18,8 +18,6 @@ import {
   UserRole,
   ExpenseCategory,
   ChecklistCategory,
-  TripSessionStatus,
-  TripActivityStatus,
 } from '@prisma/client';
 import bcrypt from 'bcrypt';
 
@@ -223,8 +221,8 @@ async function main(): Promise<void> {
   await prisma.itineraryTemplate.deleteMany({});
   await prisma.recommendationDestination.deleteMany({});
   await prisma.recommendation.deleteMany({});
-  await prisma.tripActivityProgress.deleteMany({});
-  await prisma.tripSession.deleteMany({});
+  await (prisma as any).tripActivityProgress.deleteMany({});
+  await (prisma as any).tripSession.deleteMany({});
   await prisma.itineraryItem.deleteMany({});
   await prisma.itineraryDay.deleteMany({});
   await prisma.itinerary.deleteMany({});
@@ -2290,12 +2288,12 @@ async function main(): Promise<void> {
 
   const calculatedRouteSnapshot = generateSeedRouteSnapshot(sampleTrackingCoords);
 
-  await prisma.tripSession.create({
+  await (prisma as any).tripSession.create({
     data: {
       id: toSeedUuid('trip_session_active_demo'),
       userId: demoUser.id,
       itineraryId: sampleItinerary.id,
-      status: TripSessionStatus.ACTIVE,
+      status: 'ACTIVE',
       currentActivityId: itemTanjungAanId,
       routeSnapshot: JSON.stringify(calculatedRouteSnapshot),
       lastLatitude: -8.845,
@@ -2308,7 +2306,7 @@ async function main(): Promise<void> {
           {
             id: toSeedUuid('prog_dest_desa_sade'),
             itineraryActivityId: itemSadeId,
-            status: TripActivityStatus.COMPLETED,
+            status: 'COMPLETED',
             orderIndex: 0,
             startedAt: new Date(Date.now() - 7200000),
             completedAt: new Date(Date.now() - 3600000),
@@ -2320,7 +2318,7 @@ async function main(): Promise<void> {
           {
             id: toSeedUuid('prog_dest_tanjung_aan'),
             itineraryActivityId: itemTanjungAanId,
-            status: TripActivityStatus.IN_PROGRESS,
+            status: 'IN_PROGRESS',
             orderIndex: 1,
             startedAt: new Date(Date.now() - 3500000),
             lastLatitude: -8.845,
@@ -2330,19 +2328,19 @@ async function main(): Promise<void> {
           {
             id: toSeedUuid('prog_dest_bukit_merese'),
             itineraryActivityId: itemBukitMereseId,
-            status: TripActivityStatus.NOT_STARTED,
+            status: 'NOT_STARTED',
             orderIndex: 2,
           },
           {
             id: toSeedUuid('prog_dest_tiu_kelep'),
             itineraryActivityId: itemTiuKelepId,
-            status: TripActivityStatus.NOT_STARTED,
+            status: 'NOT_STARTED',
             orderIndex: 3,
           },
           {
             id: toSeedUuid('prog_dest_gili_trawangan'),
             itineraryActivityId: itemGiliTrawanganId,
-            status: TripActivityStatus.NOT_STARTED,
+            status: 'NOT_STARTED',
             orderIndex: 4,
           },
         ],
