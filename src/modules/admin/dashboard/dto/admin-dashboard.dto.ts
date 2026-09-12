@@ -77,6 +77,9 @@ export interface DashboardStatisticsDto {
     totalReviews: number;
     pendingReviews: number;
     totalItineraries: number;
+    activeTripSessions: number;
+    completedTripSessions: number;
+    totalExpensesAmount: number;
   };
   periodicMetrics: {
     newUsers: number;
@@ -91,4 +94,9 @@ export interface DashboardStatisticsDto {
     popularDestinations: DashboardPopularDestinationDto[];
     mostFavoritedDestinations: DashboardFavoritedDestinationDto[];
   };
+  expenseBreakdown?: Array<{
+    category: string;
+    totalAmount: number;
+    count: number;
+  }>;
 }

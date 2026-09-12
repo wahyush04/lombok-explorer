@@ -6,6 +6,7 @@ import {
   DeleteUserQuerySchema,
   UpdateUserSchema,
   UpdateUserStatusSchema,
+  UpdateUserRoleSchema,
 } from './dto/admin-user.dto';
 import { idParamSchema } from '../validation/admin-validation.schemas';
 import { asyncHandler } from '../../../common/utils/async-handler.util';
@@ -38,6 +39,12 @@ router.put(
 );
 
 // 4. Update user status specifically (e.g. ACTIVE, SUSPENDED)
+router.patch(
+  '/:id/role',
+  validate({ params: idParamSchema, body: UpdateUserRoleSchema }),
+  asyncHandler(adminUsersController.updateUserRole),
+);
+
 router.patch(
   '/:id/status',
   validate({ params: idParamSchema, body: UpdateUserStatusSchema }),

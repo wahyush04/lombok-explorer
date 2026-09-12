@@ -2,6 +2,68 @@ import { prisma } from '../../../database/prisma';
 import { AdminReportFilterQuery } from './dto/admin-feed.dto';
 
 export class AdminFeedsRepository {
+  public async findManyPosts(query: { page?: number; limit?: number; search?: string; status?: any }) {
+    const { page = 1, limit = 10, search, status } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (status) where.status = status;
+    if (search) {
+      where.OR = [
+        { title: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { user: { name: { contains: search, mode: 'insensitive' } } },
+      ];
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.post.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, email: true, avatarUrl: true } },
+          media: { select: { id: true, url: true, type: true } },
+          _count: { select: { likes: true, comments: true, reports: true } },
+        },
+      }),
+      prisma.post.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
+  public async findManyComments(query: { page?: number; limit?: number; search?: string }) {
+    const { page = 1, limit = 20, search } = query;
+    const skip = (page - 1) * limit;
+
+    const where: any = {};
+    if (search) {
+      where.content = { contains: search, mode: 'insensitive' };
+    }
+
+    const [items, total] = await Promise.all([
+      prisma.postComment.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+          post: { select: { id: true, title: true } },
+        },
+      }),
+      prisma.postComment.count({ where }),
+    ]);
+
+    return { items, total };
+  }
+
+  public async deleteComment(id: string) {
+    return prisma.postComment.delete({ where: { id } });
+  }
+
   public async findReports(query: AdminReportFilterQuery) {
     const page = Math.max(1, Number(query.page) || 1);
     const limit = Math.max(1, Math.min(100, Number(query.limit) || 10));

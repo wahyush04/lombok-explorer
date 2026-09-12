@@ -172,6 +172,40 @@ export class AdminUsersService {
     }
   }
 
+  public async updateUserRole(
+    id: string,
+    role: any,
+    adminUserId?: string,
+    ipAddress?: string,
+    userAgent?: string,
+  ): Promise<AdminUserDto> {
+    const existing = await this.repository.findById(id, true);
+    if (!existing) {
+      throw new NotFoundError(`User with ID '${id}' not found`, 'USER_NOT_FOUND');
+    }
+
+    if (adminUserId && adminUserId === id && role !== existing.role) {
+      throw new ForbiddenError('You cannot change your own admin role', 'CANNOT_CHANGE_OWN_ROLE');
+    }
+
+    const updated = await this.repository.update(existing.id, {
+      role,
+    });
+
+    // Audit log
+    await this.repository.createAuditLog({
+      userId: adminUserId,
+      action: 'UPDATE_USER_ROLE',
+      entity: 'User',
+      entityId: updated.id,
+      details: JSON.stringify({ previousRole: existing.role, newRole: role }),
+      ipAddress,
+      userAgent,
+    });
+
+    return this.mapToDto(updated);
+  }
+
   public async updateUserStatus(
     id: string,
     dto: UpdateUserStatusDto,

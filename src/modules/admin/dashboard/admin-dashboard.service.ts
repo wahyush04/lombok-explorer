@@ -52,11 +52,12 @@ export class AdminDashboardService {
     const { range, startDateStr, endDateStr } = this.parseDateRange(query);
 
     // Fetch metrics in parallel
-    const [overview, periodic, popularList, favoritedList] = await Promise.all([
+    const [overview, periodic, popularList, favoritedList, expenseBreakdown] = await Promise.all([
       this.repository.getOverviewCounts(),
       this.repository.getPeriodicCounts(range),
       this.repository.getPopularDestinations(5),
       this.repository.getMostFavoritedDestinations(5),
+      this.repository.getExpenseBreakdown(),
     ]);
 
     const popularDestinations: DashboardPopularDestinationDto[] = popularList.map((dest) => ({
@@ -93,6 +94,9 @@ export class AdminDashboardService {
         totalReviews: overview.totalReviews,
         pendingReviews: overview.pendingReviews,
         totalItineraries: overview.totalItineraries,
+        activeTripSessions: overview.activeTripSessions,
+        completedTripSessions: overview.completedTripSessions,
+        totalExpensesAmount: overview.totalExpensesAmount,
       },
       periodicMetrics: {
         newUsers: periodic.newUsers,
@@ -107,6 +111,7 @@ export class AdminDashboardService {
         popularDestinations,
         mostFavoritedDestinations,
       },
+      expenseBreakdown,
     };
   }
 }

@@ -6,6 +6,7 @@ import {
   DeleteUserQueryDto,
   UpdateUserDto,
   UpdateUserStatusDto,
+  UpdateUserRoleDto,
 } from './dto/admin-user.dto';
 
 export class AdminUsersController {
@@ -34,6 +35,19 @@ export class AdminUsersController {
       req.headers['user-agent'] as string | undefined,
     );
     ResponseUtil.sendSuccess(res, data, 'User updated successfully');
+  };
+
+  public updateUserRole = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    const body = req.body as UpdateUserRoleDto;
+    const data = await this.service.updateUserRole(
+      id as string,
+      body.role,
+      req.user?.userId,
+      req.ip,
+      req.headers['user-agent'] as string | undefined,
+    );
+    ResponseUtil.sendSuccess(res, data, 'User role updated successfully');
   };
 
   public updateUserStatus = async (req: Request, res: Response): Promise<void> => {

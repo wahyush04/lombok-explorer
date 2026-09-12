@@ -11,6 +11,9 @@ import { adminAuditLogRoutes } from '../../modules/admin/audit-logs/admin-audit-
 import { adminFeedsRoutes } from '../../modules/admin/feeds/admin-feeds.routes';
 import { adminItineraryTemplateRoutes } from '../../modules/admin/itinerary-templates/admin-itinerary-templates.routes';
 import { adminUploadsRoutes } from '../../modules/admin/uploads/admin-uploads.routes';
+import { adminTripSessionRoutes } from '../../modules/admin/trip-sessions/admin-trip-sessions.routes';
+import { adminNotificationRoutes } from '../../modules/admin/notifications/admin-notifications.routes';
+import { adminRecommendationRoutes } from '../../modules/admin/recommendations/admin-recommendations.routes';
 
 const router = Router();
 
@@ -53,5 +56,14 @@ router.use('/feeds', adminFeedsRoutes);
 
 // 12. Admin Curated Itinerary Templates (/api/v1/admin/itinerary-templates)
 router.use('/itinerary-templates', adminItineraryTemplateRoutes);
+
+// 13. Admin Live Trip Sessions & Tourist Monitoring (/api/v1/admin/trip-sessions)
+router.use('/trip-sessions', adminTripSessionRoutes);
+
+// 14. Admin FCM Push Notification Broadcasts (/api/v1/admin/notifications)
+router.use('/notifications', adminNotificationRoutes);
+
+// 15. Admin Recommendations & Highlights (/api/v1/admin/recommendations)
+router.use('/recommendations', adminRecommendationRoutes);
 
 export const adminRoutes = router;

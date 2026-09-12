@@ -15,6 +15,13 @@ const router = Router();
 // Protect all admin feed routes with admin authentication
 router.use(authenticateAdmin);
 
+// 0. List all community posts
+router.get('/posts', asyncHandler(adminFeedsController.getAllPosts));
+
+// 0b. List & Moderate comments
+router.get('/comments', asyncHandler(adminFeedsController.getAllComments));
+router.delete('/comments/:id', validate({ params: idParamSchema }), asyncHandler(adminFeedsController.deleteComment));
+
 // 1. List feed reports with filters and pagination
 router.get(
   '/reports',

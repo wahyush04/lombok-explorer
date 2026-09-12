@@ -9,6 +9,42 @@ import { adminAuditLogsService } from '../audit-logs/admin-audit-logs.service';
 import { PaginationMeta } from '../../../common/types';
 
 export class AdminFeedsService {
+  public async getAllPosts(query: { page?: number; limit?: number; search?: string; status?: any }) {
+    const { items, total } = await this.repository.findManyPosts(query);
+    const limit = query.limit || 10;
+    const page = query.page || 1;
+
+    return {
+      data: items,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  public async getAllComments(query: { page?: number; limit?: number; search?: string }) {
+    const { items, total } = await this.repository.findManyComments(query);
+    const limit = query.limit || 20;
+    const page = query.page || 1;
+
+    return {
+      data: items,
+      meta: {
+        page,
+        limit,
+        total,
+        totalPages: Math.ceil(total / limit) || 1,
+      },
+    };
+  }
+
+  public async deleteComment(id: string) {
+    return this.repository.deleteComment(id);
+  }
+
   constructor(private readonly repository: AdminFeedsRepository = adminFeedsRepository) {}
 
   public async getReports(query: AdminReportFilterQuery): Promise<{

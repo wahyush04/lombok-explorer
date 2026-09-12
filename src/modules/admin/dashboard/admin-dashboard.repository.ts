@@ -17,6 +17,9 @@ export class AdminDashboardRepository {
       totalReviews,
       pendingReviews,
       totalItineraries,
+      activeTripSessions,
+      completedTripSessions,
+      expensesAggregate,
     ] = await Promise.all([
       prisma.user.count({ where: { deletedAt: null } }),
       prisma.destination.count({ where: { deletedAt: null } }),
@@ -26,6 +29,11 @@ export class AdminDashboardRepository {
       prisma.review.count({ where: { deletedAt: null } }),
       prisma.review.count({ where: { status: ReviewStatus.PENDING, deletedAt: null } }),
       prisma.itinerary.count({ where: { deletedAt: null } }),
+      prisma.tripSession.count({ where: { status: 'ACTIVE' } }),
+      prisma.tripSession.count({ where: { status: 'COMPLETED' } }),
+      prisma.expense.aggregate({
+        _sum: { amount: true },
+      }),
     ]);
 
     return {
@@ -37,6 +45,9 @@ export class AdminDashboardRepository {
       totalReviews,
       pendingReviews,
       totalItineraries,
+      activeTripSessions,
+      completedTripSessions,
+      totalExpensesAmount: Number(expensesAggregate._sum.amount || 0),
     };
   }
 
@@ -131,6 +142,19 @@ export class AdminDashboardRepository {
         },
       },
     });
+  }
+  public async getExpenseBreakdown() {
+    const groups = await prisma.expense.groupBy({
+      by: ['category'],
+      _sum: { amount: true },
+      _count: { id: true },
+    });
+
+    return groups.map((g) => ({
+      category: g.category,
+      totalAmount: Number(g._sum.amount || 0),
+      count: g._count.id,
+    }));
   }
 }
 

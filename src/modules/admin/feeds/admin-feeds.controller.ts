@@ -9,6 +9,33 @@ import {
 } from './dto/admin-feed.dto';
 
 export class AdminFeedsController {
+  public getAllPosts = async (req: Request, res: Response): Promise<void> => {
+    const { page, limit, search, status } = req.query as any;
+    const { data, meta } = await this.service.getAllPosts({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 10,
+      search: search as string,
+      status: status as any,
+    });
+    ResponseUtil.sendPaginated(res, data, meta, 'Community feed posts retrieved successfully');
+  };
+
+  public getAllComments = async (req: Request, res: Response): Promise<void> => {
+    const { page, limit, search } = req.query as any;
+    const { data, meta } = await this.service.getAllComments({
+      page: page ? Number(page) : 1,
+      limit: limit ? Number(limit) : 20,
+      search: search as string,
+    });
+    ResponseUtil.sendPaginated(res, data, meta, 'Community comments retrieved successfully');
+  };
+
+  public deleteComment = async (req: Request, res: Response): Promise<void> => {
+    const { id } = req.params;
+    await this.service.deleteComment(id as string);
+    ResponseUtil.sendActionSuccess(res, 'Comment deleted successfully');
+  };
+
   constructor(private readonly service: AdminFeedsService = adminFeedsService) {}
 
   public getReports = async (req: Request, res: Response): Promise<Response> => {

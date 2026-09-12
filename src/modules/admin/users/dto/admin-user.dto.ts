@@ -51,6 +51,12 @@ export const UpdateUserStatusSchema = z.object({
   }),
 });
 
+export const UpdateUserRoleSchema = z.object({
+  role: z.nativeEnum(UserRole, {
+    errorMap: () => ({ message: "Role must be either 'USER' or 'ADMIN'" }),
+  }),
+});
+
 export const DeleteUserQuerySchema = z.object({
   hard: z
     .preprocess((val) => {
@@ -64,6 +70,7 @@ export const DeleteUserQuerySchema = z.object({
 export type AdminUserFilterQuery = z.infer<typeof AdminUserFilterQuerySchema>;
 export type UpdateUserDto = z.infer<typeof UpdateUserSchema>;
 export type UpdateUserStatusDto = z.infer<typeof UpdateUserStatusSchema>;
+export type UpdateUserRoleDto = z.infer<typeof UpdateUserRoleSchema>;
 export type DeleteUserQueryDto = z.infer<typeof DeleteUserQuerySchema>;
 
 export interface AdminUserDto {
