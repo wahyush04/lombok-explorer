@@ -1061,6 +1061,19 @@ export class ItinerariesService {
       );
     }
 
+    // Cascade cancellation: Batalkan semua sesi live trip aktif/in_progress yang terkait dengan itinerary ini
+    await prisma.tripSession.updateMany({
+      where: {
+        itineraryId: resolvedId,
+        status: { in: ['ACTIVE', 'PAUSED'] },
+      },
+      data: {
+        status: 'CANCELLED',
+        endedAt: new Date(),
+        currentActivityId: null,
+      },
+    });
+
     await this.repository.delete(resolvedId);
   }
 
@@ -1263,6 +1276,19 @@ export class ItinerariesService {
     const result = await this.repository.deleteDayAndReindex(resolvedId, dayId);
 
     if (result.itineraryDeleted) {
+      // Cascade cancellation: Batalkan sesi aktif terkait jika itinerary terhapus
+      await prisma.tripSession.updateMany({
+        where: {
+          itineraryId: resolvedId,
+          status: { in: ['ACTIVE', 'PAUSED'] },
+        },
+        data: {
+          status: 'CANCELLED',
+          endedAt: new Date(),
+          currentActivityId: null,
+        },
+      });
+
       await this.sessionService.reconcileItineraryChange(resolvedId);
       return {
         deletedTrip: true,
@@ -1781,6 +1807,20 @@ export class ItinerariesService {
     if (!activeTrip) {
       throw new NotFoundError('Tidak ada trip plan aktif yang ditemukan', 'NO_ACTIVE_TRIP');
     }
+
+    // Cascade cancellation: Batalkan semua sesi live trip aktif/in_progress yang terkait dengan itinerary ini
+    await prisma.tripSession.updateMany({
+      where: {
+        itineraryId: activeTrip.id,
+        status: { in: ['ACTIVE', 'PAUSED'] },
+      },
+      data: {
+        status: 'CANCELLED',
+        endedAt: new Date(),
+        currentActivityId: null,
+      },
+    });
+
     await this.repository.delete(activeTrip.id);
     return { id: activeTrip.id, deleted: true };
   }

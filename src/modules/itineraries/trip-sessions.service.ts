@@ -359,10 +359,31 @@ export class TripSessionsService {
     itineraryId: string,
     dto?: StartTripDto,
   ): Promise<StartTripResponseDto> {
-    // 1. Validate itinerary ownership & presence
-    const itinerary = await prisma.itinerary.findUnique({
-      where: { id: itineraryId },
-      include: {
+    // 1. Resolve & validate itinerary ownership and presence
+    let resolvedItineraryId = itineraryId;
+    if (
+      !resolvedItineraryId ||
+      resolvedItineraryId === 'active' ||
+      resolvedItineraryId === 'active-trip' ||
+      resolvedItineraryId === 'undefined'
+    ) {
+      const activeTrip = await prisma.itinerary.findFirst({
+        where: {
+          userId,
+          deletedAt: null,
+        },
+        orderBy: { updatedAt: 'desc' },
+      });
+      if (!activeTrip) {
+        throw new NotFoundError('Tidak ada trip plan aktif yang ditemukan', 'NO_ACTIVE_TRIP');
+      }
+      resolvedItineraryId = activeTrip.id;
+    }
+
+    const itinerary = typeof prisma.itinerary.findFirst === 'function'
+      ? await prisma.itinerary.findFirst({
+          where: { id: resolvedItineraryId, deletedAt: null },
+          include: {
         days: {
           orderBy: { dayNumber: 'asc' },
           include: {
@@ -402,10 +423,53 @@ export class TripSessionsService {
           },
         },
       },
-    });
+        })
+      : await prisma.itinerary.findUnique({
+          where: { id: resolvedItineraryId },
+          include: {
+        days: {
+          orderBy: { dayNumber: 'asc' },
+          include: {
+            items: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                destination: {
+                  select: {
+                    id: true,
+                    name: true,
+                    latitude: true,
+                    longitude: true,
+                    address: true,
+                    locationName: true,
+                  },
+                },
+                restaurant: {
+                  select: {
+                    id: true,
+                    name: true,
+                    latitude: true,
+                    longitude: true,
+                    address: true,
+                  },
+                },
+                accommodation: {
+                  select: {
+                    id: true,
+                    name: true,
+                    latitude: true,
+                    longitude: true,
+                    address: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+        });
 
-    if (!itinerary) {
-      throw new NotFoundError(`Itinerary with id '${itineraryId}' not found`, 'ITINERARY_NOT_FOUND');
+    if (!itinerary || (itinerary as any).deletedAt !== null) {
+      throw new NotFoundError(`Itinerary with id '${resolvedItineraryId}' not found`, 'ITINERARY_NOT_FOUND');
     }
 
     if (itinerary.userId !== userId) {
@@ -415,45 +479,54 @@ export class TripSessionsService {
       );
     }
 
-    // 2. Check if user already has an active session for this itinerary
-    const existingSessionForItinerary =
-      (await this.repository.findActiveSessionByItineraryId(itineraryId)) ||
-      (await this.repository.findActiveSessionByUserId(userId));
+    // 2. Check if user already has an active session
+    const existingUserActive = await this.repository.findActiveSessionByUserId(userId);
+    if (existingUserActive) {
+      // Auto-heal: jika itinerary sesi aktif sudah dihapus (soft-delete atau null), batalkan sesi orphaned
+      const isOrphaned =
+        existingUserActive.itinerary === null ||
+        (existingUserActive.itinerary !== undefined && (existingUserActive.itinerary as any).deletedAt !== null);
 
-    if (
-      existingSessionForItinerary &&
-      existingSessionForItinerary.userId === userId &&
-      existingSessionForItinerary.itineraryId === itineraryId
-    ) {
-      const fullExisting =
-        (await this.repository.findById(existingSessionForItinerary.id)) || existingSessionForItinerary;
-      if (fullExisting) {
-        const existingItinerary =
-          'itinerary' in fullExisting && fullExisting.itinerary
-            ? (fullExisting.itinerary as typeof itinerary)
-            : itinerary;
-        return this.buildResponseDto(
-          fullExisting,
-          existingItinerary,
-          fullExisting.activityProgress || [],
-          fullExisting.routes || [],
+      if (isOrphaned) {
+        await this.repository.updateSession(existingUserActive.id, {
+          status: 'CANCELLED',
+          endedAt: new Date(),
+          currentActivityId: null,
+        });
+      } else if (existingUserActive.itineraryId === resolvedItineraryId) {
+        // Return existing active session for this itinerary
+        const fullExisting =
+          (await this.repository.findById(existingUserActive.id)) || existingUserActive;
+        if (fullExisting) {
+          const existingItinerary =
+            'itinerary' in fullExisting && fullExisting.itinerary
+              ? (fullExisting.itinerary as typeof itinerary)
+              : itinerary;
+          return this.buildResponseDto(
+            fullExisting,
+            existingItinerary,
+            fullExisting.activityProgress || [],
+            fullExisting.routes || [],
+          );
+        }
+      } else {
+        // User already has an active session on another itinerary -> 409 Conflict with standardized payload
+        throw new ConflictError(
+          'Pengguna sudah memiliki perjalanan yang sedang aktif.',
+          'ACTIVE_SESSION_EXISTS',
+          null,
+          {
+            activeSessionId: existingUserActive.id,
+            itineraryId: existingUserActive.itineraryId,
+          },
         );
       }
-    }
-
-    // 3. Check if user has an active session on another itinerary
-    const existingUserActive = await this.repository.findActiveSessionByUserId(userId);
-    if (existingUserActive && existingUserActive.itineraryId !== itineraryId) {
-      throw new ConflictError(
-        'You already have an active trip session on another itinerary. Please complete or cancel it before starting a new one.',
-        TRIP_ERROR_CODES.TRIP_ALREADY_ACTIVE,
-      );
     }
 
     const totalItems = itinerary.days.reduce((sum, d) => sum + d.items.length, 0);
     if (totalItems === 0) {
       throw new ValidationError(
-        'Cannot start a trip for an itinerary with no activities',
+        'Itinerary tidak memiliki aktivitas atau destinasi untuk dimulai.',
         null,
         'EMPTY_ITINERARY',
       );
@@ -553,7 +626,7 @@ export class TripSessionsService {
     const createdSession = await this.repository.createSession(
       {
         userId,
-        itineraryId,
+        itineraryId: resolvedItineraryId,
         status: sessionStatus,
         currentActivityId: firstIncompleteActivityId,
         routeSnapshot,
@@ -580,6 +653,21 @@ export class TripSessionsService {
   public async getActiveSession(userId: string): Promise<ActiveTripSessionResponseDto | null> {
     const session = await this.repository.findActiveSessionByUserId(userId);
     if (!session) return null;
+
+    // Item 2: Sanitasi validasi & Auto-heal
+    // Jika itinerary sudah dihapus (soft-delete atau null), batalkan sesi orphaned dan kembalikan null
+    const isOrphaned =
+      session.itinerary === null ||
+      (session.itinerary !== undefined && (session.itinerary as any).deletedAt !== null);
+
+    if (isOrphaned) {
+      await this.repository.updateSession(session.id, {
+        status: 'CANCELLED',
+        endedAt: new Date(),
+        currentActivityId: null,
+      });
+      return null;
+    }
 
     return this.buildResponseDto(
       session,

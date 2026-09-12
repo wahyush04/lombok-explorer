@@ -5,6 +5,7 @@ export class AppError extends Error {
   public readonly errorCode: string;
   public readonly isOperational: boolean;
   public readonly details: string[] | null;
+  public readonly data?: any;
 
   constructor(
     message: string,
@@ -12,6 +13,7 @@ export class AppError extends Error {
     errorCode: string = ErrorCode.INTERNAL_SERVER_ERROR,
     details: string[] | null = null,
     isOperational = true,
+    data?: any,
   ) {
     super(message);
     this.name = this.constructor.name;
@@ -19,6 +21,7 @@ export class AppError extends Error {
     this.errorCode = errorCode;
     this.details = details;
     this.isOperational = isOperational;
+    this.data = data;
 
     Error.captureStackTrace(this, this.constructor);
   }
@@ -29,8 +32,9 @@ export class BadRequestError extends AppError {
     message = 'Bad Request',
     errorCode: string = ErrorCode.BAD_REQUEST,
     details: string[] | null = null,
+    data?: any,
   ) {
-    super(message, HttpStatus.BAD_REQUEST, errorCode, details);
+    super(message, HttpStatus.BAD_REQUEST, errorCode, details, true, data);
   }
 }
 
@@ -39,8 +43,9 @@ export class UnauthorizedError extends AppError {
     message = 'Unauthorized access, please login',
     errorCode: string = ErrorCode.UNAUTHORIZED,
     details: string[] | null = null,
+    data?: any,
   ) {
-    super(message, HttpStatus.UNAUTHORIZED, errorCode, details);
+    super(message, HttpStatus.UNAUTHORIZED, errorCode, details, true, data);
   }
 }
 
@@ -49,8 +54,9 @@ export class ForbiddenError extends AppError {
     message = 'Access forbidden',
     errorCode: string = ErrorCode.FORBIDDEN,
     details: string[] | null = null,
+    data?: any,
   ) {
-    super(message, HttpStatus.FORBIDDEN, errorCode, details);
+    super(message, HttpStatus.FORBIDDEN, errorCode, details, true, data);
   }
 }
 
@@ -59,8 +65,9 @@ export class NotFoundError extends AppError {
     message = 'Resource not found',
     errorCode: string = ErrorCode.NOT_FOUND,
     details: string[] | null = null,
+    data?: any,
   ) {
-    super(message, HttpStatus.NOT_FOUND, errorCode, details);
+    super(message, HttpStatus.NOT_FOUND, errorCode, details, true, data);
   }
 }
 
@@ -69,8 +76,9 @@ export class ConflictError extends AppError {
     message = 'Resource conflict',
     errorCode: string = ErrorCode.CONFLICT,
     details: string[] | null = null,
+    data?: any,
   ) {
-    super(message, HttpStatus.CONFLICT, errorCode, details);
+    super(message, HttpStatus.CONFLICT, errorCode, details, true, data);
   }
 }
 
@@ -84,8 +92,9 @@ export class ValidationError extends AppError {
     details: string[] | null = null,
     errorCode: string = ErrorCode.VALIDATION_ERROR,
     fieldErrors?: FieldValidationError[],
+    data?: any,
   ) {
-    super(message, HttpStatus.BAD_REQUEST, errorCode, details);
+    super(message, HttpStatus.BAD_REQUEST, errorCode, details, true, data);
     this.fieldErrors = fieldErrors;
   }
 }

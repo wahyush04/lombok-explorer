@@ -63,7 +63,7 @@ export interface ApiErrorResponse {
   code: string;
   errorCode: string;
   message: string;
-  data?: null;
+  data?: any;
   errors?: FieldValidationError[];
   details?: string[] | null;
 }

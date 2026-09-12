@@ -19,6 +19,7 @@ export const errorHandlerMiddleware = (
   let message = 'Internal server error occurred';
   let details: string[] | null = null;
   let fieldErrors: FieldValidationError[] | undefined = undefined;
+  let data: any = null;
 
   // 1. Handled AppError hierarchy (Custom errors)
   if (err instanceof AppError) {
@@ -26,6 +27,9 @@ export const errorHandlerMiddleware = (
     errorCode = err.errorCode;
     message = err.message;
     details = err.details;
+    if (err.data !== undefined) {
+      data = err.data;
+    }
 
     if (err instanceof ValidationError && err.fieldErrors) {
       fieldErrors = err.fieldErrors;
@@ -136,7 +140,7 @@ export const errorHandlerMiddleware = (
     code: errorCode,
     errorCode,
     message,
-    data: null,
+    data,
     ...(fieldErrors && fieldErrors.length > 0 && { errors: fieldErrors }),
     ...(details && details.length > 0 && { details }),
   };

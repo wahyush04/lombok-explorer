@@ -39,7 +39,7 @@ export const StartActivityDtoSchema = z.object({
 export type StartActivityDto = z.infer<typeof StartActivityDtoSchema>;
 
 export const StartTripDtoSchema = z.object({
-  itineraryId: z.string().uuid().optional(),
+  itineraryId: z.string().optional(),
   initialLatitude: z.number().min(-90).max(90).optional(),
   initialLongitude: z.number().min(-180).max(180).optional(),
 });
